@@ -1,4 +1,4 @@
-package krakenapiclient
+package spotex
 
 import (
 	"crypto/hmac"
