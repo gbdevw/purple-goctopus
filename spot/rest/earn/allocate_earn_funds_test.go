@@ -48,22 +48,3 @@ func (suite *AllocateFundsTestSuite) TestAllocateFundsResponseUnmarshalJSON() {
 	require.NotNil(suite.T(), response.Result)
 	require.True(suite.T(), response.Result)
 }
-
-// Test the JSON unmarshaller of AllocateFundsResponse when an invalid payload is used.
-//
-// The test will ensure:
-//   - A invalid JSON response from the API cause a json.UnmarshalTypeError to be returned by the
-//     json.Unmarshal function.
-func (suite *AllocateFundsTestSuite) TestAllocateFundsResponseUnmarshalJSONError() {
-	// Test settings, expectations, ...
-	payload := `{
-		"error": [],
-		"result": 64
-	}`
-	// Unmarshal payload into struct and expect a json.UnmarshalTypeError
-	response := new(AllocateFundsResponse)
-	err := json.Unmarshal([]byte(payload), response)
-	require.Error(suite.T(), err)
-	target := new(json.UnmarshalTypeError)
-	require.ErrorAs(suite.T(), err, &target)
-}

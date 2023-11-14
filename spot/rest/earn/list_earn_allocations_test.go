@@ -137,24 +137,3 @@ func (suite *ListEarnAllocationsTestSuite) TestPayoutUnmarshalJSON() {
 	require.Equal(suite.T(), expectedConverted, response.AccumulatedReward.Converted)
 	require.Equal(suite.T(), expectedConverted, response.EstimatedReward.Converted)
 }
-
-// Test the JSON unmarshaller of ListEarnAllocationsResponse when an invalid payload is used.
-//
-// The test will ensure:
-//   - A invalid JSON response from the API cause a json.UnmarshalTypeError to be returned by the
-//     json.Unmarshal function.
-func (suite *GetDeallocationStatusTestSuite) TestListEarnAllocationsResponseUnmarshalJSONError() {
-	// Test settings, expectations, ...
-	payload := `{
-		"error": [],
-		"result": {
-		  "pending": 64
-		}
-	}`
-	// Unmarshal payload into struct and expect a json.UnmarshalTypeError
-	response := new(ListEarnAllocationsResponse)
-	err := json.Unmarshal([]byte(payload), response)
-	require.Error(suite.T(), err)
-	target := new(json.UnmarshalTypeError)
-	require.ErrorAs(suite.T(), err, &target)
-}

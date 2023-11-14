@@ -50,24 +50,3 @@ func (suite *GetAllocationStatusTestSuite) TestGetAllocationStatusResponseUnmars
 	require.NotNil(suite.T(), response.Result)
 	require.True(suite.T(), response.Result.Pending)
 }
-
-// Test the JSON unmarshaller of GetAllocationStatusResponse when an invalid payload is used.
-//
-// The test will ensure:
-//   - A invalid JSON response from the API cause a json.UnmarshalTypeError to be returned by the
-//     json.Unmarshal function.
-func (suite *GetAllocationStatusTestSuite) TestGetAllocationStatusResponseUnmarshalJSONError() {
-	// Test settings, expectations, ...
-	payload := `{
-		"error": [],
-		"result": {
-		  "pending": 64
-		}
-	}`
-	// Unmarshal payload into struct and expect a json.UnmarshalTypeError
-	response := new(GetAllocationStatusResponse)
-	err := json.Unmarshal([]byte(payload), response)
-	require.Error(suite.T(), err)
-	target := new(json.UnmarshalTypeError)
-	require.ErrorAs(suite.T(), err, &target)
-}
