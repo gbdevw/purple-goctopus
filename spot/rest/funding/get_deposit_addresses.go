@@ -16,20 +16,20 @@ type DepositAddress struct {
 	Tag string `json:"tag"`
 }
 
-// GetDepositAddresses required parameters
-type GetDepositAddressesParameters struct {
+// GetDepositAddresses request parameters
+type GetDepositAddressesRequestParameters struct {
 	// Asset being deposited
-	Asset string
+	Asset string `json:"asset"`
 	// Name of the deposit method
-	Method string
+	Method string `json:"method"`
 }
 
-// GetDepositAddresses optional parameters
-type GetDepositAddressesOptions struct {
+// GetDepositAddresses request options
+type GetDepositAddressesRequestOptions struct {
 	// Whether or not to generate a new address.
 	//
 	// Defaults to false.
-	New bool
+	New bool `json:"new"`
 }
 
 // Get Deposit Addresses response

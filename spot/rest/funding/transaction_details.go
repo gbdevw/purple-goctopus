@@ -1,16 +1,27 @@
 package funding
 
 // Enum for transaction states as described in https://github.com/globalcitizen/ifex-protocol/blob/master/draft-ifex-00.txt#L837
-type TransactionState string
+type TransactionStateEnum string
 
-// Values for TransactionState
+// Values for TransactionStateEnum
 const (
-	TxStateInitial TransactionState = "Initial"
-	TxStatePending TransactionState = "Pending"
-	TxStateSettled TransactionState = "Settled"
-	TxStateSuccess TransactionState = "Success"
-	TxStateFailure TransactionState = "Failure"
-	TxStatePartial TransactionState = "Partial"
+	TxStateInitial TransactionStateEnum = "Initial"
+	TxStatePending TransactionStateEnum = "Pending"
+	TxStateSettled TransactionStateEnum = "Settled"
+	TxStateSuccess TransactionStateEnum = "Success"
+	TxStateFailure TransactionStateEnum = "Failure"
+	TxStatePartial TransactionStateEnum = "Partial"
+)
+
+// Enum for status property.
+type StatusPropertyEnum string
+
+// Values for StatusPropertyEnum
+const (
+	// A return transaction initiated by Kraken
+	Return StatusPropertyEnum = "return"
+	// Deposit is on hold pending review
+	OnHold StatusPropertyEnum = "onhold"
 )
 
 // Enum for additional properties for transaction status
@@ -28,16 +39,6 @@ const (
 	TxCanceled TransactionStatus = "canceled"
 	// CancelDenied
 	TxCancelDenied TransactionStatus = "cancel-denied"
-)
-
-// Enum for staking transaction types
-type StakingTxType string
-
-// Values for types of staking transactions
-const (
-	StakingBonding   StakingTxType = "bonding"
-	StakingReward    StakingTxType = "reward"
-	StakingUnbonding StakingTxType = "unbonding"
 )
 
 // Transaction details for a deposit or a withdrawal
@@ -62,6 +63,8 @@ type TransactionDetails struct {
 	Time int64 `json:"time"`
 	// Status of deposit - IFEX financial transaction states
 	Status string `json:"status"`
-	// Additional status property. Can be empty
+	// Additional status property. Can be empty.
 	StatusProperty string `json:"status-prop,omitempty"`
+	// Client sending transaction id(s) for deposits that credit with a sweeping transaction
+	Originators []string `json:"originators,omitempty"`
 }

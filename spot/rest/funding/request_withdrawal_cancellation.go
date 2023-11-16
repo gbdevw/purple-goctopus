@@ -2,12 +2,12 @@ package funding
 
 import "github.com/gbdevw/purple-goctopus/spot/rest/common"
 
-// RequestWithdrawalCancellation required parameters
-type RequestWithdrawalCancellationParameters struct {
+// RequestWithdrawalCancellation request parameters
+type RequestWithdrawalCancellationRequestParameters struct {
 	// Asset being withdrawn
-	Asset string
+	Asset string `json:"asset"`
 	// Withdrawal reference ID
-	ReferenceId string
+	ReferenceId string `json:"refid"`
 }
 
 // RequestWithdrawalCancellation response

@@ -2,16 +2,16 @@ package funding
 
 import "github.com/gbdevw/purple-goctopus/spot/rest/common"
 
-// GetStatusOfRecentWithdrawals optional parameters
-type GetStatusOfRecentWithdrawalsOptions struct {
+// GetStatusOfRecentWithdrawals request options
+type GetStatusOfRecentWithdrawalsRequestOptions struct {
 	// Filter for specific name of withdrawal method.
 	//
-	// Defaults to all methods (no filtering). An empty string triggers the default behavior.
-	Method string
+	// An empty string means no filter.
+	Method string `json:"method"`
 	// Filter for specific asset being withdrawn.
 	//
-	// Defaults to all assets (no filtering). An empty string triggers the default behavior.
-	Asset string
+	// An empty string means no filter.
+	Asset string `json:"asset"`
 }
 
 // GetStatusOfRecentWithdrawals response

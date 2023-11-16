@@ -13,20 +13,20 @@ const (
 	Futures WalletTransferDestination = "Futures Wallet"
 )
 
-// RequestWalletTransfer required parameters
-type RequestWalletTransferParameters struct {
+// RequestWalletTransfer request parameters
+type RequestWalletTransferRequestParameters struct {
 	// Asset being transfered
-	Asset string
+	Asset string `json:"asset"`
 	// Source wallet.
 	//
 	// Refer to WalletTransferDestination for values.
-	From string
+	From string `json:"from"`
 	// Destination wallet.
 	//
 	// Refer to WalletTransferDestination for values.
-	To string
+	To string `json:"to"`
 	// Amount to be transfered
-	Amount string
+	Amount string `json:"amount"`
 }
 
 // RequestWalletTransfer result
