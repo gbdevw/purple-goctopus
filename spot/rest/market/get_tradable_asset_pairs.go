@@ -82,8 +82,8 @@ type AssetPairInfo struct {
 // GetTradableAssetPairs request options
 type GetTradableAssetPairsRequestOptions struct {
 	// Pairs to get info on.
-	// Defaults to all pairs
-	// A nil value triggers default behavior.
+	//
+	// Defaults to all pairs. An empty string triggers default behavior.
 	Pairs []string `json:"pairs,omitempty"`
 	// Data to retrieve. Cf PairInfo for values.
 	//

@@ -26,7 +26,9 @@ type AssetTickerInfo struct {
 
 // GetTickerInformation request options
 type GetTickerInformationRequestOptions struct {
-	// Asset pairs to get data for. If nil, all pairs are returned.
+	// Asset pairs to get data for.
+	//
+	// If nil or empty, all pairs are returned.
 	Pairs []string `json:"pairs,omitempty"`
 }
 
