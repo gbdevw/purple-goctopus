@@ -2,11 +2,14 @@ package trading
 
 import "github.com/gbdevw/purple-goctopus/spot/rest/common"
 
-// Response for Cancel All Orders
+// CancelAllOrders result
+type CancelAllOrdersResult struct {
+	// Number of canceled orders
+	Count int `json:"count"`
+}
+
+// CancelAllOrders response
 type CancelAllOrdersResponse struct {
 	common.KrakenSpotRESTResponse
-	Result struct {
-		// Number of canceled orders
-		Count int `json:"count"`
-	} `json:"result,omitempty"`
+	Result *CancelAllOrdersResult `json:"result,omitempty"`
 }

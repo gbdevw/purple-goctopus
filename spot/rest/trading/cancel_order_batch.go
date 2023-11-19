@@ -2,17 +2,20 @@ package trading
 
 import "github.com/gbdevw/purple-goctopus/spot/rest/common"
 
-// CancelOrderBatch required parameters
-type CancelOrderBatchParameters struct {
+// CancelOrderBatch request parameters
+type CancelOrderBatchRequestParameters struct {
 	// Open orders transaction ID (txid) or user reference (userref)
-	OrderIds []string
+	OrderIds []string `json:"orders"`
 }
 
-// Response for Cancel Order Batch
+// CancelOrderBatch result
+type CancelOrderBatchResult struct {
+	// Number of canceled orders
+	Count int `json:"count"`
+}
+
+// CancelOrderBatch response
 type CancelOrderBatchResponse struct {
 	common.KrakenSpotRESTResponse
-	Result struct {
-		// Number of canceled orders
-		Count int `json:"count"`
-	} `json:"result"`
+	Result *CancelOrderBatchResult `json:"result,omitempty"`
 }

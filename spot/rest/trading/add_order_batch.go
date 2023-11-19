@@ -6,31 +6,30 @@ import (
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
 )
 
-// AddOrderBatch required parameters
-type AddOrderBatchParameters struct {
+// AddOrderBatch request parameters
+type AddOrderBatchRequestParameters struct {
 	// Asset pair related to orders
-	Pair string
+	Pair string `json:"pair"`
 	// List of orders
-	Orders []Order
+	Orders []Order `json:"orders"`
 }
 
 // AddOrderBatch optional parameters
 type AddOrderBatchOptions struct {
 	// Validate inputs only. Do not submit order.
-	Validate bool
+	Validate bool `json:"validate"`
 	// RFC3339 timestamp (e.g. 2021-04-01T00:18:45Z) after which the matching
 	// engine should reject  the new order request, in presence of latency or
 	// order queueing. min now() + 2 seconds, max now() + 60 seconds.
-	// A nil value means no deadline.
-	Deadline *time.Time
+	//
+	// A zero value means no deadline.
+	Deadline time.Time `json:"deadline,omitempty"`
 }
 
 // AddOrderBatch Entry
 type AddOrderBatchEntry struct {
 	// Order description
-	Description struct {
-		Order string `json:"string,omitempty"`
-	} `json:"descr,omitempty"`
+	Description *OrderDescription `json:"descr,omitempty"`
 	// Transaction ID for order if added successfully
 	Id string `json:"txid,omitempty"`
 	// Error message for the order
