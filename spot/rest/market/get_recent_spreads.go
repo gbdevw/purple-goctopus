@@ -4,15 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"time"
 
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
 )
 
 // Data of a single spread
 type Spread struct {
-	// Timestamp
-	Timestamp time.Time
+	// Timestamp as a Unix timestamp (seconds)
+	Timestamp int64
 	// Best bid
 	BestBid string
 	// Best ask
@@ -24,7 +23,7 @@ type Spread struct {
 // [int <unixsec>, string <bid>, string <ask>]
 func (spread *Spread) MarshalJSON() ([]byte, error) {
 	return json.Marshal([]interface{}{
-		spread.Timestamp.Unix(),
+		spread.Timestamp,
 		spread.BestBid,
 		spread.BestAsk,
 	})
@@ -35,7 +34,7 @@ func (spread *Spread) MarshalJSON() ([]byte, error) {
 // [int <unixsec>, string <bid>, string <ask>]
 func unmarshalSpreadFromArray(input []interface{}) (Spread, error) {
 	// Convert timestamp to int64
-	ts, ok := input[0].(int64)
+	ts, ok := input[0].(float64)
 	if !ok {
 		return Spread{}, fmt.Errorf("could not parse timestamp as int64. Got %v", input[0])
 	}
@@ -50,7 +49,7 @@ func unmarshalSpreadFromArray(input []interface{}) (Spread, error) {
 	}
 	// Build and return trade data
 	return Spread{
-		Timestamp: time.Unix(ts, 0),
+		Timestamp: int64(ts),
 		BestBid:   bid,
 		BestAsk:   ask,
 	}, nil
@@ -59,7 +58,7 @@ func unmarshalSpreadFromArray(input []interface{}) (Spread, error) {
 // Spread data returned by the API.
 type SpreadData struct {
 	// ID to be used as since when polling for new spread data
-	Last time.Time
+	Last int64
 	// Asset pair ID
 	PairId string
 	// Spreads by pair
@@ -71,7 +70,7 @@ func (spreads *SpreadData) MarshalJSON() ([]byte, error) {
 	// Put data into a map
 	base := map[string]interface{}{
 		spreads.PairId: spreads.Spreads,
-		"last":         spreads.Last.Unix(),
+		"last":         spreads.Last,
 	}
 	// Marshal map
 	return json.Marshal(base)
@@ -103,8 +102,8 @@ func (spreads *SpreadData) UnmarshalJSON(data []byte) error {
 			Field:  ".",
 		}
 	}
-	// Cast last as int64
-	ts, ok := tmp["last"].(int64)
+	// Cast last as float64
+	ts, ok := tmp["last"].(float64)
 	if !ok {
 		return &json.UnmarshalTypeError{
 			Value:  fmt.Sprintf("%v", tmp["last"]),
@@ -114,12 +113,32 @@ func (spreads *SpreadData) UnmarshalJSON(data []byte) error {
 			Field:  ".",
 		}
 	}
-	spreads.Last = time.Unix(ts, 0)
-	// Convert OHLC data as array of arrays
+	spreads.Last = int64(ts)
+	// Convert OHLC data as an array of object
 	spreads.Spreads = []Spread{}
-	tdata := tmp[spreads.PairId].([][]interface{})
+	tdata, ok := tmp[spreads.PairId].([]interface{})
+	if !ok {
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprintf("%v", tmp[spreads.PairId]),
+			Type:   reflect.TypeOf(Spread{}),
+			Offset: int64(len(data)),
+			Struct: "Spread",
+			Field:  ".",
+		}
+	}
 	for _, raw := range tdata {
-		parsed, err := unmarshalSpreadFromArray(raw)
+		// Cast raw to an array of object
+		item, ok := raw.([]interface{})
+		if !ok {
+			return &json.UnmarshalTypeError{
+				Value:  fmt.Sprintf("%v", raw),
+				Type:   reflect.TypeOf(Spread{}),
+				Offset: int64(len(data)),
+				Struct: "Spread",
+				Field:  ".",
+			}
+		}
+		parsed, err := unmarshalSpreadFromArray(item)
 		if err != nil {
 			return &json.UnmarshalTypeError{
 				Value:  fmt.Sprintf("%v", raw),
@@ -135,18 +154,18 @@ func (spreads *SpreadData) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GetRecentSpreads required parameters
-type GetRecentSpreadsParameters struct {
+// GetRecentSpreads request parameters
+type GetRecentSpreadsRequestParameters struct {
 	// Asset pair to get data for.
-	Pair string
+	Pair string `json:"pair"`
 }
 
-// GetRecentSpreads options
-type GetRecentSpreadsOptions struct {
-	// Return up to 1000 recent spreads since given timestamp.
+// GetRecentSpreads request options
+type GetRecentSpreadsRequestOptions struct {
+	// Return up to 1000 recent spreads since given uniix timestamp.
 	//
 	// By default, return the most recent spreads. A zero value triggers default behavior.
-	Since time.Time
+	Since int64 `json:"since,omitempty"`
 }
 
 // GetRecentSpreads response

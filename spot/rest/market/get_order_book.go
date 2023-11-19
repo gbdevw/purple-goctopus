@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strconv"
-	"time"
 
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
 )
@@ -65,8 +63,8 @@ type OrderBookEntry struct {
 	Price string
 	// Volume
 	Volume string
-	// Last update timestamp
-	Timestamp time.Time
+	// Last update timestamp as a Unix timestamp (seconds)
+	Timestamp int64
 }
 
 // Marshal book entry data to produce the same JSON data as the API.
@@ -76,23 +74,23 @@ func (entry *OrderBookEntry) MarshalJSON() ([]byte, error) {
 	return json.Marshal([]interface{}{
 		entry.Price,
 		entry.Volume,
-		entry.Timestamp.Unix(),
+		entry.Timestamp,
 	})
 }
 
 // Unmarshal OHLC data from the API raw data.
 func (entry *OrderBookEntry) UnmarshalJSON(data []byte) error {
 	// Unmarshal in array of strings
-	tmp := []string{}
+	tmp := []json.Number{}
 	err := json.Unmarshal(data, &tmp)
 	if err != nil {
 		return err
 	}
 	// Parse timestmap as int64
-	ts, err := strconv.ParseInt(tmp[2], 10, 64)
+	ts, err := tmp[2].Int64()
 	if err != nil {
 		return &json.UnmarshalTypeError{
-			Value:  tmp[2],
+			Value:  tmp[2].String(),
 			Type:   reflect.TypeOf(int64(0)),
 			Offset: int64(len(data)),
 			Struct: "int64",
@@ -100,24 +98,24 @@ func (entry *OrderBookEntry) UnmarshalJSON(data []byte) error {
 		}
 	}
 	// Encode entry & exit
-	entry.Timestamp = time.Unix(ts, 0)
-	entry.Price = tmp[0]
-	entry.Volume = tmp[1]
+	entry.Timestamp = ts
+	entry.Price = tmp[0].String()
+	entry.Volume = tmp[1].String()
 	return nil
 }
 
-// GetOrderBook required parameters
-type GetOrderBookParameters struct {
+// GetOrderBook request parameters
+type GetOrderBookRequestParameters struct {
 	// Asset pair to get data for.
-	Pair string
+	Pair string `json:"pair"`
 }
 
-// GetOrderBook options
-type GetOrderBookOptions struct {
+// GetOrderBook request options
+type GetOrderBookRequestOptions struct {
 	// Maximum number of bid/ask entries : [1,500].
 	//
 	// Defaults to 100. A zero value (= 0) triggers default behavior.
-	Count int
+	Count int `json:"count,omitempty"`
 }
 
 // GetOrderBook Response

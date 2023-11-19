@@ -24,13 +24,13 @@ type AssetTickerInfo struct {
 	OpeningPrice string `json:"o"`
 }
 
-// GetTickerInformation Options
-type GetTickerInformationOptions struct {
+// GetTickerInformation request options
+type GetTickerInformationRequestOptions struct {
 	// Asset pairs to get data for. If nil, all pairs are returned.
-	Pairs []string
+	Pairs []string `json:"pairs,omitempty"`
 }
 
-// GetTickerInformation Response
+// GetTickerInformation response
 type GetTickerInformationResponse struct {
 	common.KrakenSpotRESTResponse
 	// Ticker data by pair

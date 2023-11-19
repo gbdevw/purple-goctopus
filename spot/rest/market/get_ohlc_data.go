@@ -4,41 +4,39 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strconv"
-	"time"
 
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
 )
 
 // Enum for OHLC data interval
-type OHLCInterval int
+type OHLCIntervalEnum int
 
-// Values for OHLCInterval
+// Values for OHLCIntervalEnum
 const (
 	// 1 minute
-	M1 OHLCInterval = 1
+	M1 OHLCIntervalEnum = 1
 	// 5 minutes
-	M5 OHLCInterval = 5
+	M5 OHLCIntervalEnum = 5
 	// 15 minutes
-	M15 OHLCInterval = 15
+	M15 OHLCIntervalEnum = 15
 	// 30 minutes
-	M30 OHLCInterval = 30
+	M30 OHLCIntervalEnum = 30
 	// 60 minutes (1 hour)
-	M60 OHLCInterval = 60
+	M60 OHLCIntervalEnum = 60
 	// 240 minutes (4 hours)
-	M240 OHLCInterval = 240
+	M240 OHLCIntervalEnum = 240
 	// 1440 minutes (1 day)
-	M1440 OHLCInterval = 1440
+	M1440 OHLCIntervalEnum = 1440
 	// 10080 minutes (1 week)
-	M10080 OHLCInterval = 10080
+	M10080 OHLCIntervalEnum = 10080
 	// 21600 minutes (2 weeks)
-	M21600 OHLCInterval = 21600
+	M21600 OHLCIntervalEnum = 21600
 )
 
 // Data of a single OHLC indicator
 type OHLC struct {
-	// Start timestamp for the indicator
-	Timestamp time.Time
+	// Start unix timestamp (seconds) for the indicator
+	Timestamp int64
 	// Price of the first trade
 	Open string
 	// Highest trade price
@@ -60,7 +58,7 @@ type OHLC struct {
 // [int <unixsec>, string <open>, string <high>, string <low>, string <close>, string <vwap>, string <volume>, int <count>]
 func (ohlc *OHLC) MarshalJSON() ([]byte, error) {
 	return json.Marshal([]interface{}{
-		ohlc.Timestamp.Unix(),
+		ohlc.Timestamp,
 		ohlc.Open,
 		ohlc.High,
 		ohlc.Low,
@@ -75,13 +73,13 @@ func (ohlc *OHLC) MarshalJSON() ([]byte, error) {
 //
 // [int <unixsec>, string <open>, string <high>, string <low>, string <close>, string <vwap>, string <volume>, int <count>]
 func parseOHLCFromArray(input []interface{}) (OHLC, error) {
-	// Cast timestamp as int64
-	ts, ok := input[0].(int64)
+	// Cast timestamp as float64
+	ts, ok := input[0].(float64)
 	if !ok {
 		return OHLC{}, fmt.Errorf("could not parse timestamp as int64. Got %v", input[0])
 	}
-	// Parse count as int64
-	count, ok := input[7].(int64)
+	// Parse count as float64
+	count, ok := input[7].(float64)
 	if !ok {
 		return OHLC{}, fmt.Errorf("could not parse trades count as int64. Got %v", input[7])
 	}
@@ -111,14 +109,14 @@ func parseOHLCFromArray(input []interface{}) (OHLC, error) {
 		return OHLC{}, fmt.Errorf("could not parse volume as string. Got %v", input[6])
 	}
 	return OHLC{
-		Timestamp:          time.Unix(ts, 0),
+		Timestamp:          int64(ts),
 		Open:               open,
 		High:               high,
 		Low:                low,
 		Close:              close,
 		VolumeAveragePrice: vap,
 		Volume:             volume,
-		TradesCount:        count,
+		TradesCount:        int64(count),
 	}, nil
 }
 
@@ -126,17 +124,17 @@ func parseOHLCFromArray(input []interface{}) (OHLC, error) {
 //
 // [int <unixsec>, string <open>, string <high>, string <low>, string <close>, string <vwap>, string <volume>, int <count>]
 func (ohlc *OHLC) UnmarshalJSON(data []byte) error {
-	// Unmarshal data into an array of strings
-	tmp := []string{}
+	// Unmarshal data into an array of json.Number
+	tmp := []json.Number{}
 	err := json.Unmarshal(data, &tmp)
 	if err != nil {
 		return err
 	}
 	// Parse timestamp as int64
-	ts, err := strconv.ParseInt(tmp[0], 10, 64)
+	ts, err := tmp[0].Int64()
 	if err != nil {
 		return &json.UnmarshalTypeError{
-			Value:  tmp[0],
+			Value:  tmp[0].String(),
 			Type:   reflect.TypeOf(ohlc),
 			Offset: int64(len(data)),
 			Struct: "OHLC",
@@ -144,10 +142,10 @@ func (ohlc *OHLC) UnmarshalJSON(data []byte) error {
 		}
 	}
 	// Parse count as int64
-	count, err := strconv.ParseInt(tmp[7], 10, 64)
+	count, err := tmp[7].Int64()
 	if err != nil {
 		return &json.UnmarshalTypeError{
-			Value:  tmp[7],
+			Value:  tmp[7].String(),
 			Type:   reflect.TypeOf(ohlc),
 			Offset: int64(len(data)),
 			Struct: "OHLC",
@@ -155,21 +153,21 @@ func (ohlc *OHLC) UnmarshalJSON(data []byte) error {
 		}
 	}
 	// Encode OHLC and exit
-	ohlc.Timestamp = time.Unix(ts, 0)
-	ohlc.Open = tmp[1]
-	ohlc.High = tmp[2]
-	ohlc.Low = tmp[3]
-	ohlc.Close = tmp[4]
-	ohlc.VolumeAveragePrice = tmp[5]
-	ohlc.Volume = tmp[6]
+	ohlc.Timestamp = ts
+	ohlc.Open = tmp[1].String()
+	ohlc.High = tmp[2].String()
+	ohlc.Low = tmp[3].String()
+	ohlc.Close = tmp[4].String()
+	ohlc.VolumeAveragePrice = tmp[5].String()
+	ohlc.Volume = tmp[6].String()
 	ohlc.TradesCount = count
 	return nil
 }
 
 // OHLC data returned by the API
 type OHLCData struct {
-	// Timestamp to be used as since when polling for new, committed OHLC data
-	Last time.Time
+	// Unix timestamp (seconds) to be used as since when polling for new, committed OHLC data
+	Last int64
 	// Asset pair ID
 	PairId string
 	// OHLC data
@@ -181,7 +179,7 @@ func (ohlc *OHLCData) MarshalJSON() ([]byte, error) {
 	// Put data into a map
 	base := map[string]interface{}{
 		ohlc.PairId: ohlc.Data,
-		"last":      ohlc.Last.Unix(),
+		"last":      ohlc.Last,
 	}
 	// Marshal map
 	return json.Marshal(base)
@@ -191,7 +189,6 @@ func (ohlc *OHLCData) MarshalJSON() ([]byte, error) {
 func (ohlc *OHLCData) UnmarshalJSON(data []byte) error {
 	// Unmarshal data into a map
 	tmp := map[string]interface{}{}
-
 	err := json.Unmarshal(data, &tmp)
 	if err != nil {
 		return err
@@ -214,8 +211,8 @@ func (ohlc *OHLCData) UnmarshalJSON(data []byte) error {
 			Field:  ".",
 		}
 	}
-	// Cast last as int64
-	ts, ok := tmp["last"].(int64)
+	// Cast last as json.Number
+	ts, ok := tmp["last"].(float64)
 	if !ok {
 		return &json.UnmarshalTypeError{
 			Value:  fmt.Sprintf("%v", tmp["last"]),
@@ -225,12 +222,24 @@ func (ohlc *OHLCData) UnmarshalJSON(data []byte) error {
 			Field:  ".",
 		}
 	}
-	ohlc.Last = time.Unix(ts, 0)
+	ohlc.Last = int64(ts)
 	// Convert OHLC data as array of arrays
 	ohlc.Data = []OHLC{}
-	ohlcs := tmp[ohlc.PairId].([][]interface{})
+	ohlcs := tmp[ohlc.PairId].([]interface{})
 	for _, raw := range ohlcs {
-		parsed, err := parseOHLCFromArray(raw)
+		// Cast raw to array of interface
+		item, ok := raw.([]interface{})
+		if !ok {
+			return &json.UnmarshalTypeError{
+				Value:  fmt.Sprintf("%v", raw),
+				Type:   reflect.TypeOf(OHLC{}),
+				Offset: int64(len(data)),
+				Struct: "OHLC",
+				Field:  ".",
+			}
+		}
+		// Parse array of interface to target struct
+		parsed, err := parseOHLCFromArray(item)
 		if err != nil {
 			return &json.UnmarshalTypeError{
 				Value:  fmt.Sprintf("%v", raw),
@@ -246,23 +255,23 @@ func (ohlc *OHLCData) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GetOHLCData required parameters
-type GetOHLCDataParameters struct {
+// GetOHLCData request parameters
+type GetOHLCDataRequestParameters struct {
 	// Asset pair to get OHLC data for.
-	Pair string
+	Pair string `json:"pair"`
 }
 
-// GetOHLCData options.
-type GetOHLCDataOptions struct {
-	// Time frame interval in minutes.
+// GetOHLCData request options.
+type GetOHLCDataRequestOptions struct {
+	// Time frame interval in minutes. Cf. OHLCIntervalEnum for values.
 	//
 	// Default to 1. A zero value (= 0) triggers default behavior.
-	Interval OHLCInterval
-	// Return up to 720 OHLC data points since given timestamp. By default, return the most recent
+	Interval int64 `json:"interval,omitempty"`
+	// Return up to 720 OHLC data points since given unix timestamp. By default, return the most recent
 	// OHLC data points.
 	//
-	// A zero value (IsZero() returns true) triggers default behavior (= most recent data).
-	Since time.Time
+	// A zero value triggers default behavior (= most recent data).
+	Since int64 `json:"since,omitempty"`
 }
 
 // GetOHLCData Response

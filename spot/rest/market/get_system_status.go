@@ -13,13 +13,16 @@ const (
 	PostOnly    SystemStatus = "post_only"
 )
 
-// Response for GetSystemStatus
+// GetSystemStatus result
+type GetSystemStatusResult struct {
+	// System status
+	Status string `json:"status"`
+	// Current timestamp (RFC3339)
+	Timestamp string `json:"timestamp"`
+}
+
+// GetSystemStatus response
 type GetSystemStatusResponse struct {
 	common.KrakenSpotRESTResponse
-	Result struct {
-		// System status
-		Status string `json:"status"`
-		// Current timestamp (RFC3339)
-		Timestamp string `json:"timestamp"`
-	} `json:"result,omitempty"`
+	Result *GetSystemStatusResult `json:"result,omitempty"`
 }

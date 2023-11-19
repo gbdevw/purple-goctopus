@@ -42,10 +42,11 @@ type Trade struct {
 //
 // [<price>, <volume>, <time>, <buy/sell>, <market/limit>, <miscellaneous>, <trade_id>]
 func (trade *Trade) MarshalJSON() ([]byte, error) {
+	// Print trade
 	return json.Marshal([]interface{}{
 		trade.Price,
 		trade.Volume,
-		trade.Timestamp.Unix(),
+		common.Must(strconv.ParseFloat(fmt.Sprintf("%d.%d", trade.Timestamp.Unix(), trade.Timestamp.Nanosecond()), 64)),
 		trade.Side,
 		trade.Type,
 		trade.Miscellaneous,
@@ -57,28 +58,20 @@ func (trade *Trade) MarshalJSON() ([]byte, error) {
 //
 // [<price>, <volume>, <time>, <buy/sell>, <market/limit>, <miscellaneous>, <trade_id>]
 func unmarshalTradeFromArray(input []interface{}) (Trade, error) {
-	// Convert timestamp to string
-	tsstr, ok := input[3].(string)
+	// Convert timestamp to float64
+	tsflo, ok := input[2].(float64)
 	if !ok {
-		return Trade{}, fmt.Errorf("could not parse timestamp as text. Got %v", input[3])
+		return Trade{}, fmt.Errorf("could not parse timestamp as float64. Got %v", input[3])
 	}
-	// Split sec & nsec + parse each part as int64
-	tssplits := strings.Split(tsstr, ".")
-	if len(tssplits) != 2 {
-		return Trade{}, fmt.Errorf("could not split timestamp seconds and nanosec parts. Got %v", tssplits)
-	}
-	sec, err := strconv.ParseInt(tssplits[0], 10, 64)
-	if err != nil {
-		return Trade{}, fmt.Errorf("could not parse timestamp.seconds as int64: %w", err)
-	}
-	nsec, err := strconv.ParseInt(tssplits[1], 10, 64)
-	if err != nil {
-		return Trade{}, fmt.Errorf("could not parse timestamp.nanoseconds as int64: %w", err)
-	}
+	// Split decimal and integrer parts of the timestamp
+	splits := strings.Split(strconv.FormatFloat(tsflo, 'f', 9, 64), ".")
+	// Parse each split as int64 -> will not fail as input is checked
+	sec := common.Must(strconv.ParseInt(splits[0], 10, 64))
+	nsec := common.Must(strconv.ParseInt(splits[1], 10, 64))
 	// Convert Id to int64
-	id, ok := input[6].(int64)
+	id, ok := input[6].(float64)
 	if !ok {
-		return Trade{}, fmt.Errorf("could not parse trade id as int64: %w", err)
+		return Trade{}, fmt.Errorf("could not parse trade id as float64. Got %v", input[6])
 	}
 	// Convert other items to string
 	price, ok := input[0].(string)
@@ -109,7 +102,7 @@ func unmarshalTradeFromArray(input []interface{}) (Trade, error) {
 		Side:          side,
 		Type:          typ,
 		Miscellaneous: misc,
-		Id:            id,
+		Id:            int64(id),
 	}, nil
 }
 
@@ -117,8 +110,8 @@ func unmarshalTradeFromArray(input []interface{}) (Trade, error) {
 type RecentTrades struct {
 	// Asset pair ID
 	PairId string
-	// Timestamp to be used as since to fetch next trades data
-	Last time.Time
+	// Timestamp (Unix - nanoseconds) to be used as since to fetch next trades data
+	Last int64
 	// Trades
 	Trades []Trade
 }
@@ -128,7 +121,7 @@ func (trades *RecentTrades) MarshalJSON() ([]byte, error) {
 	// Put data into a map
 	base := map[string]interface{}{
 		trades.PairId: trades.Trades,
-		"last":        trades.Last.Unix(),
+		"last":        strconv.FormatInt(trades.Last, 10),
 	}
 	// Marshal map
 	return json.Marshal(base)
@@ -160,23 +153,53 @@ func (trades *RecentTrades) UnmarshalJSON(data []byte) error {
 			Field:  ".",
 		}
 	}
-	// Cast last as int64
-	ts, ok := tmp["last"].(int64)
+	// Parse last as int64
+	tsstr, ok := tmp["last"].(string)
 	if !ok {
 		return &json.UnmarshalTypeError{
 			Value:  fmt.Sprintf("%v", tmp["last"]),
+			Type:   reflect.TypeOf(""),
+			Offset: int64(len(data)),
+			Struct: "RecentTrades",
+			Field:  ".",
+		}
+	}
+	ts, err := strconv.ParseInt(tsstr, 10, 64)
+	if err != nil {
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprintf("%v", tmp["last"]),
+			Type:   reflect.TypeOf(int64(0)),
+			Offset: int64(len(data)),
+			Struct: "RecentTrades",
+			Field:  ".",
+		}
+	}
+	trades.Last = ts
+	// Convert OHLC data as an array of objects
+	trades.Trades = []Trade{}
+	tdata, ok := tmp[trades.PairId].([]interface{})
+	if !ok {
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprintf("%v", tmp[trades.PairId]),
 			Type:   reflect.TypeOf(trades),
 			Offset: int64(len(data)),
 			Struct: "RecentTrades",
 			Field:  ".",
 		}
 	}
-	trades.Last = time.Unix(ts, 0)
-	// Convert OHLC data as array of arrays
-	trades.Trades = []Trade{}
-	tdata := tmp[trades.PairId].([][]interface{})
 	for _, raw := range tdata {
-		parsed, err := unmarshalTradeFromArray(raw)
+		// Cast to an array of object
+		item, ok := raw.([]interface{})
+		if !ok {
+			return &json.UnmarshalTypeError{
+				Value:  fmt.Sprintf("%v", raw),
+				Type:   reflect.TypeOf(Trade{}),
+				Offset: int64(len(data)),
+				Struct: "Trade",
+				Field:  ".",
+			}
+		}
+		parsed, err := unmarshalTradeFromArray(item)
 		if err != nil {
 			return &json.UnmarshalTypeError{
 				Value:  fmt.Sprintf("%v", raw),
@@ -192,18 +215,18 @@ func (trades *RecentTrades) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GetRecentTrades required parameters
-type GetRecentTradesParameters struct {
+// GetRecentTrades request parameters
+type GetRecentTradesRequestParameters struct {
 	// Asset pair to get data for.
-	Pair string
+	Pair string `json:"pair"`
 }
 
-// GetRecentTrades options
-type GetRecentTradesOptions struct {
-	// Return up to 1000 recent trades since given timestamp
+// GetRecentTrades request options
+type GetRecentTradesRequestOptions struct {
+	// Return up to 1000 recent trades since given unix timestamp.
 	//
 	// By default, return the most recent trades. A zero value triggers default behavior.
-	Since time.Time
+	Since int64 `json:"since,omitempty"`
 }
 
 // GetRecentTrades Response

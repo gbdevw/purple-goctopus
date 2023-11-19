@@ -3,14 +3,14 @@ package market
 import "github.com/gbdevw/purple-goctopus/spot/rest/common"
 
 // Enum for asset statuses
-type AssetStatus string
+type AssetStatusEnum string
 
 // Values for AssetStatus
 const (
-	Enabled                    AssetStatus = "enabled"
-	DepositOnly                AssetStatus = "deposit_only"
-	WithdrawalOnly             AssetStatus = "withdrawal_only"
-	FundingTemporarilyDisabled AssetStatus = "funding_temporarily_disabled"
+	Enabled                    AssetStatusEnum = "enabled"
+	DepositOnly                AssetStatusEnum = "deposit_only"
+	WithdrawalOnly             AssetStatusEnum = "withdrawal_only"
+	FundingTemporarilyDisabled AssetStatusEnum = "funding_temporarily_disabled"
 )
 
 // AssetInfo represents an asset information
@@ -25,20 +25,22 @@ type AssetInfo struct {
 	DisplayDecimals int `json:"display_decimals"`
 	// Collateral value
 	CollateralValue float64 `json:"collateral_value"`
-	// Asset status
-	Status AssetStatus `json:"status"`
+	// Asset status.
+	//
+	// Cf AssetStatusEnum for values.
+	Status string `json:"status"`
 }
 
-// GetAssetInfo options
-type GetAssetInfoOptions struct {
+// GetAssetInfo request options
+type GetAssetInfoRequestOptions struct {
 	// List of assets to get info on.
-	// Defaults to all assets.
-	// A nil value triggers default behavior.
-	Assets []string
+	//
+	// Defaults to all assets. An empty or nil value triggers default behavior.
+	Assets []string `json:"assets,omitempty"`
 	// Asset class.
-	// Defaults to 'currency'.
-	// An empty string triggers default behavior.
-	AssetClass string
+	//
+	// Defaults to 'currency'. An empty string triggers default behavior.
+	AssetClass string `json:"asset_class,omitempty"`
 }
 
 // GetAssetInfo response

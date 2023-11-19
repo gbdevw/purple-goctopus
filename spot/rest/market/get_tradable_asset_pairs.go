@@ -43,10 +43,10 @@ type AssetPairInfo struct {
 	AssetClassQuote string `json:"aclass_quote"`
 	// Asset id of quote currency/asset
 	Quote string `json:"quote"`
-	// Scaling decimal places for pair
-	PairDecimals int `json:"pair_decimals"`
 	// Scaling decimal places for cost
 	CostDecimals int `json:"cost_decimals"`
+	// Scaling decimal places for pair
+	PairDecimals int `json:"pair_decimals"`
 	// Scaling decimal places for volume
 	LotDecimals int `json:"lot_decimals"`
 	// Amount to multiply lot volume by to get currency volume
@@ -79,19 +79,19 @@ type AssetPairInfo struct {
 	ShortPositionLimit int `json:"short_position_limit"`
 }
 
-// Options for GetTradableAssetPairs
-type GetTradableAssetPairsOptions struct {
+// GetTradableAssetPairs request options
+type GetTradableAssetPairsRequestOptions struct {
 	// Pairs to get info on.
 	// Defaults to all pairs
 	// A nil value triggers default behavior.
-	Pairs []string
+	Pairs []string `json:"pairs,omitempty"`
 	// Data to retrieve. Cf PairInfo for values.
 	//
 	// Defaults to InfoAll (info). An empty string triggers default behavior.
-	Info string
+	Info string `json:"info,omitempty"`
 }
 
-// Response for GetTradableAssetPairs
+// GetTradableAssetPairs response
 type GetTradableAssetPairsResponse struct {
 	common.KrakenSpotRESTResponse
 	// Map each assert pair (ex: 1INCHEUR) to its info
