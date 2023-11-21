@@ -227,6 +227,10 @@ type GetRecentTradesRequestOptions struct {
 	//
 	// By default, return the most recent trades. A zero value triggers default behavior.
 	Since int64 `json:"since,omitempty"`
+	// Return specific number of trades, up to 1000.
+	//
+	// 1000 by default. A zero value triggers default behavior.
+	Count int `json:"count,omitempty"`
 }
 
 // GetRecentTrades Response
