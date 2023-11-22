@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/gbdevw/purple-goctopus/spot/rest/account"
+	"github.com/gbdevw/purple-goctopus/spot/rest/common"
 	"github.com/gbdevw/purple-goctopus/spot/rest/market"
 )
 
@@ -283,7 +285,9 @@ type KrakenSpotRESTClientIface interface {
 	GetRecentTrades(ctx context.Context, params *market.GetRecentTradesRequestParameters, opts *market.GetRecentTradesRequestOptions) (*market.GetRecentTradesResponse, *http.Response, error)
 	// # Description
 	//
-	// GetRecentSpreads - Get the current system status or trading mode.
+	// GetRecentSpreads - Returns the last ~200 top-of-book spreads for a given pair as for now as as a given timestamp.
+	//
+	// Note: Intended for incremental updates within available dataset (does not contain all historical spreads).
 	//
 	// # Inputs
 	//
@@ -316,14 +320,15 @@ type KrakenSpotRESTClientIface interface {
 	GetRecentSpreads(ctx context.Context, params *market.GetRecentSpreadsRequestParameters, opts *market.GetRecentSpreadsRequestOptions) (*market.GetRecentSpreadsResponse, *http.Response, error)
 	// # Description
 	//
-	// GetSystemStatus - Get the current system status or trading mode.
+	// GetAccountBalance - Retrieve all cash balances, net of pending withdrawals.
 	//
 	// # Inputs
 	//
-	//	- ctx: Context used for tracing and coordination purpose
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- secopts: Security options to use for the API call (2FA, ...)
 	//
 	// # Returns
-	//	- GetSystemStatusResponse: The parsed response from Kraken API.
+	//	- GetAccountBalanceResponse: The parsed response from Kraken API.
 	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
 	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
 	//
@@ -344,7 +349,10 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed.
-	GetAccountBalance(ctx context.Context, secopts *SecurityOptions) (*GetAccountBalanceResponse, error)
+	GetAccountBalance(ctx context.Context, secopts *common.SecurityOptions) (*account.GetAccountBalanceResponse, *http.Response, error)
+
+	// RESUME HERE: Add Extended Balance
+
 	// # Description
 	//
 	// GetSystemStatus - Get the current system status or trading mode.
@@ -376,6 +384,7 @@ type KrakenSpotRESTClientIface interface {
 	//
 	// Please note response body will always be closed.
 	GetTradeBalance(ctx context.Context, opts *GetTradeBalanceOptions, secopts *SecurityOptions) (*GetTradeBalanceResponse, error)
+
 	// # Description
 	//
 	// GetSystemStatus - Get the current system status or trading mode.

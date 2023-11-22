@@ -1,10 +1,14 @@
 package account
 
-import "github.com/gbdevw/purple-goctopus/spot/rest/common"
+import (
+	"encoding/json"
 
-// GetAccountBalanceResponse contains Get Account Balance response data.
+	"github.com/gbdevw/purple-goctopus/spot/rest/common"
+)
+
+// GetAccountBalance response.
 type GetAccountBalanceResponse struct {
 	common.KrakenSpotRESTResponse
-	// Balance for each possessed asset
-	Result map[string]string `json:"result,omitempty"`
+	// Balances for each possessed asset
+	Result map[string]json.Number `json:"result,omitempty"`
 }

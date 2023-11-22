@@ -1,37 +1,44 @@
 package account
 
-import "github.com/gbdevw/purple-goctopus/spot/rest/common"
+import (
+	"encoding/json"
 
-// GetTradeBalanceOptions contains Get Trade Balance optional parameters.
-type GetTradeBalanceOptions struct {
+	"github.com/gbdevw/purple-goctopus/spot/rest/common"
+)
+
+// GetTradeBalance rquest options.
+type GetTradeBalanceRequestOptions struct {
 	// Base asset used to determine balance.
-	// Defaults to ZUSD.
+	//
+	// Defaults to ZUSD. An empty value triggers the default behavior.
 	Asset string
 }
 
-// Trade balance
+// Trade balance data.
 type TradeBalance struct {
 	// Equivalent balance (combined balance of all currencies)
-	EquivalentBalance string `json:"eb"`
+	EquivalentBalance json.Number `json:"eb,omitempty"`
 	// Trade balance (combined balance of all equity currencies)
-	TradeBalance string `json:"tb"`
+	TradeBalance json.Number `json:"tb,omitempty"`
 	// Margin amount of open positions
-	MarginAmount string `json:"m"`
+	MarginAmount json.Number `json:"m,omitempty"`
 	// Unrealized net profit/loss of open positions
-	UnrealizedNetPNL string `json:"n"`
+	UnrealizedNetPNL json.Number `json:"n,omitempty"`
 	// Cost basis of open positions
-	CostBasis string `json:"c"`
+	CostBasis json.Number `json:"c,omitempty"`
 	// Current floating valuation of open positions
-	FloatingValuation string `json:"v"`
+	FloatingValuation json.Number `json:"v,omitempty"`
 	// Equity: trade balance + unrealized net profit/loss
-	Equity string `json:"e"`
+	Equity json.Number `json:"e,omitempty"`
 	// Free margin: Equity - initial margin (maximum margin available to open new positions)
-	FreeMargin string `json:"mf"`
+	FreeMargin json.Number `json:"mf,omitempty"`
 	// Margin level: (equity / initial margin) * 100
-	MarginLevel string `json:"ml"`
+	MarginLevel json.Number `json:"ml,omitempty"`
+	// Value of unfilled and partially filled orders
+	UnexecutedValue json.Number `json:"uv,omitempty"`
 }
 
-// GetTradeBalanceResponse contains GetTradeBalance response data.
+// GetTradeBalance response.
 type GetTradeBalanceResponse struct {
 	common.KrakenSpotRESTResponse
 	Result *TradeBalance `json:"result,omitempty"`
