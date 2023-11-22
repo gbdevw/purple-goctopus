@@ -1,5 +1,14 @@
 package trading
 
+// Enum for sides
+type SideEnum string
+
+// Value for Side
+const (
+	Buy  SideEnum = "buy"
+	Sell SideEnum = "sell"
+)
+
 // Enum for order types
 type OrderTypeEnum string
 
@@ -109,7 +118,7 @@ type Order struct {
 	UserReference *int64 `json:"userref,omitempty"`
 	// Order type
 	OrderType string `json:"ordertype"`
-	// Order direction - buy/sell
+	// Order direction - buy/sell. Cf. SideEnum
 	Type string `json:"type"`
 	// Order quantity in terms of the base asset.
 	//
