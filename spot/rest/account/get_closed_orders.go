@@ -1,49 +1,61 @@
 package account
 
 import (
-	"time"
-
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
 )
 
-// Type for CloseTime
-type CloseTime string
+// CloseTime Enum
+type CloseTimeEnum string
 
-// Values for CloseTime
+// Values for CloseTimeEnum
 const (
-	UseOpen  CloseTime = "open"
-	UseClose CloseTime = "close"
-	UseBoth  CloseTime = "both"
+	UseOpen  CloseTimeEnum = "open"
+	UseClose CloseTimeEnum = "close"
+	UseBoth  CloseTimeEnum = "both"
 )
 
-// GetClosedOrdersOptions contains Get Closed Orders optional parameters.
+// GetClosedOrders request options.
 type GetClosedOrdersOptions struct {
 	// Whether or not to include trades related to position in output.
+	//
 	// Defaults to false.
-	Trades bool
+	Trades bool `json:"trades"`
 	// Restrict results to given user reference id.
-	UserReference *int64
-	// Starting unix timestamp or order tx ID of results (exclusive)
-	Start *time.Time
-	// Ending unix timestamp or order tx ID of results (inclusive)
-	End *time.Time
+	//
+	// A nil value means no user reference will be provided.
+	UserReference *int64 `json:"userref"`
+	// Starting unix timestamp (seconds) or order tx ID of results (exclusive).
+	//
+	// A zero value means no filtering based on a start date.
+	Start int64 `json:"start"`
+	// Ending unix timestamp (seconds) or order tx ID of results (inclusive)
+	//
+	// A zero value means no filtering based on a end date.
+	End int64 `json:"end"`
 	// Result offset for pagination
-	Offset *int64
+	//
+	// A zero value means the first records will be fetched.
+	Offset int64 `json:"ofs"`
 	// Which time to use to search.
-	// Defaults to "both". Values: "open" "close" "both"
-	Closetime CloseTime
+	//
+	// Defaults to "both" in case an empty string is provided. Cf. CloseTimeEnum.
+	Closetime string `json:"closetime"`
+	// Whether or not to consolidate trades by individual taker trades.
+	//
+	// Defaults to false.
+	ConsolidateTaker bool `json:"consolidate_taker"`
 }
 
-// Closed orders
-type ClosedOrders struct {
-	// Map where keys are transaction ID and values the related closed order.
+// GetClosedOrders results.
+type GetClosedOrdersResult struct {
+	// Map where keys are transaction ID and values the related closed orders.
 	Closed map[string]OrderInfo `json:"closed"`
 	// Amount of available order info matching criteria.
 	Count int `json:"count"`
 }
 
-// GetClosedOrdersResponse contains Get Closed Orders response data.
+// GetClosedOrders response.
 type GetClosedOrdersResponse struct {
 	common.KrakenSpotRESTResponse
-	Result *ClosedOrders `json:"result,omitempty"`
+	Result *GetClosedOrdersResult `json:"result,omitempty"`
 }
