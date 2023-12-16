@@ -36,7 +36,7 @@ type LedgerEntry struct {
 	ReferenceId string `json:"refid"`
 	// Unix timestamp of ledger
 	Timestamp json.Number `json:"time"`
-	// Type of ledger entry
+	// Type of ledger entry. Cf LedgerEntryTypeEnum for values.
 	Type string `json:"type"`
 	// Additional info relating to the ledger entry type, where applicable
 	SubType string `json:"subtype,omitempty"`
