@@ -1,47 +1,70 @@
 package account
 
-import "github.com/gbdevw/purple-goctopus/spot/rest/common"
+import (
+	"encoding/json"
 
-// ExportReportStatus contains export report status data.
-type ExportReportStatus struct {
-	// Report ID
-	Id string `json:"id"`
-	// Description
-	Description string `json:"descr"`
-	// Format
-	Format string `json:"format"`
-	// Report
-	Report string `json:"report"`
-	// Subtype
-	SubType string `json:"subtype"`
-	// Status of report. Enum: "Queued" "Processing" "Processed"
-	Status string `json:"status"`
-	// Fields
-	Fields string `json:"fields"`
-	// UNIX timestamp of report request
-	RequestTimestamp string `json:"createdtm"`
-	// UNIX timestamp report processing began
-	StartTimestamp string `json:"starttm"`
-	// UNIX timestamp report processing finished
-	CompletedTimestamp string `json:"completedtm"`
-	// UNIX timestamp of the report data start time
-	DataStartTimestamp string `json:"datastarttm"`
-	// UNIX timestamp of the report data end time
-	DataEndTimestamp string `json:"dataendtm"`
-	// Asset
-	Asset string `json:"asset"`
-}
+	"github.com/gbdevw/purple-goctopus/spot/rest/common"
+)
 
-// GetExportReportStatusParameters contains Get Export Report Status required parameters.
-type GetExportReportStatusParameters struct {
-	// Type of reports to inquire about
-	// Values: "trades" "ledgers"
+// Enum for report types
+type ReportTypeEnum string
+
+// Values for ReportTypeEnum
+const (
+	ReportTrades  ReportTypeEnum = "trades"
+	ReportLedgers ReportTypeEnum = "ledgers"
+)
+
+// Enum for report export status
+type ReportStatusEnum string
+
+// Values for ReportStatusEnum
+const (
+	Queued     ReportStatusEnum = "Queued"
+	Processing ReportStatusEnum = "Processing"
+	Processed  ReportStatusEnum = "Processed"
+)
+
+// GetExportReportStatus request parameters.
+type GetExportReportStatusRequestParameters struct {
+	// Type of reports to inquire about.
+	//
+	// Cf ReportTypeEnum for values
 	Report string
 }
 
-// GetExportReportStatusResponse contains Get Export Report Status response data.
+// ExportReportStatus data.
+type ExportReportStatusItem struct {
+	// Report ID
+	Id string `json:"id"`
+	// Description
+	Description string `json:"descr,omitempty"`
+	// Format
+	Format string `json:"format,omitempty"`
+	// Report
+	Report string `json:"report,omitempty"`
+	// Subtype
+	SubType string `json:"subtype,omitempty"`
+	// Status of report. Enum: "Queued" "Processing" "Processed"
+	Status string `json:"status,omitempty"`
+	// Fields
+	Fields string `json:"fields,omitempty"`
+	// UNIX timestamp (seconds) of report request
+	CreatedTimestamp json.Number `json:"createdtm,omitempty"`
+	// UNIX timestamp (seconds) report processing began
+	StartTimestamp json.Number `json:"starttm,omitempty"`
+	// UNIX timestamp report processing finished
+	CompletedTimestamp json.Number `json:"completedtm,omitempty"`
+	// UNIX timestamp of the report data start time
+	DataStartTimestamp json.Number `json:"datastarttm,omitempty"`
+	// UNIX timestamp of the report data end time
+	DataEndTimestamp json.Number `json:"dataendtm,omitempty"`
+	// Asset
+	Asset string `json:"asset,omitempty"`
+}
+
+// GetExportReportStatus response.
 type GetExportReportStatusResponse struct {
 	common.KrakenSpotRESTResponse
-	// Export Report Statuses
-	Result []ExportReportStatus `json:"result"`
+	Result []ExportReportStatusItem `json:"result"`
 }
