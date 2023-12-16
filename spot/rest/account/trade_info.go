@@ -1,51 +1,57 @@
 package account
 
+import "encoding/json"
+
 // TradeInfo contains full trade information
 type TradeInfo struct {
 	// Order responsible for execution of trade
 	OrderTransactionId string `json:"ordertxid"`
+	// Position responsible for execution of trade
+	PositionId string `json:"postxid"`
 	// Asset pair
 	Pair string `json:"pair"`
 	// Unix timestamp for the trade
-	Timestamp float64 `json:"time"`
+	Timestamp json.Number `json:"time"`
 	// Trade direction (buy/sell)
 	Type string `json:"type"`
-	// Order type. Enum: "market" "limit" "stop-loss" "take-profit" "stop-loss-limit" "take-profit-limit" "settle-position"
+	// Order type. Cf. OrderTypeEnum for values
 	OrderType string `json:"ordertype"`
 	// Average price order was executed at
-	Price string `json:"price"`
+	Price json.Number `json:"price"`
 	// Total cost of order
-	Cost string `json:"cost"`
+	Cost json.Number `json:"cost,omitempty"`
 	// Total fee
-	Fee string `json:"fee"`
+	Fee json.Number `json:"fee"`
 	// Volume
-	Volume string `json:"vol"`
+	Volume json.Number `json:"vol"`
 	// Initial margin
-	Margin string `json:"margin"`
+	Margin json.Number `json:"margin,omitempty"`
+	// Amount of leverage used in trade.
+	Leverage string `json:"leverage,omitempty"`
 	// Comma delimited list of miscellaneous info:
 	// closing — Trade closes all or part of a position
-	Miscellaneous string `json:"misc"`
+	Miscellaneous string `json:"misc,omitempty"`
 	// Position status (open/closed)
 	// - Only present if trade opened a position
 	PositionStatus string `json:"posstatus,omitempty"`
 	// Average price of closed portion of position (quote currency)
 	// - Only present if trade opened a position
-	ClosedPrice string `json:"cprice,omitempty"`
+	ClosedPrice json.Number `json:"cprice,omitempty"`
 	// Total cost of closed portion of position (quote currency)
 	// - Only present if trade opened a position
-	ClosedCost string `json:"ccost,omitempty"`
+	ClosedCost json.Number `json:"ccost,omitempty"`
 	// Total fee of closed portion of position (quote currency)
 	// - Only present if trade opened a position
-	ClosedFee string `json:"cfee,omitempty"`
+	ClosedFee json.Number `json:"cfee,omitempty"`
 	// Total fee of closed portion of position (quote currency)
 	// - Only present if trade opened a position
-	ClosedVolume string `json:"cvol,omitempty"`
+	ClosedVolume json.Number `json:"cvol,omitempty"`
 	// Total margin freed in closed portion of position (quote currency)
 	// - Only present if trade opened a position
-	ClosedMargin string `json:"cmargin,omitempty"`
+	ClosedMargin json.Number `json:"cmargin,omitempty"`
 	// Net profit/loss of closed portion of position (quote currency, quote currency scale)
 	// - Only present if trade opened a position
-	ClosedNetPNL string `json:"net,omitempty"`
+	ClosedNetPNL json.Number `json:"net,omitempty"`
 	// List of closing trades for position (if available)
 	// - Only present if trade opened a position
 	ClosingTrades []string `json:"trades,omitempty"`

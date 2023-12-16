@@ -24,14 +24,14 @@ type GetClosedOrdersOptions struct {
 	//
 	// A nil value means no user reference will be provided.
 	UserReference *int64 `json:"userref,omitempty"`
-	// Starting unix timestamp (seconds) or order tx ID of results (exclusive).
+	// Starting unix timestamp or order tx ID of results (exclusive).
 	//
-	// A zero value means no filtering based on a start date.
-	Start int64 `json:"start,omitempty"`
-	// Ending unix timestamp (seconds) or order tx ID of results (inclusive)
+	// An empty string means no filtering based on a start date.
+	Start string `json:"start,omitempty"`
+	// Ending unix timestamp or order tx ID of results (inclusive).
 	//
-	// A zero value means no filtering based on a end date.
-	End int64 `json:"end,omitempty"`
+	// An empty string means no filtering based on a start date.
+	End string `json:"end,omitempty"`
 	// Result offset for pagination
 	//
 	// A zero value means the first records will be fetched.

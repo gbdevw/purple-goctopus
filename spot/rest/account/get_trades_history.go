@@ -1,50 +1,59 @@
 package account
 
 import (
-	"time"
-
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
 )
 
 // Enum for trade types
-type TradeType string
+type TradeTypeEnum string
 
-// Values for TradeType
+// Values for TradeTypeEnum
 const (
-	TradeTypeAll             TradeType = "all"
-	TradeTypeAnyPosition     TradeType = "any position"
-	TradeTypeClosedPosition  TradeType = "closed position"
-	TradeTypeClosingPosition TradeType = "closing position"
-	TradeTypeNoPosition      TradeType = "no position"
+	TradeTypeAll             TradeTypeEnum = "all"
+	TradeTypeAnyPosition     TradeTypeEnum = "any position"
+	TradeTypeClosedPosition  TradeTypeEnum = "closed position"
+	TradeTypeClosingPosition TradeTypeEnum = "closing position"
+	TradeTypeNoPosition      TradeTypeEnum = "no position"
 )
 
-// GetTradesHistoryOptions contains Get Trade History optional parameters.
-type GetTradesHistoryOptions struct {
-	// Type of trade.
-	// Defaults to "all".
-	// Values: "all" "any position" "closed position" "closing position" "no position"
-	Type string
+// GetTradesHistory request options.
+type GetTradesHistoryRequestOptions struct {
+	// Type of trade. Cf TradeTypeEnum for values.
+	//
+	// Defaults to "all". An empty string triggers the default behavior.
+	Type string `json:"type,omitempty"`
 	// Whether or not to include trades related to position in output.
+	//
 	// Defaults to false.
-	Trades bool
-	// Starting unix timestamp or order tx ID of results (exclusive).
-	Start *time.Time
+	Trades bool `json:"trades"`
+	// Starting unix timestamp or trade tx ID of results (exclusive)
+	//
+	// An empty string means no filtering.
+	Start string `json:"start,omitempty"`
 	// Ending unix timestamp or order tx ID of results (inclusive).
-	End *time.Time
+	//
+	// An empty string means no filtering.
+	End string `json:"end,omitempty"`
 	// Result offset for pagination.
-	Offset *int64
+	//
+	// A zero values means first items will be fetched.
+	Offset int64 `json:"ofs,omitempty"`
+	// Whether or not to consolidate trades by individual taker trades.
+	//
+	// Defaults to false.
+	ConsolidateTaker bool `json:"consolidate_taker"`
 }
 
-// Trades history
-type TradesHistory struct {
-	// Map where each key is a transaction ID and value a trade info object
-	Trades map[string]TradeInfo `json:"trades"`
-	// Amount of available trades matching criteria
-	Count int
+// GetTradesHistory results.
+type GetTradesHistoryResult struct {
+	// Map where each key is a transaction ID and value a trade info object.
+	Trades map[string]TradeInfo `json:"trades,omitempty"`
+	// Amount of available trades matching criteria.
+	Count int `json:"count"`
 }
 
-// GetTradesHistoryResponse contains GetTradesHistory response data.
+// GetTradesHistory response.
 type GetTradesHistoryResponse struct {
 	common.KrakenSpotRESTResponse
-	Result *TradesHistory `json:"result,omitempty"`
+	Result *GetTradesHistoryResult `json:"result,omitempty"`
 }
