@@ -1,20 +1,33 @@
 package account
 
-// Enum for ledger entry types
-type LedgerEntryType string
+import "encoding/json"
 
-// Values for LedgerEntryType
+// Enum for ledger entry types
+type LedgerEntryTypeEnum string
+
+// Values for LedgerEntryTypeEnum
 const (
-	EntryTypeTrade      LedgerEntryType = "trade"
-	EntryTypeDeposit    LedgerEntryType = "deposit"
-	EntryTypeWithdrawal LedgerEntryType = "withdrawal"
-	EntryTypeTransfer   LedgerEntryType = "transfer"
-	EntryTypeMargin     LedgerEntryType = "margin"
-	EntryTypeRollover   LedgerEntryType = "rollover"
-	EntryTypeSpend      LedgerEntryType = "spend"
-	EntryTypeReceive    LedgerEntryType = "receive"
-	EntryTypeSettled    LedgerEntryType = "settled"
-	EntryTypeAdjustment LedgerEntryType = "adjustment"
+	EntryTypeNone            LedgerEntryTypeEnum = "none"
+	EntryTypeTrade           LedgerEntryTypeEnum = "trade"
+	EntryTypeDeposit         LedgerEntryTypeEnum = "deposit"
+	EntryTypeWithdrawal      LedgerEntryTypeEnum = "withdrawal"
+	EntryTypeTransfer        LedgerEntryTypeEnum = "transfer"
+	EntryTypeMargin          LedgerEntryTypeEnum = "margin"
+	EntryTypeAdjustment      LedgerEntryTypeEnum = "adjustment"
+	EntryTypeRollover        LedgerEntryTypeEnum = "rollover"
+	EntryTypeSpend           LedgerEntryTypeEnum = "spend"
+	EntryTypeReceive         LedgerEntryTypeEnum = "receive"
+	EntryTypeSettled         LedgerEntryTypeEnum = "settled"
+	EntryTypeCredit          LedgerEntryTypeEnum = "credit"
+	EntryTypeStaking         LedgerEntryTypeEnum = "staking"
+	EntryTypeReward          LedgerEntryTypeEnum = "reward"
+	EntryTypeDividend        LedgerEntryTypeEnum = "dividend"
+	EntryTypeSale            LedgerEntryTypeEnum = "sale"
+	EntryTypeConverion       LedgerEntryTypeEnum = "conversion"
+	EntryTypeNftTrade        LedgerEntryTypeEnum = "nfttrade"
+	EntryTypeNftCreatorFee   LedgerEntryTypeEnum = "nftcreatorfee"
+	EntryTypeNftRebate       LedgerEntryTypeEnum = "nftrebate"
+	EntryTypeCustodyTransfer LedgerEntryTypeEnum = "custodytransfer"
 )
 
 // LedgerEntry contains ledger entry data.
@@ -22,7 +35,7 @@ type LedgerEntry struct {
 	// Reference Id
 	ReferenceId string `json:"refid"`
 	// Unix timestamp of ledger
-	Timestamp float64 `json:"time"`
+	Timestamp json.Number `json:"time"`
 	// Type of ledger entry
 	Type string `json:"type"`
 	// Additional info relating to the ledger entry type, where applicable
@@ -32,9 +45,9 @@ type LedgerEntry struct {
 	// Asset
 	Asset string `json:"asset"`
 	// Transaction amount
-	Amount string `json:"amount"`
+	Amount json.Number `json:"amount"`
 	// Transaction fee
-	Fee string `json:"fee"`
+	Fee json.Number `json:"fee"`
 	// Resulting balance
-	Balance string `json:"balance"`
+	Balance json.Number `json:"balance"`
 }

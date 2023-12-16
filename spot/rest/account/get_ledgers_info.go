@@ -1,59 +1,73 @@
 package account
 
 import (
-	"time"
-
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
 )
 
 // Enum for LedgerInfoType
-type LedgerInfoType string
+type LedgerInfoTypeEnum string
 
-// Values for LedgerType
+// Values for LedgerInfoTypeEnum
 const (
-	LedgerAll        LedgerInfoType = "all"
-	LedgerDeposit    LedgerInfoType = "deposit"
-	LedgerWithdrawal LedgerInfoType = "withdrawal"
-	LedgerTrade      LedgerInfoType = "trade"
-	LedgerMargin     LedgerInfoType = "margin"
-	LedgerRollover   LedgerInfoType = "rollover"
-	LedgerCredit     LedgerInfoType = "credit"
-	LedgerTransfer   LedgerInfoType = "transfer"
-	LedgerSettled    LedgerInfoType = "settled"
-	LedgerStaking    LedgerInfoType = "staking"
-	LedgerSale       LedgerInfoType = "sale"
+	LedgerAll        LedgerInfoTypeEnum = "all"
+	LedgerTrade      LedgerInfoTypeEnum = "trade"
+	LedgerDeposit    LedgerInfoTypeEnum = "deposit"
+	LedgerWithdrawal LedgerInfoTypeEnum = "withdrawal"
+	LedgerTransfer   LedgerInfoTypeEnum = "transfer"
+	LedgerMargin     LedgerInfoTypeEnum = "margin"
+	LedgerAdjustment LedgerInfoTypeEnum = "adjustment"
+	LedgerRollover   LedgerInfoTypeEnum = "rollover"
+	LedgerCredit     LedgerInfoTypeEnum = "credit"
+	LedgerSettled    LedgerInfoTypeEnum = "settled"
+	LedgerStaking    LedgerInfoTypeEnum = "staking"
+	LedgerDividend   LedgerInfoTypeEnum = "dividend"
+	LedgerSale       LedgerInfoTypeEnum = "sale"
+	LedgerNftRebate  LedgerInfoTypeEnum = "nft_rebate"
 )
 
-// GetLedgersInfoOptions contains Get Ledgers Info optional parameters.
-type GetLedgersInfoOptions struct {
+// GetLedgersInfo request options.
+type GetLedgersInfoRequestOptions struct {
 	// List of assets to restrict output to.
-	// By default, all assets are accepted.
-	Assets []string
+	//
+	// An empty array means no filtering.
+	Assets []string `json:"assets,omitempty"`
 	// Asset class to restrict output to.
-	// Defaults to "currency".
-	AssetClass string
+	//
+	// Defaults to "currency". An empty string triggers the default behavior.
+	AssetClass string `json:"aclass,omitempty"`
 	// Type of ledger to retrieve.
-	// Defaults to "all".
-	// Values: "all" "deposit" "withdrawal" "trade" "margin" "rollover" "credit" "transfer" "settled" "staking" "sale"
-	Type string
-	// Starting unix timestamp or order tx ID of results (exclusive).
-	Start *time.Time
-	// Ending unix timestamp or order tx ID of results (inclusive).
-	End *time.Time
+	//
+	// Defaults to "all". An empty string triggers the default behavior. Cf. LedgerInfoTypeEnum for values.
+	Type string `json:"type,omitempty"`
+	// Starting unix timestamp or ledger ID of results (exclusive).
+	//
+	// An empty string means no fitlering.
+	Start string `json:"start,omitempty"`
+	// Ending unix timestamp or ledger ID of results (inclusive)
+	//
+	// An empty string means no fitlering.
+	End string `json:"end,omitempty"`
 	// Result offset for pagination.
-	Offset *int64
+	//
+	// A zero value means first items will be fetched.
+	Offset int64 `json:"ofs,omitempty"`
+	// If true, does not retrieve count of ledger entries. Request can be noticeably faster for users
+	// with many ledger entries as this avoids an extra database query.
+	//
+	// Defaults to false.
+	WithoutCount bool `json:"without_count,omitempty"`
 }
 
-// Ledgers info
-type LedgersInfo struct {
+// GetLedgersInfo result.
+type LedgersInfoResult struct {
 	// Map where each key is a ledger entry ID and value a ledger entry
-	Ledgers map[string]LedgerEntry `json:"ledger"`
+	Ledgers map[string]LedgerEntry `json:"ledger,omitempty"`
 	// Amount of available ledger info matching criteria
 	Count int `json:"count"`
 }
 
-// GetLedgersInfoResponse contains GetLedgersInfo response data.
+// GetLedgersInfo response.
 type GetLedgersInfoResponse struct {
 	common.KrakenSpotRESTResponse
-	Result *LedgersInfo `json:"result,omitempty"`
+	Result *LedgersInfoResult `json:"result,omitempty"`
 }
