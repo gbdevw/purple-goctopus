@@ -26,7 +26,7 @@ type EditOrderRequestParameters struct {
 }
 
 // EditOrder request options
-type EditOrderOptions struct {
+type EditOrderRequestOptions struct {
 	// New user reference id. Userref from parent order will
 	// not be retained on the new order after edit.
 	//

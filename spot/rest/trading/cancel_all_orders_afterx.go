@@ -7,7 +7,7 @@ import (
 )
 
 // CancelAllOrdersAfterX request parameters
-type CancelCancelAllOrdersAfterXRequestParameters struct {
+type CancelAllOrdersAfterXRequestParameters struct {
 	// Duration (in seconds) to set/extend the timer by
 	Timeout int64 `json:"timeout"`
 }

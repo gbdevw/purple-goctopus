@@ -7,6 +7,7 @@ import (
 	"github.com/gbdevw/purple-goctopus/spot/rest/account"
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
 	"github.com/gbdevw/purple-goctopus/spot/rest/market"
+	"github.com/gbdevw/purple-goctopus/spot/rest/trading"
 )
 
 /*************************************************************************************************/
@@ -886,14 +887,19 @@ type KrakenSpotRESTClientIface interface {
 	// RESUME HERE
 	// # Description
 	//
-	// GetSystemStatus - Get the current system status or trading mode.
+	// AddOrder - Place a new order.
 	//
 	// # Inputs
 	//
-	//	- ctx: Context used for tracing and coordination purpose
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- nonce: Nonce used to sign request.
+	//	- params: AddOrder request parameters.
+	//	- opts: AddOrder request options. A nil value triggers all default behaviors.
+	//	- secopts: Security options to use for the API call (2FA, ...)
 	//
 	// # Returns
-	//	- GetSystemStatusResponse: The parsed response from Kraken API.
+	//
+	//	- AddOrderResponse: The parsed response from Kraken API.
 	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
 	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
 	//
@@ -914,17 +920,21 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	AddOrder(ctx context.Context, params AddOrderParameters, opts *AddOrderOptions, secopts *SecurityOptions) (*AddOrderResponse, error)
+	AddOrder(ctx context.Context, nonce int64, params trading.AddOrderRequestParameters, opts *trading.AddOrderRequestOptions, secopts *common.SecurityOptions) (*trading.AddOrderResponse, *http.Response, error)
 	// # Description
 	//
-	// GetSystemStatus - Get the current system status or trading mode.
+	// AddOrderBatch - Get the current system status or trading mode.
 	//
 	// # Inputs
 	//
-	//	- ctx: Context used for tracing and coordination purpose
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- nonce: Nonce used to sign request.
+	//	- params: AddOrderBatch request parameters.
+	//	- opts: AddOrderBatch request options. A nil value triggers all default behaviors.
+	//	- secopts: Security options to use for the API call (2FA, ...)
 	//
 	// # Returns
-	//	- GetSystemStatusResponse: The parsed response from Kraken API.
+	//	- AddOrderBatchResponse: The parsed response from Kraken API.
 	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
 	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
 	//
@@ -945,17 +955,26 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	AddOrderBatch(ctx context.Context, params AddOrderBatchParameters, opts *AddOrderBatchOptions, secopts *SecurityOptions) (*AddOrderBatchResponse, error)
+	AddOrderBatch(ctx context.Context, nonce int64, params trading.AddOrderBatchRequestParameters, opts *trading.AddOrderBatchOptions, secopts *common.SecurityOptions) (*trading.AddOrderBatchResponse, *http.Response, error)
 	// # Description
 	//
-	// GetSystemStatus - Get the current system status or trading mode.
+	// EditOrder - Edit volume and price on open orders. Uneditable orders include triggered
+	// stop/profit orders, orders with conditional close terms attached, those already cancelled
+	// or filled, and those where the executed volume is greater than the newly supplied volume.
+	// post-only flag is not retained from original order after successful edit. post-only needs
+	// to be explicitly set on edit request.
 	//
 	// # Inputs
 	//
-	//	- ctx: Context used for tracing and coordination purpose
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- nonce: Nonce used to sign request.
+	//	- params: EditOrder request parameters.
+	//	- opts: EditOrder request options. A nil value triggers all default behaviors.
+	//	- secopts: Security options to use for the API call (2FA, ...)
 	//
 	// # Returns
-	//	- GetSystemStatusResponse: The parsed response from Kraken API.
+	//
+	//	- EditOrderResponse: The parsed response from Kraken API.
 	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
 	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
 	//
@@ -976,17 +995,21 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	EditOrder(ctx context.Context, params EditOrderParameters, opts *EditOrderOptions, secopts *SecurityOptions) (*EditOrderResponse, error)
+	EditOrder(ctx context.Context, nonce int64, params trading.EditOrderRequestParameters, opts *trading.EditOrderRequestOptions, secopts *common.SecurityOptions) (*trading.EditOrderResponse, *http.Response, error)
 	// # Description
 	//
-	// GetSystemStatus - Get the current system status or trading mode.
+	// CancelOrder - Cancel a particular open order (or set of open orders) by txid or userref.
 	//
 	// # Inputs
 	//
-	//	- ctx: Context used for tracing and coordination purpose
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- nonce: Nonce used to sign request.
+	//	- params: CancelOrder request parameters.
+	//	- secopts: Security options to use for the API call (2FA, ...)
 	//
 	// # Returns
-	//	- GetSystemStatusResponse: The parsed response from Kraken API.
+	//
+	//	- CancelOrderResponse: The parsed response from Kraken API.
 	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
 	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
 	//
@@ -1007,17 +1030,20 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	CancelOrder(ctx context.Context, params CancelOrderParameters, secopts *SecurityOptions) (*CancelOrderResponse, error)
+	CancelOrder(ctx context.Context, nonce int64, params trading.CancelOrderRequestParameters, secopts *common.SecurityOptions) (*trading.CancelOrderResponse, *http.Response, error)
 	// # Description
 	//
-	// GetSystemStatus - Get the current system status or trading mode.
+	// CancelAllOrders - Cancel all open orders.
 	//
 	// # Inputs
 	//
-	//	- ctx: Context used for tracing and coordination purpose
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- nonce: Nonce used to sign request.
+	//	- secopts: Security options to use for the API call (2FA, ...)
 	//
 	// # Returns
-	//	- GetSystemStatusResponse: The parsed response from Kraken API.
+	//
+	//	- CancelAllOrdersResponse: The parsed response from Kraken API.
 	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
 	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
 	//
@@ -1038,17 +1064,34 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	CancelAllOrders(ctx context.Context, secopts *SecurityOptions) (*CancelAllOrdersResponse, error)
+	CancelAllOrders(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (*trading.CancelAllOrdersResponse, *http.Response, error)
 	// # Description
 	//
-	// GetSystemStatus - Get the current system status or trading mode.
+	// CancelAllOrdersAfterX - CancelAllOrdersAfter provides a "Dead Man's Switch" mechanism to
+	// protect the client from network malfunction, extreme latency or unexpected matching engine
+	// downtime. The client can send a request with a timeout (in seconds), that will start a
+	// countdown timer which will cancel all client orders when the timer expires. The client has
+	// to keep sending new requests to push back the trigger time, or deactivate the mechanism by
+	// specifying a timeout of 0. If the timer expires, all orders are cancelled and then the timer
+	// remains disabled until the client provides a new (non-zero) timeout.
+	//
+	// The recommended use is to make a call every 15 to 30 seconds, providing a timeout of 60
+	// seconds. This allows the client to keep the orders in place in case of a brief disconnection
+	// or transient delay, while keeping them safe in case of a network breakdown. It is also
+	// recommended to disable the timer ahead of regularly scheduled trading engine maintenance (if
+	// the timer is enabled, all orders will be cancelled when the trading engine comes back from
+	// downtime - planned or otherwise).
 	//
 	// # Inputs
 	//
-	//	- ctx: Context used for tracing and coordination purpose
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- nonce: Nonce used to sign request.
+	//	- params: CancelAllOrdersAfterX request parameters.
+	//	- secopts: Security options to use for the API call (2FA, ...)
 	//
 	// # Returns
-	//	- GetSystemStatusResponse: The parsed response from Kraken API.
+	//
+	//	- CancelAllOrdersAfterXResponse: The parsed response from Kraken API.
 	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
 	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
 	//
@@ -1069,17 +1112,20 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	CancelAllOrdersAfterX(ctx context.Context, params CancelCancelAllOrdersAfterXParameters, secopts *SecurityOptions) (*CancelAllOrdersAfterXResponse, error)
+	CancelAllOrdersAfterX(ctx context.Context, nonce int64, params trading.CancelAllOrdersAfterXRequestParameters, secopts *common.SecurityOptions) (*trading.CancelAllOrdersAfterXResponse, *http.Response, error)
 	// # Description
 	//
-	// GetSystemStatus - Get the current system status or trading mode.
+	// CancelOrderBatch - Cancel multiple open orders by txid or userref (maximum 50 total unique IDs/references)
 	//
 	// # Inputs
 	//
-	//	- ctx: Context used for tracing and coordination purpose
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- nonce: Nonce used to sign request.
+	//	- params: CancelOrderBatch request parameters.
+	//	- secopts: Security options to use for the API call (2FA, ...)
 	//
 	// # Returns
-	//	- GetSystemStatusResponse: The parsed response from Kraken API.
+	//	- CancelOrderBatchResponse: The parsed response from Kraken API.
 	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
 	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
 	//
@@ -1100,7 +1146,7 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	CancelOrderBatch(ctx context.Context, params CancelOrderBatchParameters, secopts *SecurityOptions) (*CancelOrderBatchResponse, error)
+	CancelOrderBatch(ctx context.Context, nonce int64, params trading.CancelOrderBatchRequestParameters, secopts *common.SecurityOptions) (*trading.CancelOrderBatchResponse, *http.Response, error)
 	// # Description
 	//
 	// GetSystemStatus - Get the current system status or trading mode.
