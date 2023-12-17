@@ -6,6 +6,7 @@ import (
 
 	"github.com/gbdevw/purple-goctopus/spot/rest/account"
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
+	"github.com/gbdevw/purple-goctopus/spot/rest/funding"
 	"github.com/gbdevw/purple-goctopus/spot/rest/market"
 	"github.com/gbdevw/purple-goctopus/spot/rest/trading"
 )
@@ -1125,6 +1126,7 @@ type KrakenSpotRESTClientIface interface {
 	//	- secopts: Security options to use for the API call (2FA, ...)
 	//
 	// # Returns
+	//
 	//	- CancelOrderBatchResponse: The parsed response from Kraken API.
 	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
 	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
@@ -1149,14 +1151,18 @@ type KrakenSpotRESTClientIface interface {
 	CancelOrderBatch(ctx context.Context, nonce int64, params trading.CancelOrderBatchRequestParameters, secopts *common.SecurityOptions) (*trading.CancelOrderBatchResponse, *http.Response, error)
 	// # Description
 	//
-	// GetSystemStatus - Get the current system status or trading mode.
+	// GetDepositMethods - Retrieve methods available for depositing a particular asset.
 	//
 	// # Inputs
 	//
-	//	- ctx: Context used for tracing and coordination purpose
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- nonce: Nonce used to sign request.
+	//	- params: CancelOrderBatch request parameters.
+	//	- secopts: Security options to use for the API call (2FA, ...)
 	//
 	// # Returns
-	//	- GetSystemStatusResponse: The parsed response from Kraken API.
+	//
+	//	- GetDepositMethodsResponse: The parsed response from Kraken API.
 	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
 	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
 	//
@@ -1177,17 +1183,22 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	GetDepositMethods(ctx context.Context, params GetDepositMethodsParameters, secopts *SecurityOptions) (*GetDepositMethodsResponse, error)
+	GetDepositMethods(ctx context.Context, nonce int64, params funding.GetDepositMethodsRequestParameters, secopts *common.SecurityOptions) (*funding.GetDepositMethodsResponse, *http.Response, error)
 	// # Description
 	//
-	// GetSystemStatus - Get the current system status or trading mode.
+	// GetDepositAddresses - Retrieve (or generate a new) deposit addresses for a particular asset and method.
 	//
 	// # Inputs
 	//
-	//	- ctx: Context used for tracing and coordination purpose
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- nonce: Nonce used to sign request.
+	//	- params: GetDepositAddresses request parameters.
+	//	- opts: GetDepositAddresses request options. A nil value triggers all default behaviors.
+	//	- secopts: Security options to use for the API call (2FA, ...)
 	//
 	// # Returns
-	//	- GetSystemStatusResponse: The parsed response from Kraken API.
+	//
+	//	- GetDepositAddressesResponse: The parsed response from Kraken API.
 	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
 	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
 	//
@@ -1208,17 +1219,23 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	GetDepositAddresses(ctx context.Context, params GetDepositAddressesParameters, opts *GetDepositAddressesOptions, secopts *SecurityOptions) (*GetDepositAddressesResponse, error)
+	GetDepositAddresses(ctx context.Context, nonce int64, params funding.GetDepositAddressesRequestParameters, opts *funding.GetDepositAddressesRequestOptions, secopts *common.SecurityOptions) (*funding.GetDepositAddressesResponse, *http.Response, error)
 	// # Description
 	//
-	// GetSystemStatus - Get the current system status or trading mode.
+	// GetStatusOfRecentDeposits - Retrieve information about recent deposits. Results are sorted
+	// by recency, use the cursor parameter to iterate through list of deposits (page size equal
+	//	to value of limit) from newest to oldest.
 	//
 	// # Inputs
 	//
-	//	- ctx: Context used for tracing and coordination purpose
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- nonce: Nonce used to sign request.
+	//	- opts: GetStatusOfRecentDeposits request options. A nil value triggers all default behaviors.
+	//	- secopts: Security options to use for the API call (2FA, ...)
 	//
 	// # Returns
-	//	- GetSystemStatusResponse: The parsed response from Kraken API.
+	//
+	//	- GetStatusOfRecentDepositsResponse: The parsed response from Kraken API.
 	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
 	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
 	//
@@ -1239,17 +1256,21 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	GetStatusOfRecentDeposits(ctx context.Context, params GetStatusOfRecentDepositsParameters, opts *GetStatusOfRecentDepositsOptions, secopts *SecurityOptions) (*GetStatusOfRecentDepositsResponse, error)
+	GetStatusOfRecentDeposits(ctx context.Context, nonce int64, opts *funding.GetStatusOfRecentDepositsRequestOptions, secopts *common.SecurityOptions) (*funding.GetStatusOfRecentDepositsResponse, *http.Response, error)
 	// # Description
 	//
-	// GetSystemStatus - Get the current system status or trading mode.
+	// GetWithdrawalMethods - Retrieve a list of withdrawal addresses available for the user.
 	//
 	// # Inputs
 	//
-	//	- ctx: Context used for tracing and coordination purpose
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- nonce: Nonce used to sign request.
+	//	- opts: GetWithdrawalMethods request options.
+	//	- secopts: Security options to use for the API call (2FA, ...)
 	//
 	// # Returns
-	//	- GetSystemStatusResponse: The parsed response from Kraken API.
+	//
+	//	- GetWithdrawalMethodsResponse: The parsed response from Kraken API.
 	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
 	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
 	//
@@ -1270,17 +1291,21 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	GetWithdrawalInformation(ctx context.Context, params GetWithdrawalInformationParameters, secopts *SecurityOptions) (*GetWithdrawalInformationResponse, error)
+	GetWithdrawalMethods(ctx context.Context, nonce int64, opts *funding.GetWithdrawalMethodsRequestOptions, secopts *common.SecurityOptions) (*funding.GetWithdrawalMethodsResponse, *http.Response, error)
 	// # Description
 	//
-	// GetSystemStatus - Get the current system status or trading mode.
+	// GetWithdrawalAddresses - Retrieve a list of withdrawal addresses available for the user.
 	//
 	// # Inputs
 	//
-	//	- ctx: Context used for tracing and coordination purpose
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- nonce: Nonce used to sign request.
+	//	- opts: GetWithdrawalAddresses request options.
+	//	- secopts: Security options to use for the API call (2FA, ...)
 	//
 	// # Returns
-	//	- GetSystemStatusResponse: The parsed response from Kraken API.
+	//
+	//	- GetWithdrawalAddressesResponse: The parsed response from Kraken API.
 	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
 	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
 	//
@@ -1301,17 +1326,21 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	WithdrawFunds(ctx context.Context, params WithdrawFundsParameters, secopts *SecurityOptions) (*WithdrawFundsResponse, error)
+	GetWithdrawalAddresses(ctx context.Context, nonce int64, opts *funding.GetWithdrawalAddressesRequestOptions, secopts *common.SecurityOptions) (*funding.GetWithdrawalAddressesResponse, *http.Response, error)
 	// # Description
 	//
-	// GetSystemStatus - Get the current system status or trading mode.
+	// GetWithdrawalInformation - Retrieve a list of withdrawal methods available for the user.
 	//
 	// # Inputs
 	//
-	//	- ctx: Context used for tracing and coordination purpose
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- nonce: Nonce used to sign request.
+	//	- params: GetWithdrawalInformation request parameters.
+	//	- secopts: Security options to use for the API call (2FA, ...)
 	//
 	// # Returns
-	//	- GetSystemStatusResponse: The parsed response from Kraken API.
+	//
+	//	- GetWithdrawalInformationResponse: The parsed response from Kraken API.
 	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
 	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
 	//
@@ -1332,17 +1361,22 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	GetStatusOfRecentWithdrawals(ctx context.Context, params GetStatusOfRecentWithdrawalsParameters, opts *GetStatusOfRecentWithdrawalsOptions, secopts *SecurityOptions) (*GetStatusOfRecentWithdrawalsResponse, error)
+	GetWithdrawalInformation(ctx context.Context, nonce int64, params funding.GetWithdrawalInformationRequestParameters, secopts *common.SecurityOptions) (*funding.GetWithdrawalInformationResponse, *http.Response, error)
 	// # Description
 	//
-	// GetSystemStatus - Get the current system status or trading mode.
+	// WithdrawFunds - Make a withdrawal request.
 	//
 	// # Inputs
 	//
-	//	- ctx: Context used for tracing and coordination purpose
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- nonce: Nonce used to sign request.
+	//	- params: WithdrawFunds request parameters.
+	//	- opts: WithdrawFunds request options. A nil value triggers all default behaviors.
+	//	- secopts: Security options to use for the API call (2FA, ...)
 	//
 	// # Returns
-	//	- GetSystemStatusResponse: The parsed response from Kraken API.
+	//
+	//	- WithdrawFundsResponse: The parsed response from Kraken API.
 	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
 	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
 	//
@@ -1363,17 +1397,23 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	RequestWithdrawalCancellation(ctx context.Context, params RequestWithdrawalCancellationParameters, secopts *SecurityOptions) (*RequestWithdrawalCancellationResponse, error)
+	WithdrawFunds(ctx context.Context, nonce int64, params funding.WithdrawFundsRequestParameters, opts *funding.WithdrawFundsRequestOptions, secopts *common.SecurityOptions) (*funding.WithdrawFundsResponse, *http.Response, error)
 	// # Description
 	//
-	// GetSystemStatus - Get the current system status or trading mode.
+	// GetStatusOfRecentWithdrawals - Retrieve information about recent withdrawals. Results are
+	// sorted by recency, use the cursor parameter to iterate through list of withdrawals (page
+	// size equal to value of limit) from newest to oldest.
 	//
 	// # Inputs
 	//
-	//	- ctx: Context used for tracing and coordination purpose
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- nonce: Nonce used to sign request.
+	//	- opts: GetStatusOfRecentWithdrawals request options. A nil value triggers all default behaviors.
+	//	- secopts: Security options to use for the API call (2FA, ...)
 	//
 	// # Returns
-	//	- GetSystemStatusResponse: The parsed response from Kraken API.
+	//
+	//	- GetStatusOfRecentWithdrawalsResponse: The parsed response from Kraken API.
 	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
 	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
 	//
@@ -1394,5 +1434,75 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	RequestWalletTransfer(ctx context.Context, params RequestWalletTransferParameters, secopts *SecurityOptions) (*RequestWalletTransferResponse, error)
+	GetStatusOfRecentWithdrawals(ctx context.Context, nonce int64, opts *funding.GetStatusOfRecentWithdrawalsRequestOptions, secopts *common.SecurityOptions) (*funding.GetStatusOfRecentWithdrawalsResponse, *http.Response, error)
+	// # Description
+	//
+	// RequestWithdrawalCancellation - Cancel a recently requested withdrawal, if it has not already been successfully processed.
+	//
+	// # Inputs
+	//
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- nonce: Nonce used to sign request.
+	//	- params: RequestWithdrawalCancellation request parameters.
+	//	- secopts: Security options to use for the API call (2FA, ...)
+	//
+	// # Returns
+	//	- RequestWithdrawalCancellationResponse: The parsed response from Kraken API.
+	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
+	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+	//
+	// # Note on error
+	//
+	// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+	// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+	// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+	// when context has expired.
+	//
+	// An nil error does not mean everything is OK: You also have to check the response error field for specific
+	// errors from Kraken API.
+	//
+	// # Note on the http.Response
+	//
+	// A reference to the received http.Response is always returned but it may be nil if no response was received.
+	// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+	// to extract the metadata (or any other kind of data that are not used by the API client directly).
+	//
+	// Please note response body will always be closed except for RetrieveDataExport.
+	RequestWithdrawalCancellation(ctx context.Context, nonce int64, params funding.RequestWithdrawalCancellationRequestParameters, secopts *common.SecurityOptions) (*funding.RequestWithdrawalCancellationResponse, *http.Response, error)
+	// # Description
+	//
+	// RequestWalletTransfer - Transfer from a Kraken spot wallet to a Kraken Futures wallet. Note that a
+	// transfer in the other direction must be requested via the Kraken Futures API endpoint for
+	// withdrawals to Spot wallets.
+	//
+	// # Inputs
+	//
+	//	- ctx: Context used for tracing and coordination purpose.
+	//	- nonce: Nonce used to sign request.
+	//	- params: RequestWalletTransfer request parameters.
+	//	- secopts: Security options to use for the API call (2FA, ...)
+	//
+	// # Returns
+	//	- RequestWalletTransferResponse: The parsed response from Kraken API.
+	//	- http.Response: A reference to the raw HTTP response received from Kraken API.
+	//	- error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+	//
+	// # Note on error
+	//
+	// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+	// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+	// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+	// when context has expired.
+	//
+	// An nil error does not mean everything is OK: You also have to check the response error field for specific
+	// errors from Kraken API.
+	//
+	// # Note on the http.Response
+	//
+	// A reference to the received http.Response is always returned but it may be nil if no response was received.
+	// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+	// to extract the metadata (or any other kind of data that are not used by the API client directly).
+	//
+	// Please note response body will always be closed except for RetrieveDataExport.
+	RequestWalletTransfer(ctx context.Context, nonce int64, params funding.RequestWalletTransferRequestParameters, secopts *common.SecurityOptions) (*funding.RequestWalletTransferResponse, *http.Response, error)
 }
