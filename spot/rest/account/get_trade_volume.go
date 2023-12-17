@@ -34,16 +34,10 @@ type GetTradeVolumeResult struct {
 	FeesMaker map[string]FeeTierInfo `json:"fees_maker"`
 }
 
-// GetTradeVolume request parameters.
-type GetTradeVolumeRequestParameters struct {
-	// List of asset pairs to get fee info on.
-	Pairs []string
-}
-
 // GetTradeVolume request options.
 type GetTradeVolumeRequestOptions struct {
-	// Whether or not to include fee info in results
-	FeeInfo bool
+	// List of asset pairs to get fee info on.
+	Pairs []string
 }
 
 // GetTradeVolume response.

@@ -1,4 +1,4 @@
-package spotex
+package rest
 
 import (
 	"crypto/hmac"

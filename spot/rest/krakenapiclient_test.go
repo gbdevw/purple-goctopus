@@ -1,4 +1,4 @@
-package spotex
+package rest
 
 import (
 	"encoding/base64"
