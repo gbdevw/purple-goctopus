@@ -2,15 +2,6 @@ package account
 
 import "github.com/gbdevw/purple-goctopus/spot/rest/common"
 
-// Enum for report deletion type
-type ReportDeletionEnum string
-
-// Values for ReportDeletionEnum
-const (
-	DeleteReport ReportDeletionEnum = "delete"
-	CancelReport ReportDeletionEnum = "cancel"
-)
-
 // DeleteExportReport request parameters.
 type DeleteExportReportRequestParameters struct {
 	// Report ID to delete or cancel.

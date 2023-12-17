@@ -6,25 +6,6 @@ import (
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
 )
 
-// Enum for report types
-type ReportTypeEnum string
-
-// Values for ReportTypeEnum
-const (
-	ReportTrades  ReportTypeEnum = "trades"
-	ReportLedgers ReportTypeEnum = "ledgers"
-)
-
-// Enum for report export status
-type ReportStatusEnum string
-
-// Values for ReportStatusEnum
-const (
-	Queued     ReportStatusEnum = "Queued"
-	Processing ReportStatusEnum = "Processing"
-	Processed  ReportStatusEnum = "Processed"
-)
-
 // GetExportReportStatus request parameters.
 type GetExportReportStatusRequestParameters struct {
 	// Type of reports to inquire about.

@@ -1,13 +1,15 @@
 package account
 
-// RetrieveDataExportParameters contains Retrieve Data Export required parameters.
+import "io"
+
+// RetrieveDataExport request parameters.
 type RetrieveDataExportParameters struct {
 	// Report ID to retrieve
-	Id string
+	Id string `json:"id"`
 }
 
-// RetrieveDataExportResponse contains Retrieve Data Export response data.
+// RetrieveDataExport response.
 type RetrieveDataExportResponse struct {
-	// Binary zip archive containing the report
-	Report []byte
+	// Reader (tied to http.Response body) which can be used to download the zip archive which contains data.
+	Report io.Reader
 }

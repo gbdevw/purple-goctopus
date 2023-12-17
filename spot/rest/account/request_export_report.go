@@ -1,55 +1,35 @@
 package account
 
 import (
-	"time"
-
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
 )
 
-// Enum for report types
-type ReportType string
-
-// Values for ReportType
-const (
-	Trades  ReportType = "trades"
-	Ledgers ReportType = "ledgers"
-)
-
-// Enum for report formats
-type ReportFormat string
-
-// Values for report formats
-const (
-	CSV ReportFormat = "CSV"
-	TSV ReportFormat = "TSV"
-)
-
-// RequestExportReportParameters contains Request Export Report required parameters.
-type RequestExportReportParameters struct {
-	// Type of data to export
-	// Values: "trades", "ledgers"
-	Report string
+// RequestExportReport request parameters.
+type RequestExportReportRequestParameters struct {
+	// Type of data to export. Cf ReportTypeEnum for values.
+	Report string `json:"report"`
 	// Description for the export
-	Description string
+	Description string `json:"description"`
 }
 
-// RequestExportReportOptions contains Request Export Report optional parameters.
-type RequestExportReportOptions struct {
-	// File format to export.
-	// Defaults to "CSV".
-	// Values: "CSV" "TSV"
-	Format string
-	// List of fields to include.
-	// Defaults to all
-	// Values for trades: ordertxid, time, ordertype, price, cost, fee, vol, margin, misc, ledgers
-	// Values for ledgers: refid, time, type, aclass, asset, amount, fee, balance
-	Fields []string
+// RequestExportReport request options.
+type RequestExportReportRequestOptions struct {
+	// File format to export. Cf. ReportFormatEnum for values.
+	//
+	// Defaults to "CSV". An empty string triggers the default behavior.
+	Format string `json:"format,omitempty"`
+	// List of fields to include. Cf ReportFieldsEnum for values and usage.
+	//
+	// Defaults to all. An empty value triggers the default behavior.
+	Fields []string `json:"fields,omitempty"`
 	// UNIX timestamp for report start time.
-	// Default 1st of the current month
-	StartTm *time.Time
+	//
+	// Default 1st of the current month. A zero value triggers default behavior.
+	StartTm int64 `json:"starttm,omitempty"`
 	// UNIX timestamp for report end time.
-	// Default: now
-	EndTm *time.Time
+	//
+	// Defaults to now. A zero value triggers default behavior.
+	EndTm int64 `json:"endtm,omitempty"`
 }
 
 // RequestExportReport Result
@@ -58,8 +38,8 @@ type RequestExportReportResult struct {
 	Id string `json:"id"`
 }
 
-// RequestExportReportResponse contains Request Export Report response data.
+// RequestExportReport response.
 type RequestExportReportResponse struct {
 	common.KrakenSpotRESTResponse
-	Result *RequestExportReportResult `json:"result"`
+	Result *RequestExportReportResult `json:"result,omitempty"`
 }
