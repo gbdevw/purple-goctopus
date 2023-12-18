@@ -13,216 +13,206 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
 /*****************************************************************************/
-/*																			 */
-/*	PRIVATE ENUMS															 */
-/*																			 */
+/*	API ENDPOINT PATHS													 	 */
 /*****************************************************************************/
 
-// Public endpoint names
+// Kraken spot REST API endpoints URL path
 const (
-	// Market Data endpoints - https://docs.kraken.com/rest/#tag/Market-Data
-	getServerTime         = "Time"
-	getSystemStatus       = "SystemStatus"
-	getAssetInfo          = "Assets"
-	getTradableAssetPairs = "AssetPairs"
-	getTickerInformation  = "Ticker"
-	getOHLCData           = "OHLC"
-	getOrderBook          = "Depth"
-	getRecentTrades       = "Trades"
-	getRecentSpreads      = "Spread"
-)
+	// Base URL
+	KrakenProductionV0BaseUrl = "https://api.kraken.com/0"
 
-// Private endpoint names
-const (
-	// User Data - https://docs.kraken.com/rest/#tag/User-Data
-	postGetAccountBalance     = "Balance"
-	postGetTradeBalance       = "TradeBalance"
-	postGetOpenOrders         = "OpenOrders"
-	postGetClosedOrders       = "ClosedOrders"
-	postQueryOrdersInfos      = "QueryOrders"
-	postGetTradesHistory      = "TradesHistory"
-	postQueryTradesInfo       = "QueryTrades"
-	postGetOpenPositions      = "OpenPositions"
-	postGetLedgersInfo        = "Ledgers"
-	postQueryLedgers          = "QueryLedgers"
-	postGetTradeVolume        = "TradeVolume"
-	postRequestExportReport   = "AddExport"
-	postGetExportReportStatus = "ExportStatus"
-	postRetrieveDataExport    = "RetrieveExport"
-	postDeleteExportReport    = "RemoveExport"
+	// Market Data
 
-	// User trading - https://docs.kraken.com/rest/#tag/User-Trading
-	postAddOrder              = "AddOrder"
-	postAddOrderBatch         = "AddOrderBatch"
-	postEditOrder             = "EditOrder"
-	postCancelOrder           = "CancelOrder"
-	postCancelAllOrders       = "CancelAll"
-	postCancelAllOrdersAfterX = "CancelAllOrdersAfter"
-	postCancelOrderBatch      = "CancelOrderBatch"
+	serverTimePath         = "/public/Time"
+	systemStatusPath       = "/public/SystemStatus"
+	assetInfoUrlPath       = "/public/Assets"
+	tradableAssetPairsPath = "/public/AssetPairs"
+	tickerInformationPath  = "/public/Ticker"
+	ohlcDataPath           = "/public/OHLC"
+	orderBookPath          = "/public/Depth"
+	recentTradesPath       = "/public/Trades"
+	recentSpreadsPath      = "/public/Spread"
 
-	// User Funding - https://docs.kraken.com/rest/#tag/User-Funding
-	postGetDepositMethods             = "DepositMethods"
-	postGetDepositAddresses           = "DepositAddresses"
-	postGetStatusOfRecentDeposits     = "DepositStatus"
-	postGetWithdrawalInformation      = "WithdrawInfo"
-	postWithdrawFunds                 = "Withdraw"
-	postGetStatusOfRecentWithdrawals  = "WithdrawStatus"
-	postRequestWithdrawalCancellation = "WithdrawCancel"
-	postRequestWalletTransfer         = "WalletTransfer"
+	// Account data
 
-	// User staking - https://docs.kraken.com/rest/#tag/User-Staking
-	postStakeAsset                    = "Stake"
-	postUnstakeAsset                  = "Unstake"
-	postListOfStakeableAssets         = "Staking/Assets"
-	postGetPendingStakingTransactions = "Staking/Pending"
-	postListOfStakingTransactions     = "Staking/Transactions"
+	getAccountBalancePath     = "/private/Balance"
+	getExtendedBalance        = "/private/BalanceEx"
+	getTradeBalancePath       = "/private/TradeBalance"
+	getOpenOrdersPath         = "/private/OpenOrders"
+	getClosedOrdersPath       = "/private/ClosedOrders"
+	queryOrdersInfosPath      = "/private/QueryOrders"
+	getTradesHistoryPath      = "/private/TradesHistory"
+	queryTradesInfoPath       = "/private/QueryTrades"
+	getOpenPositionsPath      = "/private/OpenPositions"
+	getLedgersInfoPath        = "/private/Ledgers"
+	queryLedgersPath          = "/private/QueryLedgers"
+	getTradeVolumePath        = "/private/TradeVolume"
+	requestExportReportPath   = "/private/AddExport"
+	getExportReportStatusPath = "/private/ExportStatus"
+	retrieveDataExportPath    = "/private/RetrieveExport"
+	deleteExportReportPath    = "/private/RemoveExport"
+
+	// Trading
+
+	addOrderPath              = "/private/AddOrder"
+	addOrderBatchPath         = "/private/AddOrderBatch"
+	editOrderPath             = "/private/EditOrder"
+	cancelOrderPath           = "/private/CancelOrder"
+	cancelAllOrdersPath       = "/private/CancelAll"
+	cancelAllOrdersAfterXPath = "/private/CancelAllOrdersAfter"
+	cancelOrderBatchPath      = "/private/CancelOrderBatch"
+
+	// User Funding
+
+	getDepositMethodsPath             = "/private/DepositMethods"
+	getDepositAddressesPath           = "/private/DepositAddresses"
+	getStatusOfRecentDepositsPath     = "/private/DepositStatus"
+	getWithdrawalMethodsPath          = "/private/WithdrawMethods"
+	getWithdrawalAddresses            = "/private/WithdrawAddress"
+	getWithdrawalInformationPath      = "/private/WithdrawInfo"
+	withdrawFundsPath                 = "/private/Withdraw"
+	getStatusOfRecentWithdrawalsPath  = "/private/WithdrawStatus"
+	requestWithdrawalCancellationPath = "/private/WithdrawCancel"
+	requestWalletTransferPath         = "/private/WalletTransfer"
+
+	// Earn
+	allocateEarnFundsPath     = "/private/Earn/Allocate"
+	deallocateEarnFundsPath   = "/private/Earn/Deallocate"
+	getAllocationStatusPath   = "/private/Earn/AllocateStatus"
+	getDeallocationStatusPath = "/private/Earn/DeallocateStatus"
+	listEarnStartegiesPath    = "/private/Earn/DeallocateStatus"
+	listEarnAllocationsPath   = "/private/Earn/DeallocateStatus"
 )
 
 // Headers managed by KrakenAPIClient
 const (
+	// Headers
+
 	managedHeaderContentType = "Content-Type"
 	managedHeaderUserAgent   = "User-Agent"
-	managedHeaderAPIKey      = "API-Key"
-	managedHeaderAPISign     = "API-Sign"
+
+	// Default value for User-Agent
+	DefaultUserAgent = "goctopus"
 )
 
 /*****************************************************************************/
-/*																			 */
-/*	KRAKEN API CLIENT FACTORIES												 */
-/*																			 */
+/* KRAKEN API CLIENT DEFINITIONS & FACTORIES                                 */
 /*****************************************************************************/
 
-// Interface which defines a method to get a nonce to sign a request
-type NonceGenerator interface {
-	GetNextNonce() int64
-}
-
-// Built-in default generator which uses unix timestamp as nonce
-type UnixtimestampBasedNonceGenerator struct {
-	// Mutex to prevent concurrency when generating the nonce
-	mu sync.Mutex
-}
-
-// Generate a nonce using a unix nansec timestamp
-func (gen *UnixtimestampBasedNonceGenerator) GetNextNonce() int64 {
-	// Lock mutex & defer unlock
-	gen.mu.Lock()
-	defer gen.mu.Unlock()
-	// Generate and return nonce
-	return time.Now().UnixNano()
-}
-
-// KrakenAPIClient represents a Kraken API Client connection
-type KrakenAPIClient struct {
-	// Base URL for Kraken Rest API
+// KrakenSpotRESTClient is a high-level client to use Kraken spot REST API. The
+// client implements KrakenSpotRESTClientIface.
+type KrakenSpotRESTClient struct {
+	// Base URL to use for Kraken spot REST API.
 	baseURL string
-	// Version number of the API
-	version string
-	// Value for the mandatory User-Agent header
+	// Value for the mandatory User-Agent header.
 	agent string
-	// API Key used to sign request
+	// API Key used to sign request.
 	key string
-	// Secret used to forge signature
+	// Secret used to forge signature.
 	secret []byte
-	// HTTP client used to perform API calls
+	// HTTP client used to perform API calls.
 	client *http.Client
-	// Nonce generator to use to get nonces used to sign requests
-	nonceGenerator NonceGenerator
-	// Kraken client interface
-	KrakenAPIClientIface
+	// Indicates whether private endpoints cna be used. Will be set to true if
+	// credentials are provided when creating the API client.
+	privateEndpointsEnabled bool
 }
 
-// Configurable options for Kraken REST API client
-type KrakenAPIClientOptions struct {
-	// Base URL for the API. Default to "https://api.kraken.com"
+// Configuration for KrakenSpotRESTClient.
+type KrakenSpotRESTClientConfiguration struct {
+	// Base URL for the API.
+	//
+	// If an empty string is used, defaults to "https://api.kraken.com/0"
 	BaseURL string
-	// Version of the API. Default to "0"
-	Version string
-	// Value for the mandatory User-Agent. Default to "Kragoc"
+	// Value for the mandatory User-Agent.
+	//
+	// If an empty string is used, defaults to "goctopus"
 	Agent string
 	// Low level HTTP client to use to perform API calls.
-	// Default to the default client provided by http package
+	//
+	// If nil, defaults to http.DefaultClient.
 	Client *http.Client
-	// Nonce generator to use
-	// By default, a nanosec unix timestamp is provided
-	NonceGenerator NonceGenerator
 }
 
-// Create a fully initiated KrakenAPIOptions struct with nice defaults
-//
-// return: KrakenAPIOptions struct with nice defaults
-func DefaultOptions() *KrakenAPIClientOptions {
-	return &KrakenAPIClientOptions{
-		BaseURL:        "https://api.kraken.com",
-		Version:        "0",
-		Agent:          "Kragoc",
-		Client:         http.DefaultClient,
-		NonceGenerator: &UnixtimestampBasedNonceGenerator{mu: sync.Mutex{}},
+// Credentials for KrakenSpotRESTClient.
+type KrakenSpotRESTClientCredentials struct {
+	// API Key used to sign request.
+	Key string
+	// Base64 encoded secret used to forge signature.
+	//
+	// Use the value provided when the API key has been created.
+	Secret string
+}
+
+// A factory which creates a new KrakenSpotRESTClientConfiguration with all its default values set.
+func NewDefaultKrakenSpotRESTClientConfiguration() *KrakenSpotRESTClientConfiguration {
+	return &KrakenSpotRESTClientConfiguration{
+		BaseURL: KrakenProductionV0BaseUrl,
+		Agent:   DefaultUserAgent,
+		Client:  http.DefaultClient,
 	}
 }
 
-// Create a new KrakenAPI client with default options and no credentials.
+// # Description
 //
-// Only public endpoints can be used with such client. Using private endpoints
-// will lead to errors because of invalid request signatures.
-func NewPublicWithDefaultOptions() *KrakenAPIClient {
-	return NewWithCredentialsAndOptions("", nil, DefaultOptions())
-}
-
-// Create a new KrakenAPI client with specific options and no credentials.
+// Factory for KrakenSpotRESTClient.
 //
-// Only public endpoints can be used with such client. Using private endpoints
-// will lead to errors because of invalid request signatures.
-func NewPublicWithOptions(options *KrakenAPIClientOptions) *KrakenAPIClient {
-	return NewWithCredentialsAndOptions("", nil, options)
-}
-
-// Create a new Kraken API client with default options and credentials
-// to use private endpoints.
-func NewWithCredentialsAndDefaultOptions(key string, secret []byte) *KrakenAPIClient {
-	return NewWithCredentialsAndOptions(key, secret, DefaultOptions())
-}
-
-// Create a new KrakenAPI client with specific options and credentials
-// to use private endpoints.
-func NewWithCredentialsAndOptions(key string, secret []byte, options *KrakenAPIClientOptions) *KrakenAPIClient {
-
-	// Override default options with defined options provided as input
-	defopts := DefaultOptions()
-	if options != nil {
-		if options.BaseURL != "" {
-			defopts.BaseURL = options.BaseURL
+// # Inputs
+//
+//   - cfg: KrakenSpotRESTClient configuration. A nil value means all default configuration options will be used.
+//   - creds: Credentials to use to sign requests to private endpoints. A nil value means only public endpoints can be used.
+//
+// # Returns
+//
+// The factory returns a fully initiated KrakenSpotRESTClient or nil in case of error.
+//
+// An error will be returned if:
+//   - The secret in the provided credentials cannot be base64 decoded.
+func NewKrakenSpotRESTClient(cfg *KrakenSpotRESTClientConfiguration, creds *KrakenSpotRESTClientCredentials) (*KrakenSpotRESTClient, error) {
+	// Handle configuration
+	defCfg := NewDefaultKrakenSpotRESTClientConfiguration()
+	if cfg != nil {
+		if cfg.BaseURL != "" {
+			defCfg.BaseURL = cfg.BaseURL
 		}
-		if options.Version != "" {
-			defopts.Version = options.Version
+		if cfg.Agent != "" {
+			defCfg.Agent = cfg.Agent
 		}
-		if options.Agent != "" {
-			defopts.Agent = options.Agent
-		}
-		if options.Client != nil {
-			defopts.Client = options.Client
-		}
-		if options.NonceGenerator != nil {
-			defopts.NonceGenerator = options.NonceGenerator
+		if cfg.Client != nil {
+			defCfg.Client = cfg.Client
 		}
 	}
-
-	// Build client
-	return &KrakenAPIClient{
-		key:            key,
-		secret:         secret,
-		agent:          defopts.Agent,
-		baseURL:        defopts.BaseURL,
-		version:        defopts.Version,
-		client:         defopts.Client,
-		nonceGenerator: defopts.NonceGenerator,
+	// Handle credentials
+	base64DecodedSecret := []byte{}
+	key := ""
+	if creds != nil {
+		// Base64 decode provided secret
+		var err error = nil
+		base64DecodedSecret, err = base64.StdEncoding.DecodeString(creds.Secret)
+		if err != nil {
+			// return error
+			return nil, fmt.Errorf("could not base64 decode provided secret for Kraken spot API: %w", err)
+		}
+		// Get key
+		key = creds.Key
 	}
+	// Build and return client
+	return &KrakenSpotRESTClient{
+		baseURL:                 defCfg.BaseURL,
+		agent:                   defCfg.Agent,
+		key:                     key,
+		secret:                  base64DecodedSecret,
+		client:                  defCfg.Client,
+		privateEndpointsEnabled: creds != nil,
+	}, nil
 }
+
+/*************************************************************************************************/
+/* API CLIENT UTILITIES (SIGNING, ...)                                                           */
+/*************************************************************************************************/
 
 /*****************************************************************************/
 /*                                                                           */
