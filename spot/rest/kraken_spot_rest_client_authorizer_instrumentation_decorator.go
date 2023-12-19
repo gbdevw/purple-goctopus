@@ -58,6 +58,8 @@ func (dec *KrakenSpotRESTClientAuthorizerInstrumentationDecorator) Authorize(ctx
 	// Start a span
 	ctx, span := dec.tracer.Start(ctx, "authorize", trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithAttributes(
+			// Do not trace otp nor the form body value nor the headers
+			// risk of sensitive informations leak
 			attribute.String("path", req.URL.Path),
 			attribute.String("nonce", req.FormValue("nonce")),
 		))

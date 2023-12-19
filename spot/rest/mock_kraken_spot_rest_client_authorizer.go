@@ -13,12 +13,15 @@ type MockKrakenSpotRESTClientAuthorizer struct {
 }
 
 // Factory which creates a new MockKrakenSpotRESTClientAuthorizer without any expectations set.
-func NewMockKrakenSpotRESTClientAuthorizerr() *MockKrakenSpotRESTClientAuthorizer {
+func NewMockKrakenSpotRESTClientAuthorizer() *MockKrakenSpotRESTClientAuthorizer {
 	return &MockKrakenSpotRESTClientAuthorizer{mock.Mock{}}
 }
 
 // Mocked GenerateNonce method
 func (m *MockKrakenSpotRESTClientAuthorizer) Authorize(ctx context.Context, req *http.Request) (*http.Request, error) {
 	args := m.Called(ctx, req)
-	return args.Get(0).(*http.Request), args.Error(1)
+	if args.Get(0) != nil {
+		return args.Get(0).(*http.Request), args.Error(1)
+	}
+	return nil, args.Error(1)
 }
