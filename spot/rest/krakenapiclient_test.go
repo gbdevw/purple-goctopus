@@ -23,10 +23,8 @@ type KrakenAPIClientUnitTestSuite struct {
 	srv *mockhttpserver.MockHTTPServer
 	// Kraken API client configured to use mock HTTP server
 	client *KrakenAPIClient
-	// Fake API key used for tests
-	key string
-	// Fake API Key secret used for tests
-	secret []byte
+	// Authorizer used to manage requests authorization
+	authorizer
 }
 
 // Run unit test suite

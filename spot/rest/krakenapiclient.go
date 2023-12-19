@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"go.opentelemetry.io/otel/trace"
 )
 
 /*****************************************************************************/
@@ -110,15 +112,10 @@ type KrakenSpotRESTClient struct {
 	baseURL string
 	// Value for the mandatory User-Agent header.
 	agent string
-	// API Key used to sign request.
-	key string
-	// Secret used to forge signature.
-	secret []byte
+	// Authorizer used to authorize requests to Kraken spot REST API.
+	authorizer KrakenSpotRESTClientAuthorizerIface
 	// HTTP client used to perform API calls.
 	client *http.Client
-	// Indicates whether private endpoints cna be used. Will be set to true if
-	// credentials are provided when creating the API client.
-	privateEndpointsEnabled bool
 }
 
 // Configuration for KrakenSpotRESTClient.
@@ -137,16 +134,6 @@ type KrakenSpotRESTClientConfiguration struct {
 	Client *http.Client
 }
 
-// Credentials for KrakenSpotRESTClient.
-type KrakenSpotRESTClientCredentials struct {
-	// API Key used to sign request.
-	Key string
-	// Base64 encoded secret used to forge signature.
-	//
-	// Use the value provided when the API key has been created.
-	Secret string
-}
-
 // A factory which creates a new KrakenSpotRESTClientConfiguration with all its default values set.
 func NewDefaultKrakenSpotRESTClientConfiguration() *KrakenSpotRESTClientConfiguration {
 	return &KrakenSpotRESTClientConfiguration{
@@ -158,12 +145,37 @@ func NewDefaultKrakenSpotRESTClientConfiguration() *KrakenSpotRESTClientConfigur
 
 // # Description
 //
+// A helper function which configures a KrakenSpotRESTClientAuthorizer to sign outgoing requests
+// with the provide key and secret and decorate it with an instrumentation decorator that will
+// use the provided tracerProvider to instrument code.
+//
+// # Inputs
+//
+//   - key: The API key used to sign requests
+//   - secret: The base64 encoded API key secret provided by Kraken and used to sign requests.
+//   - tracerProvider: TracerProvider to use to instrument code. If nil, global tracer provider will be used.
+//
+// # Returns
+//
+// The decorated authorizer or an error in case the provided secret cannot be base64 decoded.
+func WithInstrumentedAuthorizer(key string, secret string, tracerProvider trace.TracerProvider) (KrakenSpotRESTClientAuthorizerIface, error) {
+	// Create authorizer
+	auth, err := NewKrakenSpotRESTClientAuthorizer(key, secret)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create authorizer: %w", err)
+	}
+	// Decorate authorizer with an instrumentation decorator and return the decorator
+	return DecorateKrakenSpotRESTClientAuthorizer(auth, tracerProvider), nil
+}
+
+// # Description
+//
 // Factory for KrakenSpotRESTClient.
 //
 // # Inputs
 //
+//   - authorizer: Authorizer to use to authorize requests to Kraken spot REST API. Can be nil. See notes below on the Authorizer.
 //   - cfg: KrakenSpotRESTClient configuration. A nil value means all default configuration options will be used.
-//   - creds: Credentials to use to sign requests to private endpoints. A nil value means only public endpoints can be used.
 //
 // # Returns
 //
@@ -171,7 +183,26 @@ func NewDefaultKrakenSpotRESTClientConfiguration() *KrakenSpotRESTClientConfigur
 //
 // An error will be returned if:
 //   - The secret in the provided credentials cannot be base64 decoded.
-func NewKrakenSpotRESTClient(cfg *KrakenSpotRESTClientConfiguration, creds *KrakenSpotRESTClientCredentials) (*KrakenSpotRESTClient, error) {
+//
+// # Authorizer
+//
+// The authorizer is a separate component which manages the authorization and post-processing of outgoing HTTP requests
+// to the Kraken API (or other servers, proxies, ... depending on your settings).
+//
+// nil can be used as value for the authorizer: In this case, the API client will skip the request authorization and send the request.
+// This is useful when user only wants to use the public endpoints.
+//
+// The SDK provides an implementation of the authorizer which signs the outgoing HTTP request by using an API key and a base64 encoded
+// secret (cf KrakenSpotRESTClientAuthorizer). Both are provided by Kraken when the user generates an API key.
+//
+// See https://docs.kraken.com/rest/#section/Authentication/Headers-and-Signature for details about the signature.
+//
+// A helper function WithInstrumentedAuthorizer is provided to configure a KrakenSpotRESTClientAuthorizer instrumented with
+// the OpenTelemetry framework.
+//
+// More advanced use cases can require to customize the authorization logic (proxying, egress gateways, custom L7 rules, ...).
+// In this case, users can implement and provide their own authorizer implementation which satisfy their requirements.
+func NewKrakenSpotRESTClient(authorizer KrakenSpotRESTClientAuthorizerIface, cfg *KrakenSpotRESTClientConfiguration) *KrakenSpotRESTClient {
 	// Handle configuration
 	defCfg := NewDefaultKrakenSpotRESTClientConfiguration()
 	if cfg != nil {
@@ -185,34 +216,14 @@ func NewKrakenSpotRESTClient(cfg *KrakenSpotRESTClientConfiguration, creds *Krak
 			defCfg.Client = cfg.Client
 		}
 	}
-	// Handle credentials
-	base64DecodedSecret := []byte{}
-	key := ""
-	if creds != nil {
-		// Base64 decode provided secret
-		var err error = nil
-		base64DecodedSecret, err = base64.StdEncoding.DecodeString(creds.Secret)
-		if err != nil {
-			// return error
-			return nil, fmt.Errorf("could not base64 decode provided secret for Kraken spot API: %w", err)
-		}
-		// Get key
-		key = creds.Key
-	}
 	// Build and return client
 	return &KrakenSpotRESTClient{
-		baseURL:                 defCfg.BaseURL,
-		agent:                   defCfg.Agent,
-		key:                     key,
-		secret:                  base64DecodedSecret,
-		client:                  defCfg.Client,
-		privateEndpointsEnabled: creds != nil,
-	}, nil
+		baseURL:    defCfg.BaseURL,
+		agent:      defCfg.Agent,
+		authorizer: authorizer,
+		client:     defCfg.Client,
+	}
 }
-
-/*************************************************************************************************/
-/* API CLIENT UTILITIES (SIGNING, ...)                                                           */
-/*************************************************************************************************/
 
 /*****************************************************************************/
 /*                                                                           */
