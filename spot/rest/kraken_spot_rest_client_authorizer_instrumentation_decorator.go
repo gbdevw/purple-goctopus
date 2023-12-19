@@ -10,8 +10,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// A decorator for KrakenSpotRESTClientAuthorizer which manages code
-// instrumentation by using the OpenTelemetry framework.
+// A decorator for KrakenSpotRESTClientAuthorizer which manages code instrumentation by using the
+// OpenTelemetry framework.
 type KrakenSpotRESTClientAuthorizerInstrumentationDecorator struct {
 	// Decorated
 	decorated KrakenSpotRESTClientAuthorizerIface
@@ -22,7 +22,7 @@ type KrakenSpotRESTClientAuthorizerInstrumentationDecorator struct {
 // # Description
 //
 // Decorate the provided KrakenSpotRESTClientAuthorizerIface implementation. The function returns the decorator which
-// manages tracing and code instrumentation of the decorated.
+// manages tracing and code instrumentation of the decorated by using the OpenTelemetry framework.
 //
 // # Inputs
 //
