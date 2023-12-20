@@ -115,7 +115,7 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	GetAssetInfo(ctx context.Context, opts *market.GetAssetInfoRequestOptions) (*market.GetAssetInfoResponse, error)
+	GetAssetInfo(ctx context.Context, opts *market.GetAssetInfoRequestOptions) (*market.GetAssetInfoResponse, *http.Response, error)
 	// # Description
 	//
 	// GetTradableAssetPairs - Get tradable asset pairs
