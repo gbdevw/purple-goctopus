@@ -676,7 +676,7 @@ type KrakenSpotRESTClientIface interface {
 	GetLedgersInfo(ctx context.Context, nonce int64, opts *account.GetLedgersInfoRequestOptions, secopts *common.SecurityOptions) (*account.GetLedgersInfoResponse, *http.Response, error)
 	// # Description
 	//
-	// GetSystemStatus - Get the current system status or trading mode.
+	// QueryLedgers - Get the current system status or trading mode.
 	//
 	// # Inputs
 	//
