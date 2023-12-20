@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gbdevw/purple-goctopus/spot/rest/account"
+	"github.com/gbdevw/purple-goctopus/spot/rest/common"
 	"github.com/gbdevw/purple-goctopus/spot/rest/market"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -289,6 +291,7 @@ func (client *KrakenSpotRESTClient) forgeAndAuthorizeKrakenAPIRequest(
 //   - ctx: Context used for tracing and coordination purpose.
 //   - req: Request to authorize and send.
 //   - receiver: receiver that will be used to parse the JSON response for Kraken API. Can be nil if binary data are expected as response.
+//     In this case, the returned http.Response will not have its body closed so the reader associated to the response body can be used.
 //
 // # Returns
 //
@@ -856,572 +859,1106 @@ func (client *KrakenSpotRESTClient) GetRecentSpreads(ctx context.Context, params
 }
 
 /*****************************************************************************/
-/*																			 */
-/*	PRIVATE ENDPOINTS - USER DATA											 */
-/*																			 */
+/* KRAKEN API CLIENT: OPERATIONS - ACCOUNT DATA                              */
 /*****************************************************************************/
 
+// # Description
+//
 // GetAccountBalance - Retrieve all cash balances, net of pending withdrawals.
-func (client *KrakenSpotRESTClient) GetAccountBalance(secopts *SecurityOptions) (*GetAccountBalanceResponse, error) {
-
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - GetAccountBalanceResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) GetAccountBalance(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (*account.GetAccountBalanceResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
 	// Use 2FA if provided
-	otp := ""
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Perform request
-	resp, err := api.queryPrivate(postGetAccountBalance, http.MethodPost, nil, "", nil, nil, otp, &GetAccountBalanceResponse{})
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetAccountBalance: %w", err)
 	}
-
-	// Parse response
-	balances, ok := resp.(*GetAccountBalanceResponse)
-	if !ok {
-		return nil, fmt.Errorf("unexpected payload received from the server. Got %T : %v", resp, resp)
+	// Send the request
+	receiver := new(account.GetAccountBalanceResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for GetAccountBalance failed: %w", err)
 	}
-
-	// Return response
-	return balances, nil
+	// Return results
+	return receiver, resp, nil
 }
 
+// # Description
+//
+// GetExtendedBalance - Retrieve all extended account balances, including credits and held amounts. Balance available
+// for trading is calculated as: available balance = balance + credit - credit_used - hold_trade
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - GetExtendedBalanceResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) GetExtendedBalance(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (*account.GetExtendedBalanceResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
+	if secopts != nil {
+		form.Set("otp", secopts.SecondFactor)
+	}
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetExtendedBalance: %w", err)
+	}
+	// Send the request
+	receiver := new(account.GetExtendedBalanceResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for GetExtendedBalance failed: %w", err)
+	}
+	// Return results
+	return receiver, resp, nil
+}
+
+// # Description
+//
 // GetTradeBalance - Retrieve a summary of collateral balances, margin position valuations, equity and margin level.
-func (client *KrakenSpotRESTClient) GetTradeBalance(options *GetTradeBalanceOptions, secopts *SecurityOptions) (*GetTradeBalanceResponse, error) {
-
-	// Use security options with zero values if nil is provided for secopts
-	otp := ""
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - opts: GetTradeBalance request options. A nil value triggers all default behaviors.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - GetTradeBalanceResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) GetTradeBalance(ctx context.Context, nonce int64, opts *account.GetTradeBalanceRequestOptions, secopts *common.SecurityOptions) (*account.GetTradeBalanceResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Prepare body
-	body := url.Values{}
-	if options != nil {
-		if options.Asset != "" {
-			body.Set("asset", options.Asset)
+	// Add options
+	if opts != nil {
+		if opts.Asset != "" {
+			form.Set("asset", opts.Asset)
 		}
 	}
-
-	// Perform request
-	resp, err := api.queryPrivate(postGetTradeBalance, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &GetTradeBalanceResponse{})
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetTradeBalance: %w", err)
 	}
-
-	// Parse response
-	respBalances, ok := resp.(*GetTradeBalanceResponse)
-	if !ok {
-		return nil, fmt.Errorf("unexpected payload received from the server. Got %T : %v", resp, resp)
+	// Send the request
+	receiver := new(account.GetTradeBalanceResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for GetTradeBalance failed: %w", err)
 	}
-
-	// Return response
-	return respBalances, nil
+	// Return results
+	return receiver, resp, nil
 }
 
+// # Description
+//
 // GetOpenOrders - Retrieve information about currently open orders.
-func (client *KrakenSpotRESTClient) GetOpenOrders(options *GetOpenOrdersOptions, secopts *SecurityOptions) (*GetOpenOrdersResponse, error) {
-
-	// Use security options with zero values if nil is provided for secopts
-	otp := ""
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - opts: GetOpenOrders request options. A nil value triggers all default behaviors.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - GetOpenOrdersResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) GetOpenOrders(ctx context.Context, nonce int64, opts *account.GetOpenOrdersRequestOptions, secopts *common.SecurityOptions) (*account.GetOpenOrdersResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Prepare body
-	body := url.Values{}
-	if options != nil {
-		if options.Trades {
-			body.Set("trades", strconv.FormatBool(options.Trades))
+	// Add options
+	if opts != nil {
+		if opts.Trades {
+			form.Set("trades", strconv.FormatBool(opts.Trades))
 		}
-		if options.UserReference != nil {
-			body.Set("userref", strconv.FormatInt(*options.UserReference, 10))
+		if opts.UserReference != nil {
+			form.Set("userref", strconv.FormatInt(*opts.UserReference, 10))
 		}
 	}
-
-	// Perform request
-	resp, err := api.queryPrivate(postGetOpenOrders, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &GetOpenOrdersResponse{})
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetOpenOrders: %w", err)
 	}
-
-	// Parse response
-	orders, ok := resp.(*GetOpenOrdersResponse)
-	if !ok {
-		return nil, fmt.Errorf("unexpected payload received from the server. Got %T : %v", resp, resp)
+	// Send the request
+	receiver := new(account.GetOpenOrdersResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for GetOpenOrders failed: %w", err)
 	}
-
-	// Return response
-	return orders, nil
+	// Return results
+	return receiver, resp, nil
 }
 
-// GetClosedOrders -
-// Retrieve information about orders that have been closed (filled or cancelled).
-// 50 results are returned at a time, the most recent by default.
-func (client *KrakenSpotRESTClient) GetClosedOrders(options *GetClosedOrdersOptions, secopts *SecurityOptions) (*GetClosedOrdersResponse, error) {
-
-	// Use security options with zero values if nil is provided for secopts
-	otp := ""
+// # Description
+//
+// GetClosedOrders - Retrieve information about orders that have been closed (filled or cancelled). 50 results are returned at a time, the most recent by default.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - opts: GetClosedOrders request options. A nil value triggers all default behaviors.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - GetClosedOrdersResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) GetClosedOrders(ctx context.Context, nonce int64, opts *account.GetClosedOrdersOptions, secopts *common.SecurityOptions) (*account.GetClosedOrdersResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Prepare body
-	body := url.Values{}
-	if options != nil {
-		if options.Trades {
-			body.Set("trades", strconv.FormatBool(options.Trades))
+	// Add options
+	if opts != nil {
+		if opts.Trades {
+			form.Set("trades", strconv.FormatBool(opts.Trades))
 		}
-		if options.UserReference != nil {
-			body.Set("userref", strconv.FormatInt(*options.UserReference, 10))
+		if opts.UserReference != nil {
+			form.Set("userref", strconv.FormatInt(*opts.UserReference, 10))
 		}
-		if options.Start != nil {
-			body.Set("start", strconv.FormatInt(options.Start.Unix(), 10))
+		if opts.Start != "" {
+			form.Set("start", opts.Start)
 		}
-		if options.End != nil {
-			body.Set("end", strconv.FormatInt(options.End.Unix(), 10))
+		if opts.End != "" {
+			form.Set("end", opts.End)
 		}
-		if options.Offset != nil {
-			body.Set("ofs", strconv.FormatInt(*options.Offset, 10))
+		if opts.Offset != 0 {
+			form.Set("ofs", strconv.FormatInt(opts.Offset, 10))
 		}
-		if options.Closetime != "" {
-			body.Set("closetime", string(options.Closetime))
+		if opts.Closetime != "" {
+			form.Set("closetime", string(opts.Closetime))
+		}
+		if opts.ConsolidateTaker {
+			form.Set("consolidate_taker", strconv.FormatBool(opts.ConsolidateTaker))
 		}
 	}
-
-	// Perform request
-	resp, err := api.queryPrivate(postGetClosedOrders, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &GetClosedOrdersResponse{})
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetClosedOrders: %w", err)
 	}
-
-	// Parse response
-	orders, ok := resp.(*GetClosedOrdersResponse)
-	if !ok {
-		return nil, fmt.Errorf("unexpected payload received from the server. Got %T : %v", resp, resp)
+	// Send the request
+	receiver := new(account.GetClosedOrdersResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for GetClosedOrders failed: %w", err)
 	}
-
-	// Return response
-	return orders, nil
+	// Return results
+	return receiver, resp, nil
 }
 
+// # Description
+//
 // QueryOrdersInfo - Retrieve information about specific orders.
-func (client *KrakenSpotRESTClient) QueryOrdersInfo(params QueryOrdersParameters, options *QueryOrdersOptions, secopts *SecurityOptions) (*QueryOrdersInfoResponse, error) {
-
-	// Use security options with zero values if nil is provided for secopts
-	otp := ""
-	if secopts != nil {
-		otp = secopts.SecondFactor
-	}
-
-	// Prepare request body
-	body := url.Values{}
-	body.Set("txid", strings.Join(params.TransactionIds, ","))
-	if options != nil {
-		if options.Trades {
-			body.Set("trades", strconv.FormatBool(options.Trades))
-		}
-		if options.UserReference != nil {
-			body.Set("userref", strconv.FormatInt(*options.UserReference, 10))
-		}
-	}
-
-	// Request
-	resp, err := api.queryPrivate(postQueryOrdersInfos, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &QueryOrdersInfoResponse{})
-	if err != nil {
-		return nil, err
-	}
-
-	// Cast response
-	result, ok := resp.(*QueryOrdersInfoResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to QueryOrdersInfoResponse. Got %T : %v", resp, resp)
-	}
-
-	return result, nil
-}
-
-// GetTradesHistory -
-// Retrieve information about trades/fills.
-// 50 results are returned at a time, the most recent by default.
 //
-// Unless otherwise stated, costs, fees, prices, and volumes are specified with the precision for the asset pair
-// (pair_decimals and lot_decimals), not the individual assets' precision (decimals).
-func (client *KrakenSpotRESTClient) GetTradesHistory(options *GetTradesHistoryOptions, secopts *SecurityOptions) (*GetTradesHistoryResponse, error) {
-
-	// Use security options with zero values if nil is provided for secopts
-	otp := ""
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - params: QueryOrdersInfo request parameters.
+//   - opts: QueryOrdersInfo request options. A nil value triggers all default behaviors.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - QueryOrdersInfoResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) QueryOrdersInfo(ctx context.Context, nonce int64, params account.QueryOrdersInfoParameters, opts *account.QueryOrdersInfoRequestOptions, secopts *common.SecurityOptions) (*account.QueryOrdersInfoResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Use default options if none provided
-	if options == nil {
-		options = &GetTradesHistoryOptions{}
-	}
-	// Prepare request body
-	body := url.Values{}
-	if options != nil {
-		if options.Trades {
-			body.Set("trades", strconv.FormatBool(options.Trades))
+	// Add parameters
+	// Add transaction ids as a comma separated string
+	form.Set("txid", strings.Join(params.TxId, ","))
+	// Add options
+	if opts != nil {
+		if opts.Trades {
+			form.Set("trades", strconv.FormatBool(opts.Trades))
 		}
-		if options.Type != "" {
-			body.Set("type", string(options.Type))
+		if opts.UserReference != nil {
+			form.Set("userref", strconv.FormatInt(*opts.UserReference, 10))
 		}
-		if options.Start != nil {
-			body.Set("start", strconv.FormatInt(options.Start.Unix(), 10))
-		}
-		if options.End != nil {
-			body.Set("end", strconv.FormatInt(options.End.Unix(), 10))
-		}
-		if options.Offset != nil {
-			body.Set("ofs", strconv.FormatInt(*options.Offset, 10))
+		// A pointer is used as the default is true so we cannot rely on Golang zero value
+		if opts.ConsolidateTaker != nil {
+			form.Set("consolidate_taker", strconv.FormatBool(*opts.ConsolidateTaker))
 		}
 	}
-
-	// Request
-	resp, err := api.queryPrivate(postGetTradesHistory, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &GetTradesHistoryResponse{})
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for QueryOrdersInfo: %w", err)
 	}
-
-	// Cast response
-	result, ok := resp.(*GetTradesHistoryResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to GetTradesHistoryResponse. Got %T : %v", resp, resp)
+	// Send the request
+	receiver := new(account.QueryOrdersInfoResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for QueryOrdersInfo failed: %w", err)
 	}
-
 	// Return results
-	return result, nil
+	return receiver, resp, nil
 }
 
+// # Description
+//
+// GetTradesHistory - Retrieve information about trades/fills. 50 results are returned at a time, the most recent by default.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - opts: GetTradesHistory request options. A nil value triggers all default behaviors.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - GetTradesHistoryResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) GetTradesHistory(ctx context.Context, nonce int64, opts *account.GetTradesHistoryRequestOptions, secopts *common.SecurityOptions) (*account.GetTradesHistoryResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
+	if secopts != nil {
+		form.Set("otp", secopts.SecondFactor)
+	}
+	// Add options
+	if opts != nil {
+		if opts.Trades {
+			form.Set("trades", strconv.FormatBool(opts.Trades))
+		}
+		if opts.Type != "" {
+			form.Set("type", opts.Type)
+		}
+		if opts.Start != "" {
+			form.Set("start", opts.Start)
+		}
+		if opts.End != "" {
+			form.Set("end", opts.End)
+		}
+		if opts.Offset != 0 {
+			form.Set("ofs", strconv.FormatInt(opts.Offset, 10))
+		}
+		if opts.ConsolidateTaker {
+			form.Set("consolidate_taker", strconv.FormatBool(opts.ConsolidateTaker))
+		}
+	}
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetTradesHistory: %w", err)
+	}
+	// Send the request
+	receiver := new(account.GetTradesHistoryResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for GetTradesHistory failed: %w", err)
+	}
+	// Return results
+	return receiver, resp, nil
+}
+
+// # Description
+//
 // QueryTradesInfo - Retrieve information about specific trades/fills.
-func (client *KrakenSpotRESTClient) QueryTradesInfo(params QueryTradesParameters, options *QueryTradesOptions, secopts *SecurityOptions) (*QueryTradesInfoResponse, error) {
-
-	// Use security options with zero values if nil is provided for secopts
-	otp := ""
-	if secopts != nil {
-		otp = secopts.SecondFactor
-	}
-
-	// Prepare request body
-	body := url.Values{}
-	body.Set("txid", strings.Join(params.TransactionIds, ","))
-	if options != nil {
-		if options.Trades {
-			body.Set("trades", strconv.FormatBool(options.Trades))
-		}
-	}
-
-	// Request
-	resp, err := api.queryPrivate(postQueryTradesInfo, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &QueryTradesInfoResponse{})
-	if err != nil {
-		return nil, err
-	}
-
-	// Cast response
-	result, ok := resp.(*QueryTradesInfoResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to map of TradeInfo. Got %T : %v", resp, resp)
-	}
-
-	// Return response
-	return result, nil
-}
-
-// GetOpenPositions - Get information about open margin positions.
-func (client *KrakenSpotRESTClient) GetOpenPositions(options *GetOpenPositionsOptions, secopts *SecurityOptions) (*GetOpenPositionsResponse, error) {
-
-	// Use security options with zero values if nil is provided for secopts
-	otp := ""
-	if secopts != nil {
-		otp = secopts.SecondFactor
-	}
-
-	// Prepare request body
-	body := url.Values{}
-	if options != nil {
-		if options.TransactionIds != nil {
-			body.Set("txid", strings.Join(options.TransactionIds, ","))
-		}
-		if options.DoCalcs {
-			body.Set("docalcs", strconv.FormatBool(options.DoCalcs))
-		}
-		// CF DEBT.MD
-		//if options.Consolidation != "" {
-		//	body.Set("consolidation", options.Consolidation)
-		//}
-	}
-
-	// Request
-	resp, err := api.queryPrivate(postGetOpenPositions, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &GetOpenPositionsResponse{})
-	if err != nil {
-		return nil, err
-	}
-
-	// Cast response
-	result, ok := resp.(*GetOpenPositionsResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to GetOpenPositionsResponse. Got %T : %v", resp, resp)
-	}
-
-	// Return results
-	return result, nil
-}
-
-// GetLedgersInfo - Retrieve information about ledger entries. 50 results are returned at a time, the most recent by default.
-func (client *KrakenSpotRESTClient) GetLedgersInfo(options *GetLedgersInfoOptions, secopts *SecurityOptions) (*GetLedgersInfoResponse, error) {
-
-	// Use security options with zero values if nil is provided for secopts
-	otp := ""
-	if secopts != nil {
-		otp = secopts.SecondFactor
-	}
-
-	// Prepare request body
-	body := url.Values{}
-	if options != nil {
-		if options.Assets != nil {
-			body.Set("asset", strings.Join(options.Assets, ","))
-		}
-		if options.AssetClass != "" {
-			body.Set("aclass", string(options.AssetClass))
-		}
-		if options.Type != "" {
-			body.Set("type", string(options.Type))
-		}
-		if options.Start != nil {
-			body.Set("start", strconv.FormatInt(options.Start.Unix(), 10))
-		}
-		if options.End != nil {
-			body.Set("end", strconv.FormatInt(options.End.Unix(), 10))
-		}
-		if options.Offset != nil {
-			body.Set("ofs", strconv.FormatInt(*options.Offset, 10))
-		}
-	}
-
-	// Request
-	resp, err := api.queryPrivate(postGetLedgersInfo, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &GetLedgersInfoResponse{})
-	if err != nil {
-		return nil, err
-	}
-
-	// Cast response
-	result, ok := resp.(*GetLedgersInfoResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to GetLedgersInfoResponse. Got %T : %v", resp, resp)
-	}
-
-	// Return results
-	return result, nil
-}
-
-// QueryLedgers - Retrieve information about specific ledger entries.
-func (client *KrakenSpotRESTClient) QueryLedgers(params QueryLedgersParameters, options *QueryLedgersOptions, secopts *SecurityOptions) (*QueryLedgersResponse, error) {
-
-	// Use security options with zero values if nil is provided for secopts
-	otp := ""
-	if secopts != nil {
-		otp = secopts.SecondFactor
-	}
-
-	// Prepare request body
-	body := url.Values{}
-	body.Set("id", strings.Join(params.LedgerIds, ","))
-	if options != nil {
-		if options.Trades {
-			body.Set("trades", strconv.FormatBool(options.Trades))
-		}
-	}
-
-	// Request
-	resp, err := api.queryPrivate(postQueryLedgers, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &QueryLedgersResponse{})
-	if err != nil {
-		return nil, err
-	}
-
-	// Cast response
-	result, ok := resp.(*QueryLedgersResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to map of ledger entries. Got %T : %v", resp, resp)
-	}
-
-	// Return results
-	return result, nil
-}
-
-// GetTradeVolume gets trade volume
 //
-// Note: If an asset pair is on a maker/taker fee schedule, the taker side is given in fees and maker
-// side in fees_maker. For pairs not on maker/taker, they will only be given in fees.
-func (client *KrakenSpotRESTClient) GetTradeVolume(params GetTradeVolumeParameters, options *GetTradeVolumeOptions, secopts *SecurityOptions) (*GetTradeVolumeResponse, error) {
-
-	// Use security options with zero values if nil is provided for secopts
-	otp := ""
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - params: QueryTradesInfo request parameters.
+//   - opts: QueryTradesInfo request options. A nil value triggers all default behaviors.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - QueryTradesInfoResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) QueryTradesInfo(ctx context.Context, nonce int64, params account.QueryTradesRequestParameters, opts *account.QueryTradesRequestOptions, secopts *common.SecurityOptions) (*account.QueryTradesInfoResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Prepare request body
-	body := url.Values{}
-	body.Set("pair", strings.Join(params.Pairs, ","))
-	if options != nil {
-		if options.FeeInfo {
-			body.Set("fee-info", strconv.FormatBool(options.FeeInfo))
+	// Add parameters
+	// Add transaction ids as a comma separated string
+	form.Set("txid", strings.Join(params.TransactionIds, ","))
+	// Add options
+	if opts != nil {
+		if opts.Trades {
+			form.Set("trades", strconv.FormatBool(opts.Trades))
 		}
 	}
-
-	// Request
-	resp, err := api.queryPrivate(postGetTradeVolume, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &GetTradeVolumeResponse{})
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for QueryTradesInfo: %w", err)
 	}
-
-	// Cast response
-	result, ok := resp.(*GetTradeVolumeResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to GetTradeVolumeResponse. Got %T : %v", resp, resp)
+	// Send the request
+	receiver := new(account.QueryTradesInfoResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for QueryTradesInfo failed: %w", err)
 	}
-
 	// Return results
-	return result, nil
+	return receiver, resp, nil
 }
 
+// # Description
+//
+// GetOpenPositions - Get information about open margin positions.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - opts: GetOpenPositions request options. A nil value triggers all default behaviors.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - GetOpenPositionsResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) GetOpenPositions(ctx context.Context, nonce int64, opts *account.GetOpenPositionsRequestOptions, secopts *common.SecurityOptions) (*account.GetOpenPositionsRequestOptions, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
+	if secopts != nil {
+		form.Set("otp", secopts.SecondFactor)
+	}
+	// Add options
+	if opts != nil {
+		if len(opts.TransactionIds) > 0 {
+			form.Set("txid", strings.Join(opts.TransactionIds, ","))
+		}
+		if opts.DoCalcs {
+			form.Set("docalcs", strconv.FormatBool(opts.DoCalcs))
+		}
+	}
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetOpenPositions: %w", err)
+	}
+	// Send the request
+	receiver := new(account.GetOpenPositionsRequestOptions)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for GetOpenPositions failed: %w", err)
+	}
+	// Return results
+	return receiver, resp, nil
+}
+
+// # Description
+//
+// GetLedgersInfo - Retrieve information about ledger entries. 50 results are returned at a time, the most recent by default.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - opts: GetLedgersInfo request options. A nil value triggers all default behaviors.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - GetLedgersInfoResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) GetLedgersInfo(ctx context.Context, nonce int64, opts *account.GetLedgersInfoRequestOptions, secopts *common.SecurityOptions) (*account.GetLedgersInfoResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
+	if secopts != nil {
+		form.Set("otp", secopts.SecondFactor)
+	}
+	// Add options
+	if opts != nil {
+		if opts.Assets != nil {
+			form.Set("asset", strings.Join(opts.Assets, ","))
+		}
+		if opts.AssetClass != "" {
+			form.Set("aclass", string(opts.AssetClass))
+		}
+		if opts.Type != "" {
+			form.Set("type", string(opts.Type))
+		}
+		if opts.Start != "" {
+			form.Set("start", opts.Start)
+		}
+		if opts.End != "" {
+			form.Set("end", opts.End)
+		}
+		if opts.Offset != 0 {
+			form.Set("ofs", strconv.FormatInt(opts.Offset, 10))
+		}
+		if opts.WithoutCount {
+			form.Set("without_count", strconv.FormatBool(opts.WithoutCount))
+		}
+	}
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetLedgersInfo: %w", err)
+	}
+	// Send the request
+	receiver := new(account.GetLedgersInfoResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for GetLedgersInfo failed: %w", err)
+	}
+	// Return results
+	return receiver, resp, nil
+}
+
+// # Description
+//
+// QueryLedgers - Get the current system status or trading mode.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - params: QueryLedgers request parameters.
+//   - opts: QueryLedgers request options. A nil value triggers all default behaviors.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - QueryLedgersResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) QueryLedgers(ctx context.Context, nonce int64, params account.QueryLedgersRequestParameters, opts *account.QueryLedgersOptions, secopts *common.SecurityOptions) (*account.QueryLedgersResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
+	if secopts != nil {
+		form.Set("otp", secopts.SecondFactor)
+	}
+	// Add parameters
+	// Add transaction ids as a comma separated string
+	form.Set("id", strings.Join(params.Id, ","))
+	// Add options
+	if opts != nil {
+		if opts.Trades {
+			form.Set("trades", strconv.FormatBool(opts.Trades))
+		}
+	}
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for QueryLedgers: %w", err)
+	}
+	// Send the request
+	receiver := new(account.QueryLedgersResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for QueryLedgers failed: %w", err)
+	}
+	// Return results
+	return receiver, resp, nil
+}
+
+// # Description
+//
+// GetTradeVolume - Returns 30 day USD trading volume and resulting fee schedule for any asset pair(s) provided.
+//
+// Note: If an asset pair is on a maker/taker fee schedule, the taker side is given in fees and maker side in
+// fees_maker. For pairs not on maker/taker, they will only be given in fees.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - opts: GetTradeVolume request options. A nil value triggers all default behaviors.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - GetTradeVolumeResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) GetTradeVolume(ctx context.Context, nonce int64, opts *account.GetTradeVolumeRequestOptions, secopts *common.SecurityOptions) (*account.GetTradeVolumeResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
+	if secopts != nil {
+		form.Set("otp", secopts.SecondFactor)
+	}
+	// Add options
+	if opts != nil {
+		if len(opts.Pairs) > 0 {
+			form.Set("pair", strings.Join(opts.Pairs, ","))
+		}
+	}
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetTradeVolume: %w", err)
+	}
+	// Send the request
+	receiver := new(account.GetTradeVolumeResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for GetTradeVolume failed: %w", err)
+	}
+	// Return results
+	return receiver, resp, nil
+}
+
+// # Description
+//
 // RequestExportReport - Request export of trades or ledgers.
-func (client *KrakenSpotRESTClient) RequestExportReport(params RequestExportReportParameters, options *RequestExportReportOptions, secopts *SecurityOptions) (*RequestExportReportResponse, error) {
-
-	// Use security options with zero values if nil is provided for secopts
-	otp := ""
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - params: RequestExportReport request parameters.
+//   - opts: RequestExportReport request options. A nil value triggers all default behaviors.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - RequestExportReportResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response.
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) RequestExportReport(ctx context.Context, nonce int64, params account.RequestExportReportRequestParameters, opts *account.RequestExportReportRequestOptions, secopts *common.SecurityOptions) (*account.RequestExportReportResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Prepare request body
-	body := url.Values{}
-	body.Set("report", string(params.Report))
-	body.Set("description", params.Description)
-	if options != nil {
-		if options.Format != "" {
-			body.Set("format", string(options.Format))
+	// Add parameters
+	form.Set("report", params.Report)
+	form.Set("description", params.Description)
+	// Add options
+	if opts != nil {
+		if opts.Format != "" {
+			form.Set("format", opts.Format)
 		}
-		if options.Fields != nil {
-			body.Set("fields", strings.Join(options.Fields, ","))
+		if opts.Fields != nil {
+			form.Set("fields", strings.Join(opts.Fields, ","))
 		}
-		if options.StartTm != nil {
-			body.Set("starttm", strconv.FormatInt(options.StartTm.Unix(), 10))
+		if opts.StartTm != 0 {
+			form.Set("starttm", strconv.FormatInt(opts.StartTm, 10))
 		}
-		if options.EndTm != nil {
-			body.Set("endtm", strconv.FormatInt(options.EndTm.Unix(), 10))
+		if opts.EndTm != 0 {
+			form.Set("endtm", strconv.FormatInt(opts.EndTm, 10))
 		}
 	}
-
-	// Request
-	resp, err := api.queryPrivate(postRequestExportReport, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &RequestExportReportResponse{})
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for RequestExportReport: %w", err)
 	}
-
-	// Cast response
-	result, ok := resp.(*RequestExportReportResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to RequestExportReportResponse. Got %T : %v", resp, resp)
+	// Send the request
+	receiver := new(account.RequestExportReportResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for RequestExportReport failed: %w", err)
 	}
-
 	// Return results
-	return result, nil
+	return receiver, resp, nil
 }
 
+// # Description
+//
 // GetExportReportStatus - Get status of requested data exports.
-func (client *KrakenSpotRESTClient) GetExportReportStatus(params GetExportReportStatusParameters, secopts *SecurityOptions) (*GetExportReportStatusResponse, error) {
-
-	// Use security options with zero values if nil is provided for secopts
-	otp := ""
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - params: GetExportReportStatus request parameters.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - GetExportReportStatusResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) GetExportReportStatus(ctx context.Context, nonce int64, params account.GetExportReportStatusRequestParameters, secopts *common.SecurityOptions) (*account.GetExportReportStatusResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Prepare request body
-	body := url.Values{}
-	body.Set("report", string(params.Report))
-
-	// Request
-	resp, err := api.queryPrivate(postGetExportReportStatus, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &GetExportReportStatusResponse{})
+	// Add parameters
+	form.Set("report", params.Report)
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetExportReportStatus: %w", err)
 	}
-
-	// Cast response
-	result, ok := resp.(*GetExportReportStatusResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to array of ExportReportStatus. Got %T : %v", resp, resp)
+	// Send the request
+	receiver := new(account.GetExportReportStatusResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for GetExportReportStatus failed: %w", err)
 	}
-
 	// Return results
-	return result, nil
+	return receiver, resp, nil
 }
 
-// RetrieveDataExport Get report as a zip
-func (client *KrakenSpotRESTClient) RetrieveDataExport(params RetrieveDataExportParameters, secopts *SecurityOptions) (*RetrieveDataExportResponse, error) {
-
-	// Use security options with zero values if nil is provided for secopts
-	otp := ""
+// # Description
+//
+// RetrieveDataExport - Retrieve a processed data export.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - params: RetrieveDataExport request parameters.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - RetrieveDataExportResponse: The response contains an io.Reader that is tied to the http.Response body in order to let users download data in a streamed fashion.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will not be closed in order to allow users to download the exported data in a streamed fashion.
+// The io.Reader in the response is tied to the http.Response.Body.
+func (client *KrakenSpotRESTClient) RetrieveDataExport(ctx context.Context, nonce int64, params account.RetrieveDataExportParameters, secopts *common.SecurityOptions) (*account.RetrieveDataExportResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Prepare request body
-	body := url.Values{}
-	body.Set("id", params.Id)
-
-	// Request
-	resp, err := api.queryPrivate(postRetrieveDataExport, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, nil)
+	// Add parameters
+	form.Set("id", params.Id)
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for RetrieveDataExport: %w", err)
 	}
-
-	// Cast response
-	result, ok := resp.([]uint8)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to bytes. Got %T : %v", resp, resp)
+	// Send the request
+	receiver := new(account.RetrieveDataExportResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for RetrieveDataExport failed: %w", err)
 	}
-
+	// Assign the response body reader to the API response that will be returned
+	receiver.Report = resp.Body
 	// Return results
-	return &RetrieveDataExportResponse{Report: result}, nil
+	return receiver, resp, nil
 }
 
-// DeleteExportReport - Delete exported trades/ledgers report
-func (client *KrakenSpotRESTClient) DeleteExportReport(params DeleteExportReportParameters, secopts *SecurityOptions) (*DeleteExportReportResponse, error) {
-
-	// Use security options with zero values if nil is provided for secopts
-	otp := ""
+// # Description
+//
+// DeleteExportReport - Delete exported trades/ledgers report.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - params: DeleteExportReport request parameters.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - DeleteExportReportResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) DeleteExportReport(ctx context.Context, nonce int64, params account.DeleteExportReportRequestParameters, secopts *common.SecurityOptions) (*account.DeleteExportReportResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Prepare request body
-	body := url.Values{}
-	body.Set("id", params.Id)
-	body.Set("type", string(params.Type))
-
-	// Request
-	resp, err := api.queryPrivate(postDeleteExportReport, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &DeleteExportReportResponse{})
+	// Add parameters
+	form.Set("id", params.Id)
+	form.Set("type", params.Type)
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for DeleteExportReport: %w", err)
 	}
-
-	// Cast response
-	result, ok := resp.(*DeleteExportReportResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to DeleteExportReportResponse. Got %T : %v", resp, resp)
+	// Send the request
+	receiver := new(account.DeleteExportReportResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for DeleteExportReport failed: %w", err)
 	}
-
 	// Return results
-	return result, nil
+	return receiver, resp, nil
 }
 
 /*****************************************************************************/
-/*	PRIVATE ENDPOINTS - USER TRADING										 */
+/* KRAKEN API CLIENT: OPERATIONS - TRADING                                   */
 /*****************************************************************************/
 
 // AddOrder places a new order
