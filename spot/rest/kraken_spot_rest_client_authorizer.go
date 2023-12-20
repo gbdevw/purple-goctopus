@@ -10,6 +10,7 @@ import (
 	"hash"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 const (
@@ -20,7 +21,7 @@ const (
 )
 
 // An authorizer for the a KrakenSpotRESTClient that signs the outgoing
-// request to Kraken spot REST API.
+// request to private Kraken spot REST API endpoints.
 type KrakenSpotRESTClientAuthorizer struct {
 	// API Key used to sign request.
 	key string
@@ -39,7 +40,7 @@ type KrakenSpotRESTClientAuthorizer struct {
 // # Inputs
 //
 //   - key: The API key used to sign requests
-//   - secret: The base64 encoded secret used to sign request (use the alue displayed when creating the API key).
+//   - secret: The base64 encoded secret used to sign request (use the value displayed when creating the API key).
 //
 // # Returns
 //
@@ -71,20 +72,23 @@ func (auth *KrakenSpotRESTClientAuthorizer) Authorize(ctx context.Context, req *
 		// Shortcut if context has expired
 		return nil, fmt.Errorf("failed to authorize request: %w", ctx.Err())
 	default:
-		// Parse form data
-		err := req.ParseForm()
-		if err != nil {
-			return nil, fmt.Errorf("failed to authorize request: could not parse form data: %w", err)
+		// Check if signature is required
+		if !strings.Contains(req.URL.Path, "/public") {
+			// Parse form data
+			err := req.ParseForm()
+			if err != nil {
+				return nil, fmt.Errorf("failed to authorize request: could not parse form data: %w", err)
+			}
+			// Sign request
+			signature, err := auth.getKrakenSignature(req.URL.Path, req.Form)
+			if err != nil {
+				return nil, fmt.Errorf("failed to authorize request: %w", err)
+			}
+			// Set/Override Api-Key and API-Sign headers in request
+			req.Header[managedHeaderAPIKey] = []string{auth.key}
+			req.Header[managedHeaderAPISign] = []string{signature}
 		}
-		// Sign request
-		signature, err := auth.getKrakenSignature(req.URL.Path, req.Form)
-		if err != nil {
-			return nil, fmt.Errorf("failed to authorize request: %w", err)
-		}
-		// Set/Override Api-Key and API-Sign headers in request
-		req.Header[managedHeaderAPIKey] = []string{auth.key}
-		req.Header[managedHeaderAPISign] = []string{signature}
-		// Return reference to signed request
+		// Return reference to the (signed) request.
 		return req, nil
 	}
 }
