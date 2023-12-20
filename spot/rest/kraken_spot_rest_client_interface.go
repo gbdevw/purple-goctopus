@@ -890,7 +890,6 @@ type KrakenSpotRESTClientIface interface {
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
 	DeleteExportReport(ctx context.Context, nonce int64, params account.DeleteExportReportRequestParameters, secopts *common.SecurityOptions) (*account.DeleteExportReportResponse, *http.Response, error)
-	// RESUME HERE
 	// # Description
 	//
 	// AddOrder - Place a new order.
