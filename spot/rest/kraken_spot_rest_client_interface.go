@@ -712,7 +712,10 @@ type KrakenSpotRESTClientIface interface {
 	QueryLedgers(ctx context.Context, nonce int64, params account.QueryLedgersRequestParameters, opts *account.QueryLedgersOptions, secopts *common.SecurityOptions) (*account.QueryLedgersResponse, *http.Response, error)
 	// # Description
 	//
-	// GetTradeVolume - Returns 30 day USD trading volume and resulting fee schedule for any asset pair(s) provided. Note: If an asset pair is on a maker/taker fee schedule, the taker side is given in fees and maker side in fees_maker. For pairs not on maker/taker, they will only be given in fees.
+	// GetTradeVolume - Returns 30 day USD trading volume and resulting fee schedule for any asset pair(s) provided.
+	//
+	// Note: If an asset pair is on a maker/taker fee schedule, the taker side is given in fees and maker side in
+	// fees_maker. For pairs not on maker/taker, they will only be given in fees.
 	//
 	// # Inputs
 	//
