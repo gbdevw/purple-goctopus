@@ -31,7 +31,7 @@ const (
 
 	serverTimePath         = "/public/Time"
 	systemStatusPath       = "/public/SystemStatus"
-	assetInfoUrlPath       = "/public/Assets"
+	assetInfoPath          = "/public/Assets"
 	tradableAssetPairsPath = "/public/AssetPairs"
 	tickerInformationPath  = "/public/Ticker"
 	ohlcDataPath           = "/public/OHLC"
@@ -494,7 +494,7 @@ func (client *KrakenSpotRESTClient) GetAssetInfo(ctx context.Context, opts *mark
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, query, nil)
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, assetInfoPath, http.MethodGet, query, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetAssetInfo: %w", err)
 	}
@@ -553,7 +553,7 @@ func (client *KrakenSpotRESTClient) GetTradableAssetPairs(ctx context.Context, o
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, query, nil)
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, tradableAssetPairsPath, http.MethodGet, query, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetTradableAssetPairs: %w", err)
 	}
@@ -607,7 +607,7 @@ func (client *KrakenSpotRESTClient) GetTickerInformation(ctx context.Context, op
 		query.Add("pair", strings.Join(opts.Pairs, ","))
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, query, nil)
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, tickerInformationPath, http.MethodGet, query, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetTickerInformation: %w", err)
 	}
@@ -670,7 +670,7 @@ func (client *KrakenSpotRESTClient) GetOHLCData(ctx context.Context, params mark
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, query, nil)
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, ohlcDataPath, http.MethodGet, query, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetOHLCData: %w", err)
 	}
@@ -727,7 +727,7 @@ func (client *KrakenSpotRESTClient) GetOrderBook(ctx context.Context, params mar
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, query, nil)
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, orderBookPath, http.MethodGet, query, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetOrderBook: %w", err)
 	}
@@ -785,7 +785,7 @@ func (client *KrakenSpotRESTClient) GetRecentTrades(ctx context.Context, params 
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, query, nil)
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, recentTradesPath, http.MethodGet, query, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetRecentTrades: %w", err)
 	}
@@ -844,7 +844,7 @@ func (client *KrakenSpotRESTClient) GetRecentSpreads(ctx context.Context, params
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, query, nil)
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, recentSpreadsPath, http.MethodGet, query, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetRecentSpreads: %w", err)
 	}
