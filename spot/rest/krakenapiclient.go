@@ -15,6 +15,7 @@ import (
 	"github.com/gbdevw/purple-goctopus/spot/rest/account"
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
 	"github.com/gbdevw/purple-goctopus/spot/rest/market"
+	"github.com/gbdevw/purple-goctopus/spot/rest/trading"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -905,7 +906,7 @@ func (client *KrakenSpotRESTClient) GetAccountBalance(ctx context.Context, nonce
 		form.Set("otp", secopts.SecondFactor)
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getAccountBalancePath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getAccountBalancePath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetAccountBalance: %w", err)
 	}
@@ -963,7 +964,7 @@ func (client *KrakenSpotRESTClient) GetExtendedBalance(ctx context.Context, nonc
 		form.Set("otp", secopts.SecondFactor)
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getExtendedBalancePath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getExtendedBalancePath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetExtendedBalance: %w", err)
 	}
@@ -1027,7 +1028,7 @@ func (client *KrakenSpotRESTClient) GetTradeBalance(ctx context.Context, nonce i
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getTradeBalancePath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getTradeBalancePath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetTradeBalance: %w", err)
 	}
@@ -1094,7 +1095,7 @@ func (client *KrakenSpotRESTClient) GetOpenOrders(ctx context.Context, nonce int
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getOpenOrdersPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getOpenOrdersPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetOpenOrders: %w", err)
 	}
@@ -1176,7 +1177,7 @@ func (client *KrakenSpotRESTClient) GetClosedOrders(ctx context.Context, nonce i
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getClosedOrdersPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getClosedOrdersPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetClosedOrders: %w", err)
 	}
@@ -1251,7 +1252,7 @@ func (client *KrakenSpotRESTClient) QueryOrdersInfo(ctx context.Context, nonce i
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, queryOrdersInfosPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, queryOrdersInfosPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for QueryOrdersInfo: %w", err)
 	}
@@ -1330,7 +1331,7 @@ func (client *KrakenSpotRESTClient) GetTradesHistory(ctx context.Context, nonce 
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getTradesHistoryPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getTradesHistoryPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetTradesHistory: %w", err)
 	}
@@ -1398,7 +1399,7 @@ func (client *KrakenSpotRESTClient) QueryTradesInfo(ctx context.Context, nonce i
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, queryTradesInfoPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, queryTradesInfoPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for QueryTradesInfo: %w", err)
 	}
@@ -1465,7 +1466,7 @@ func (client *KrakenSpotRESTClient) GetOpenPositions(ctx context.Context, nonce 
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getOpenPositionsPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getOpenPositionsPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetOpenPositions: %w", err)
 	}
@@ -1547,7 +1548,7 @@ func (client *KrakenSpotRESTClient) GetLedgersInfo(ctx context.Context, nonce in
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getLedgersInfoPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getLedgersInfoPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetLedgersInfo: %w", err)
 	}
@@ -1615,7 +1616,7 @@ func (client *KrakenSpotRESTClient) QueryLedgers(ctx context.Context, nonce int6
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, queryLedgersPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, queryLedgersPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for QueryLedgers: %w", err)
 	}
@@ -1682,7 +1683,7 @@ func (client *KrakenSpotRESTClient) GetTradeVolume(ctx context.Context, nonce in
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getTradeVolumePath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getTradeVolumePath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetTradeVolume: %w", err)
 	}
@@ -1759,7 +1760,7 @@ func (client *KrakenSpotRESTClient) RequestExportReport(ctx context.Context, non
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, requestExportReportPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, requestExportReportPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for RequestExportReport: %w", err)
 	}
@@ -1819,7 +1820,7 @@ func (client *KrakenSpotRESTClient) GetExportReportStatus(ctx context.Context, n
 	// Add parameters
 	form.Set("report", params.Report)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getExportReportStatusPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getExportReportStatusPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetExportReportStatus: %w", err)
 	}
@@ -1880,7 +1881,7 @@ func (client *KrakenSpotRESTClient) RetrieveDataExport(ctx context.Context, nonc
 	// Add parameters
 	form.Set("id", params.Id)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, retrieveDataExportPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, retrieveDataExportPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for RetrieveDataExport: %w", err)
 	}
@@ -1943,7 +1944,7 @@ func (client *KrakenSpotRESTClient) DeleteExportReport(ctx context.Context, nonc
 	form.Set("id", params.Id)
 	form.Set("type", params.Type)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, deleteExportReportPath, http.MethodGet, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, deleteExportReportPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for DeleteExportReport: %w", err)
 	}
@@ -1961,8 +1962,136 @@ func (client *KrakenSpotRESTClient) DeleteExportReport(ctx context.Context, nonc
 /* KRAKEN API CLIENT: OPERATIONS - TRADING                                   */
 /*****************************************************************************/
 
-// AddOrder places a new order
-func (client *KrakenSpotRESTClient) AddOrder(params AddOrderParameters, options *AddOrderOptions, secopts *SecurityOptions) (*AddOrderResponse, error) {
+// # Description
+//
+// AddOrder - Place a new order.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - params: AddOrder request parameters.
+//   - opts: AddOrder request options. A nil value triggers all default behaviors.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - AddOrderResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) AddOrder(ctx context.Context, nonce int64, params trading.AddOrderRequestParameters, opts *trading.AddOrderRequestOptions, secopts *common.SecurityOptions) (*trading.AddOrderResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
+	if secopts != nil {
+		form.Set("otp", secopts.SecondFactor)
+	}
+	// Add parameters
+	// Set targeted asset pair
+	form.Set("pair", params.Pair)
+	// Add user reference if defined
+	if params.Order.UserReference != nil {
+		form.Set("userref", strconv.FormatInt(*params.Order.UserReference, 10))
+	}
+	// Set order type
+	form.Set("ordertype", params.Order.OrderType)
+	// Set order direction
+	form.Set("type", params.Order.Type)
+	// Set volume
+	form.Set("volume", params.Order.Volume)
+	// Set price if not empty
+	if params.Order.Price != "" {
+		form.Set("price", params.Order.Price)
+	}
+	// Set price2 if not empty
+	if params.Order.Price2 != "" {
+		form.Set("price2", params.Order.Price2)
+	}
+	// Set Trigger if value is not empty
+	if params.Order.Trigger != "" {
+		form.Set("trigger", params.Order.Trigger)
+	}
+	// Set leverage if provided value is not empty
+	if params.Order.Leverage != "" {
+		form.Set("leverage", params.Order.Leverage)
+	}
+	// Set STP flag if not empty
+	if params.Order.StpType != "" {
+		form.Set("stp_type", params.Order.StpType)
+	}
+	// Set Reduce only if set
+	if params.Order.ReduceOnly {
+		form.Set("reduce_only", strconv.FormatBool(params.Order.ReduceOnly))
+	}
+	// Set operation flags as a comma separated list if not empty
+	if params.Order.OrderFlags != "" {
+		form.Set("oflags", params.Order.OrderFlags)
+	}
+	// Set time in force if defined
+	if params.Order.TimeInForce != "" {
+		form.Set("timeinforce", params.Order.TimeInForce)
+	}
+	// Set start time if not empty
+	if params.Order.ScheduledStartTime != "" {
+		form.Set("starttm", params.Order.ScheduledStartTime)
+	}
+	// Set expire time if not empty
+	if params.Order.ExpirationTime != "" {
+		form.Set("expiretm", params.Order.ExpirationTime)
+	}
+	// Set close order if defined
+	if params.Order.Close != nil {
+		// Set order type
+		form.Set("close[ordertype]", string(params.Order.Close.OrderType))
+		// Set close order price
+		form.Set("close[price]", params.Order.Close.Price)
+		// Set price2 if not empty
+		if params.Order.Close.Price2 != "" {
+			form.Set("close[price2]", params.Order.Close.Price2)
+		}
+	}
+	// Add options
+	if opts != nil {
+		// Set deadline if defined
+		if !opts.Deadline.IsZero() {
+			form.Set("deadline", opts.Deadline.Format(time.RFC3339))
+		}
+		// Set validate
+		form.Set("validate", strconv.FormatBool(opts.Validate))
+	}
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, addOrderPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for AddOrder: %w", err)
+	}
+	// Send the request
+	receiver := new(trading.AddOrderResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for AddOrder failed: %w", err)
+	}
+	// Return results
+	return receiver, resp, nil
 
 	// Use 2FA if provided
 	otp := ""
@@ -1972,85 +2101,6 @@ func (client *KrakenSpotRESTClient) AddOrder(params AddOrderParameters, options 
 
 	// Prepare request body
 	body := make(url.Values)
-
-	// Set targeted asset pair
-	body.Set("pair", params.Pair)
-
-	// Add user reference if defined
-	if params.Order.UserReference != nil {
-		body.Set("userref", strconv.FormatInt(*params.Order.UserReference, 10))
-	}
-
-	// Set order type
-	body.Set("ordertype", string(params.Order.OrderType))
-
-	// Set order direction
-	body.Set("type", string(params.Order.Type))
-
-	// Set volume
-	body.Set("volume", params.Order.Volume)
-
-	// Set price if not empty
-	if params.Order.Price != "" {
-		body.Set("price", params.Order.Price)
-	}
-
-	// Set price2 if not empty
-	if params.Order.Price2 != "" {
-		body.Set("price2", params.Order.Price2)
-	}
-
-	// Set Trigger if value is not empty
-	if params.Order.Trigger != "" {
-		body.Set("trigger", string(params.Order.Trigger))
-	}
-
-	// Set leverage if provided value is not empty
-	if params.Order.Leverage != "" {
-		body.Set("leverage", params.Order.Leverage)
-	}
-
-	// Set STP flag if not empty
-	if params.Order.StpType != "" {
-		body.Set("stp_type", string(params.Order.StpType))
-	}
-
-	// Set Reduce only if set
-	if params.Order.ReduceOnly {
-		body.Set("reduce_only", strconv.FormatBool(params.Order.ReduceOnly))
-	}
-
-	// Set operation flags as a comma separated list if not empty
-	if params.Order.OrderFlags != "" {
-		body.Set("oflags", params.Order.OrderFlags)
-	}
-
-	// Set time in force if defined
-	if params.Order.TimeInForce != "" {
-		body.Set("timeinforce", string(params.Order.TimeInForce))
-	}
-
-	// Set start time if not empty
-	if params.Order.ScheduledStartTime != "" {
-		body.Set("starttm", params.Order.ScheduledStartTime)
-	}
-
-	// Set expire time if not empty
-	if params.Order.ExpirationTime != "" {
-		body.Set("expiretm", params.Order.ExpirationTime)
-	}
-
-	// Set close order if defined
-	if params.Order.Close != nil {
-		// Set order type
-		body.Set("close[ordertype]", string(params.Order.Close.OrderType))
-		// Set close order price
-		body.Set("close[price]", params.Order.Close.Price)
-		// Set price2 if not empty
-		if params.Order.Close.Price2 != "" {
-			body.Set("close[price2]", params.Order.Close.Price2)
-		}
-	}
 
 	// Set options if provided
 	if options != nil {
