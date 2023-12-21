@@ -14,13 +14,15 @@ type OrderTypeEnum string
 
 // Values for OrderTypeEnum
 const (
-	Market          OrderTypeEnum = "market"
-	Limit           OrderTypeEnum = "limit"
-	StopLoss        OrderTypeEnum = "stop-loss"
-	TakeProfit      OrderTypeEnum = "take-profit"
-	StopLossLimit   OrderTypeEnum = "stop-loss-limit"
-	TakeProfitLimit OrderTypeEnum = "take-profit-limit"
-	SettlePosition  OrderTypeEnum = "settle-position"
+	Market            OrderTypeEnum = "market"
+	Limit             OrderTypeEnum = "limit"
+	StopLoss          OrderTypeEnum = "stop-loss"
+	TakeProfit        OrderTypeEnum = "take-profit"
+	StopLossLimit     OrderTypeEnum = "stop-loss-limit"
+	TakeProfitLimit   OrderTypeEnum = "take-profit-limit"
+	TrailingStop      OrderTypeEnum = "trailing-stop"
+	TrailingStopLimit OrderTypeEnum = "trailing-stop-limit"
+	SettlePosition    OrderTypeEnum = "settle-position"
 )
 
 // Enum for trigger types
@@ -75,38 +77,13 @@ type OrderDescription struct {
 // Conditional close orders are triggered by execution of the primary order in the same quantity
 // and opposite direction, but once triggered are independent orders that may reduce or increase net position.
 type CloseOrder struct {
-	// Close order type.
+	// Close order type. Cf OrderTypeEnum for values.
 	//
-	// Valid types are "limit", "stop-loss", "take-profit", "stop-loss-limit", "take-profit-limit"
+	// Allowed values: "limit" "stop-loss" "take-profit" "stop-loss-limit" "take-profit-limit" "trailing-stop" "trailing-stop-limit"
 	OrderType string `json:"ordertype"`
-	// # Description
-	//
-	// Price:
-	//	- Limit price for limit orders
-	//	- Trigger price for stop-loss, stop-loss-limit, take-profit and take-profit-limit orders
-	//
-	// # Note
-	//
-	// Either price or price2 can be preceded by +, -, or # to specify the order price as an offset
-	// relative to the last traded price. + adds the amount to, and - subtracts the amount from the
-	// last traded price. # will either add or subtract the amount to the last traded price,
-	// depending on the direction and order type used. Relative prices can be suffixed with a % to
-	// signify the relative amount as a percentage.
+	// Conditional close order price.
 	Price string `json:"price,omitempty"`
-	// # Description
-	//
-	// Secondary price:
-	//	- Limit price for stop-loss-limit and take-profit-limit orders
-	//
-	// An empty value means no secondary price.
-	//
-	// # Note
-	//
-	// Either price or price2 can be preceded by +, -, or # to specify the order price as an offset
-	// relative to the last traded price. + adds the amount to, and - subtracts the amount from the
-	// last traded price. # will either add or subtract the amount to the last traded price,
-	// depending on the direction and order type used. Relative prices can be suffixed with a % to
-	// signify the relative amount as a percentage.
+	// Conditional close order price2
 	Price2 string `json:"price2,omitempty"`
 }
 
@@ -127,31 +104,42 @@ type Order struct {
 	// # Description
 	//
 	// Price:
+	//
 	//	- Limit price for limit orders
-	//	- Trigger price for stop-loss, stop-loss-limit, take-profit and take-profit-limit orders
+	//	- Trigger price for stop-loss, stop-loss-limit, take-profit, take-profit-limit, trailing-stop and trailing-stop-limit orders
 	//
-	// # Note
+	// An empty stirng can be used (for market orders which does not need a price).
 	//
-	// Either price or price2 can be preceded by +, -, or # to specify the order price as an offset
-	// relative to the last traded price. + adds the amount to, and - subtracts the amount from the
-	// last traded price. # will either add or subtract the amount to the last traded price,
-	// depending on the direction and order type used. Relative prices can be suffixed with a % to
-	// signify the relative amount as a percentage.
+	// # Notes
+	//
+	//	- Relative Prices: Either price or price2 can be preceded by +, -, or # to specify the order price as an offset relative to the last traded price.
+	//    + adds the amount to, and - subtracts the amount from the last traded price. # will either add or subtract the amount to the last traded price,
+	//    depending on the direction and order type used. Prices can also be suffixed with a % to signify the relative amount as a percentage, rather than
+	//    an absolute price difference.
+	//
+	//	- Trailing Stops: Must use a relative price for this field, namely the + prefix, from which the direction will be automatic based on if the original
+	//    order is a buy or sell (no need to use - or #). The % suffix also works for these order types to use a relative percentage price.
 	Price string `json:"price,omitempty"`
 	// # Description
 	//
 	// Secondary price:
-	//	- Limit price for stop-loss-limit and take-profit-limit orders
+	//
+	//	- Limit price for stop-loss-limit, take-profit-limit and trailing-stop-limit orders
 	//
 	// An empty value means no secondary price.
 	//
-	// # Note
+	// # Notes
 	//
-	// Either price or price2 can be preceded by +, -, or # to specify the order price as an offset
-	// relative to the last traded price. + adds the amount to, and - subtracts the amount from the
-	// last traded price. # will either add or subtract the amount to the last traded price,
-	// depending on the direction and order type used. Relative prices can be suffixed with a % to
-	// signify the relative amount as a percentage.
+	//	- Either price or price2 can be preceded by +, -, or # to specify the order price as an offset
+	//    relative to the last traded price. + adds the amount to, and - subtracts the amount from the
+	//    last traded price. # will either add or subtract the amount to the last traded price,
+	//    depending on the direction and order type used. Relative prices can be suffixed with a % to
+	//    signify the relative amount as a percentage.
+	//
+	//	- Trailing Stops: Must use a relative price for this field, namely one of the + or - prefixes.
+	//    This will provide the offset from the trigger price to the limit price, i.e. +0 would set the
+	//    limit price equal to the trigger price. The % suffix also works for this field to use a relative
+	//    percentage limit price.
 	Price2 string `json:"price2,omitempty"`
 	// Price signal used to trigger stop and take orders.
 	//
