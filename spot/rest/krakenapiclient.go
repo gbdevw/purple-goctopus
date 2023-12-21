@@ -2092,358 +2092,512 @@ func (client *KrakenSpotRESTClient) AddOrder(ctx context.Context, nonce int64, p
 	}
 	// Return results
 	return receiver, resp, nil
-
-	// Use 2FA if provided
-	otp := ""
-	if secopts != nil {
-		otp = secopts.SecondFactor
-	}
-
-	// Prepare request body
-	body := make(url.Values)
-
-	// Set options if provided
-	if options != nil {
-		// Set deadline if defined
-		if options.Deadline != nil {
-			body.Set("deadline", options.Deadline.Format(time.RFC3339))
-		}
-		// Set validate
-		body.Set("validate", strconv.FormatBool(options.Validate))
-	}
-
-	// Perform http request
-	resp, err := api.queryPrivate(postAddOrder, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &AddOrderResponse{})
-	if err != nil {
-		return nil, err
-	}
-
-	// Cast response
-	result, ok := resp.(*AddOrderResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to array of AddOrderResponse. Got %T : %v", resp, resp)
-	}
-
-	// Return response
-	return result, nil
 }
 
-// AddOrderBatch sends an array of orders (max: 15). Any orders rejected due to order validations,
-// will be dropped and the rest of the batch is processed. All orders in batch should be limited to
-// a single pair. The order of returned txid's in the response array is the same as the order of the
-// order list sent in request.
-func (client *KrakenSpotRESTClient) AddOrderBatch(params AddOrderBatchParameters, options *AddOrderBatchOptions, secopts *SecurityOptions) (*AddOrderBatchResponse, error) {
-
-	// Use provided otp if any
-	otp := ""
+// # Description
+//
+// AddOrderBatch - Get the current system status or trading mode.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - params: AddOrderBatch request parameters.
+//   - opts: AddOrderBatch request options. A nil value triggers all default behaviors.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//   - AddOrderBatchResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) AddOrderBatch(ctx context.Context, nonce int64, params trading.AddOrderBatchRequestParameters, opts *trading.AddOrderBatchOptions, secopts *common.SecurityOptions) (*trading.AddOrderBatchResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Check that orders is not empty
-	if len(params.Orders) == 0 {
-		return nil, fmt.Errorf("provided order list cannot be empty")
-	}
-
-	// Prepare request body
-	body := make(url.Values)
-
+	// Add parameters
 	// Set targeted asset pair
-	body.Set("pair", params.Pair)
-
+	form.Set("pair", params.Pair)
 	// Set orders
 	for index, order := range params.Orders {
-
 		// Add user reference if defined
 		if order.UserReference != nil {
-			body.Set(fmt.Sprintf("orders[%d][%s]", index, "userref"), strconv.FormatInt(*order.UserReference, 10))
+			form.Set(fmt.Sprintf("orders[%d][%s]", index, "userref"), strconv.FormatInt(*order.UserReference, 10))
 		}
 
 		// Set order type
-		body.Set(fmt.Sprintf("orders[%d][%s]", index, "ordertype"), string(order.OrderType))
+		form.Set(fmt.Sprintf("orders[%d][%s]", index, "ordertype"), order.OrderType)
 
 		// Set order direction
-		body.Set(fmt.Sprintf("orders[%d][%s]", index, "type"), string(order.Type))
+		form.Set(fmt.Sprintf("orders[%d][%s]", index, "type"), order.Type)
 
 		// Set volume
-		body.Set(fmt.Sprintf("orders[%d][%s]", index, "volume"), order.Volume)
+		form.Set(fmt.Sprintf("orders[%d][%s]", index, "volume"), order.Volume)
 
 		// Set price if not empty
 		if order.Price != "" {
-			body.Set(fmt.Sprintf("orders[%d][%s]", index, "price"), order.Price)
+			form.Set(fmt.Sprintf("orders[%d][%s]", index, "price"), order.Price)
 		}
 
 		// Set price2 if not empty
 		if order.Price2 != "" {
-			body.Set(fmt.Sprintf("orders[%d][%s]", index, "price2"), order.Price2)
+			form.Set(fmt.Sprintf("orders[%d][%s]", index, "price2"), order.Price2)
 		}
 
 		// Set Trigger if value is not empty
 		if order.Trigger != "" {
-			body.Set(fmt.Sprintf("orders[%d][%s]", index, "trigger"), string(order.Trigger))
+			form.Set(fmt.Sprintf("orders[%d][%s]", index, "trigger"), order.Trigger)
 		}
 
 		// Set leverage if provided value is not empty
 		if order.Leverage != "" {
-			body.Set(fmt.Sprintf("orders[%d][%s]", index, "leverage"), order.Leverage)
+			form.Set(fmt.Sprintf("orders[%d][%s]", index, "leverage"), order.Leverage)
 		}
 
 		// Set STP flag if not empty
 		if order.StpType != "" {
-			body.Set(fmt.Sprintf("orders[%d][%s]", index, "stp_type"), string(order.StpType))
+			form.Set(fmt.Sprintf("orders[%d][%s]", index, "stp_type"), order.StpType)
 		}
 
 		// Set Reduce only if set
 		if order.ReduceOnly {
-			body.Set(fmt.Sprintf("orders[%d][%s]", index, "reduce_only"), strconv.FormatBool(order.ReduceOnly))
+			form.Set(fmt.Sprintf("orders[%d][%s]", index, "reduce_only"), strconv.FormatBool(order.ReduceOnly))
 		}
 
 		// Set operation flags as a comma separated list if not empty
 		if order.OrderFlags != "" {
-			body.Set(fmt.Sprintf("orders[%d][%s]", index, "oflags"), order.OrderFlags)
+			form.Set(fmt.Sprintf("orders[%d][%s]", index, "oflags"), order.OrderFlags)
 		}
 
 		// Set time in force if defined
 		if order.TimeInForce != "" {
-			body.Set(fmt.Sprintf("orders[%d][%s]", index, "timeinforce"), string(order.TimeInForce))
+			form.Set(fmt.Sprintf("orders[%d][%s]", index, "timeinforce"), order.TimeInForce)
 		}
 
 		// Set start time if not empty
 		if order.ScheduledStartTime != "" {
-			body.Set(fmt.Sprintf("orders[%d][%s]", index, "starttm"), order.ScheduledStartTime)
+			form.Set(fmt.Sprintf("orders[%d][%s]", index, "starttm"), order.ScheduledStartTime)
 		}
 
 		// Set expire time if not empty
 		if order.ExpirationTime != "" {
-			body.Set(fmt.Sprintf("orders[%d][%s]", index, "expiretm"), order.ExpirationTime)
+			form.Set(fmt.Sprintf("orders[%d][%s]", index, "expiretm"), order.ExpirationTime)
 		}
-
 		// Set close order if defined
 		if order.Close != nil {
 			// Set order type
-			body.Set(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "ordertype"), string(order.Close.OrderType))
+			form.Set(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "ordertype"), order.Close.OrderType)
 			// Set close order price
-			body.Set(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "price"), order.Close.Price)
+			form.Set(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "price"), order.Close.Price)
 			// Set price2 if not empty
 			if order.Close.Price2 != "" {
-				body.Set(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "price2"), order.Close.Price2)
+				form.Set(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "price2"), order.Close.Price2)
 			}
 		}
 	}
-
-	// Set options if any
-	if options != nil {
+	// Add options
+	if opts != nil {
 		// Set deadline if defined
-		if options.Deadline != nil {
-			body.Set("deadline", options.Deadline.Format(time.RFC3339))
+		if !opts.Deadline.IsZero() {
+			form.Set("deadline", opts.Deadline.Format(time.RFC3339))
 		}
 		// Set validate
-		body.Set("validate", strconv.FormatBool(options.Validate))
+		form.Set("validate", strconv.FormatBool(opts.Validate))
 	}
-
-	// Perform request
-	resp, err := api.queryPrivate(postAddOrderBatch, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &AddOrderBatchResponse{})
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, addOrderBatchPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for AddOrderBatch: %w", err)
 	}
-
-	// Cast response
-	result, ok := resp.(*AddOrderBatchResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to array of AddOrderBatchResponse. Got %T : %v", resp, resp)
+	// Send the request
+	receiver := new(trading.AddOrderBatchResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for AddOrderBatch failed: %w", err)
 	}
-
-	// Return response
-	return result, nil
+	// Return results
+	return receiver, resp, nil
 }
 
-// Edit volume and price on open orders. Uneditable orders include margin orders, triggered stop/profit orders,
-// orders with conditional close terms attached, those already cancelled or filled, and those where the executed
-// volume is greater than the newly supplied volume. post-only flag is not retained from original order after
-// successful edit. post-only needs to be explicitly set on edit request.
-func (client *KrakenSpotRESTClient) EditOrder(params EditOrderParameters, options *EditOrderOptions, secopts *SecurityOptions) (*EditOrderResponse, error) {
-
+// # Description
+//
+// EditOrder - Edit volume and price on open orders. Uneditable orders include triggered
+// stop/profit orders, orders with conditional close terms attached, those already cancelled
+// or filled, and those where the executed volume is greater than the newly supplied volume.
+// post-only flag is not retained from original order after successful edit. post-only needs
+// to be explicitly set on edit request.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - params: EditOrder request parameters.
+//   - opts: EditOrder request options. A nil value triggers all default behaviors.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - EditOrderResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) EditOrder(ctx context.Context, nonce int64, params trading.EditOrderRequestParameters, opts *trading.EditOrderRequestOptions, secopts *common.SecurityOptions) (*trading.EditOrderResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
 	// Use 2FA if provided
-	otp := ""
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Prepare request body
-	body := make(url.Values)
-
+	// Add parameters
 	// Set txid
-	body.Set("txid", params.Id)
-
-	// St options if any
-	if options != nil {
+	form.Set("txid", params.Id)
+	// Set targeted asset pair
+	form.Set("pair", params.Pair)
+	// Add options
+	if opts != nil {
 		// Set userref if defined
-		if options.NewUserReference != "" {
-			body.Set("userref", options.NewUserReference)
+		if opts.NewUserReference != "" {
+			form.Set("userref", opts.NewUserReference)
 		}
-
-		// Set targeted asset pair
-		body.Set("pair", params.Pair)
-
 		// Set volume if defined
-		if options.NewVolume != "" {
-			body.Set("volume", options.NewVolume)
+		if opts.NewVolume != "" {
+			form.Set("volume", opts.NewVolume)
 		}
 
 		// Set price if not empty
-		if options.Price != "" {
-			body.Set("price", options.Price)
+		if opts.Price != "" {
+			form.Set("price", opts.Price)
 		}
 
 		// Set price2 if not empty
-		if options.Price2 != "" {
-			body.Set("price2", options.Price2)
+		if opts.Price2 != "" {
+			form.Set("price2", opts.Price2)
 		}
 
 		// Set oflags if not nil
-		if options.OFlags != nil {
+		if opts.OFlags != nil {
 			// oflags is a comma separated list
-			body.Set("oflags", strings.Join(options.OFlags, ","))
+			form.Set("oflags", strings.Join(opts.OFlags, ","))
 		}
 
 		// Set deadline if defined
-		if options.Deadline != nil {
-			body.Set("deadline", options.Deadline.Format(time.RFC3339))
+		if !opts.Deadline.IsZero() {
+			form.Set("deadline", opts.Deadline.Format(time.RFC3339))
 		}
 
 		// Set cancel_response
-		body.Set("cancel_response", strconv.FormatBool(options.CancelResponse))
+		form.Set("cancel_response", strconv.FormatBool(opts.CancelResponse))
 
 		// Set validate
-		body.Set("validate", strconv.FormatBool(options.Validate))
+		form.Set("validate", strconv.FormatBool(opts.Validate))
 	}
-
-	// Perform request
-	resp, err := api.queryPrivate(postEditOrder, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &EditOrderResponse{})
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, editOrderPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for EditOrder: %w", err)
 	}
-
-	// Cast response
-	result, ok := resp.(*EditOrderResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to array of EditOrderResponse. Got %T : %v", resp, resp)
+	// Send the request
+	receiver := new(trading.EditOrderResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for EditOrder failed: %w", err)
 	}
-
-	// Return response
-	return result, nil
+	// Return results
+	return receiver, resp, nil
 }
 
-// Cancel a particular open order (or set of open orders) by txid or userref
-func (client *KrakenSpotRESTClient) CancelOrder(params CancelOrderParameters, secopts *SecurityOptions) (*CancelOrderResponse, error) {
-
-	// Use 2FA if provided
-	otp := ""
-	if secopts != nil {
-		otp = secopts.SecondFactor
-	}
-
-	// Prepare body
-	body := make(url.Values)
-	body.Set("txid", params.Id)
-
-	// Perform request
-	resp, err := api.queryPrivate(postCancelOrder, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &CancelOrderResponse{})
-	if err != nil {
-		return nil, err
-	}
-
-	// Cast response
-	result, ok := resp.(*CancelOrderResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to array of CancelOrderResponse. Got %T : %v", resp, resp)
-	}
-
-	// Return response
-	return result, nil
-}
-
-// Cancel all open orders
-func (client *KrakenSpotRESTClient) CancelAllOrders(secopts *SecurityOptions) (*CancelAllOrdersResponse, error) {
-
-	// Use 2FA if provided
-	otp := ""
-	if secopts != nil {
-		otp = secopts.SecondFactor
-	}
-
-	// Perform request
-	resp, err := api.queryPrivate(postCancelAllOrders, http.MethodPost, nil, "", nil, nil, otp, &CancelAllOrdersResponse{})
-	if err != nil {
-		return nil, err
-	}
-
-	// Return result
-	return resp.(*CancelAllOrdersResponse), nil
-}
-
-// CancelAllOrdersAfter provides a "Dead Man's Switch" mechanism to protect the client from network malfunction,
-// extreme latency or unexpected matching engine downtime. The client can send a request with a timeout (in seconds),
-// that will start a countdown timer which will cancel all client orders when the timer expires. The client has to
-// keep sending new requests to push back the trigger time, or deactivate the mechanism by specifying a timeout of 0.
-// If the timer expires, all orders are cancelled and then the timer remains disabled until the client provides a new
-// (non-zero) timeout.
+// # Description
 //
-// The recommended use is to make a call every 15 to 30 seconds, providing a timeout of 60 seconds. This allows the
-// client to keep the orders in place in case of a brief disconnection or transient delay, while keeping them safe
-// in case of a network breakdown. It is also recommended to disable the timer ahead of regularly scheduled trading
-// engine maintenance (if the timer is enabled, all orders will be cancelled when the trading engine comes back from
-// downtime - planned or otherwise).
-func (client *KrakenSpotRESTClient) CancelAllOrdersAfterX(params CancelCancelAllOrdersAfterXParameters, secopts *SecurityOptions) (*CancelAllOrdersAfterXResponse, error) {
-
+// CancelOrder - Cancel a particular open order (or set of open orders) by txid or userref.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - params: CancelOrder request parameters.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - CancelOrderResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) CancelOrder(ctx context.Context, nonce int64, params trading.CancelOrderRequestParameters, secopts *common.SecurityOptions) (*trading.CancelOrderResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
 	// Use 2FA if provided
-	otp := ""
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Prepare body
-	body := make(url.Values)
-	body.Set("timeout", strconv.FormatInt(int64(params.Timeout), 10))
-
-	// Perform request
-	resp, err := api.queryPrivate(postCancelAllOrdersAfterX, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &CancelAllOrdersAfterXResponse{})
+	// Add parameters
+	// Set txid
+	form.Set("txid", params.Id)
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, cancelOrderPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for CancelOrder: %w", err)
 	}
-
-	// Return result
-	return resp.(*CancelAllOrdersAfterXResponse), nil
+	// Send the request
+	receiver := new(trading.CancelOrderResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for CancelOrder failed: %w", err)
+	}
+	// Return results
+	return receiver, resp, nil
 }
 
-// Cancel multiple open orders by txid or userref
-func (client *KrakenSpotRESTClient) CancelOrderBatch(params CancelOrderBatchParameters, secopts *SecurityOptions) (*CancelOrderBatchResponse, error) {
-
+// # Description
+//
+// CancelAllOrders - Cancel all open orders.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - CancelAllOrdersResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) CancelAllOrders(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (*trading.CancelAllOrdersResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
 	// Use 2FA if provided
-	otp := ""
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Validate input
-	if len(params.OrderIds) == 0 {
-		return nil, fmt.Errorf("orders must not be empty")
-	}
-
-	// Prepare body
-	body := make(url.Values)
-	for index, value := range params.OrderIds {
-		body.Set(fmt.Sprintf("orders[%d]", index), value)
-	}
-
-	// Perform request
-	resp, err := api.queryPrivate(postCancelOrderBatch, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &CancelOrderBatchResponse{})
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, cancelAllOrdersPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for CancelAllOrders: %w", err)
 	}
+	// Send the request
+	receiver := new(trading.CancelAllOrdersResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for CancelAllOrders failed: %w", err)
+	}
+	// Return results
+	return receiver, resp, nil
+}
 
-	// Return result
-	return resp.(*CancelOrderBatchResponse), nil
+// # Description
+//
+// CancelAllOrdersAfterX - CancelAllOrdersAfter provides a "Dead Man's Switch" mechanism to
+// protect the client from network malfunction, extreme latency or unexpected matching engine
+// downtime. The client can send a request with a timeout (in seconds), that will start a
+// countdown timer which will cancel all client orders when the timer expires. The client has
+// to keep sending new requests to push back the trigger time, or deactivate the mechanism by
+// specifying a timeout of 0. If the timer expires, all orders are cancelled and then the timer
+// remains disabled until the client provides a new (non-zero) timeout.
+//
+// The recommended use is to make a call every 15 to 30 seconds, providing a timeout of 60
+// seconds. This allows the client to keep the orders in place in case of a brief disconnection
+// or transient delay, while keeping them safe in case of a network breakdown. It is also
+// recommended to disable the timer ahead of regularly scheduled trading engine maintenance (if
+// the timer is enabled, all orders will be cancelled when the trading engine comes back from
+// downtime - planned or otherwise).
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - params: CancelAllOrdersAfterX request parameters.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - CancelAllOrdersAfterXResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) CancelAllOrdersAfterX(ctx context.Context, nonce int64, params trading.CancelAllOrdersAfterXRequestParameters, secopts *common.SecurityOptions) (*trading.CancelAllOrdersAfterXResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
+	if secopts != nil {
+		form.Set("otp", secopts.SecondFactor)
+	}
+	// Add parameters
+	// Set timeout
+	form.Set("timeout", strconv.FormatInt(params.Timeout, 10))
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, cancelAllOrdersAfterXPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for CancelAllOrdersAfterX: %w", err)
+	}
+	// Send the request
+	receiver := new(trading.CancelAllOrdersAfterXResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for CancelAllOrdersAfterX failed: %w", err)
+	}
+	// Return results
+	return receiver, resp, nil
+}
+
+// # Description
+//
+// CancelOrderBatch - Cancel multiple open orders by txid or userref (maximum 50 total unique IDs/references)
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - params: CancelOrderBatch request parameters.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - CancelOrderBatchResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) CancelOrderBatch(ctx context.Context, nonce int64, params trading.CancelOrderBatchRequestParameters, secopts *common.SecurityOptions) (*trading.CancelOrderBatchResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
+	if secopts != nil {
+		form.Set("otp", secopts.SecondFactor)
+	}
+	// Add parameters
+	// Set orders as a comma delimited list
+	form.Set("orders", strings.Join(params.OrderIds, ","))
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, cancelOrderBatchPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for CancelOrderBatch: %w", err)
+	}
+	// Send the request
+	receiver := new(trading.CancelOrderBatchResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request for CancelOrderBatch failed: %w", err)
+	}
+	// Return results
+	return receiver, resp, nil
 }
 
 /*****************************************************************************/
