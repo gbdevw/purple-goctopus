@@ -1228,7 +1228,9 @@ type KrakenSpotRESTClientIface interface {
 	//
 	// GetStatusOfRecentDeposits - Retrieve information about recent deposits. Results are sorted
 	// by recency, use the cursor parameter to iterate through list of deposits (page size equal
-	//	to value of limit) from newest to oldest.
+	// to value of limit) from newest to oldest.
+	//
+	// Please note pagination usage is forced as the response format is too different.
 	//
 	// # Inputs
 	//
@@ -1407,6 +1409,9 @@ type KrakenSpotRESTClientIface interface {
 	// GetStatusOfRecentWithdrawals - Retrieve information about recent withdrawals. Results are
 	// sorted by recency, use the cursor parameter to iterate through list of withdrawals (page
 	// size equal to value of limit) from newest to oldest.
+	//
+	// Please note pagination is not used as documentation is unclear about the response format
+	// in this case.
 	//
 	// # Inputs
 	//
