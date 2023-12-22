@@ -14,6 +14,7 @@ import (
 
 	"github.com/gbdevw/purple-goctopus/spot/rest/account"
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
+	"github.com/gbdevw/purple-goctopus/spot/rest/earn"
 	"github.com/gbdevw/purple-goctopus/spot/rest/funding"
 	"github.com/gbdevw/purple-goctopus/spot/rest/market"
 	"github.com/gbdevw/purple-goctopus/spot/rest/trading"
@@ -3300,136 +3301,474 @@ func (client *KrakenSpotRESTClient) RequestWalletTransfer(ctx context.Context, n
 }
 
 /*****************************************************************************/
-/*	PRIVATE ENDPOINTS - USER STAKING  METHODS                                */
+/* KRAKEN API CLIENT: OPERATIONS - EARN                                      */
 /*****************************************************************************/
 
-// StakeAsset stake an asset from spot wallet.
-func (client *KrakenSpotRESTClient) StakeAsset(params StakeAssetParameters, secopts *SecurityOptions) (*StakeAssetResponse, error) {
-
-	// Use empty value for otp if no second factor provided
-	otp := ""
+// # Description
+//
+// AllocateEarnFunds - Allocate funds to the Strategy.
+//
+// # Usage tips
+//
+// This method is asynchronous. A couple of preflight checks are performed synchronously on
+// behalf of the method before it is dispatched further. The client is required to poll the
+// result using GetAllocationStatus.
+//
+// There can be only one (de)allocation request in progress for given user and strategy at any
+// time. While the operation is in progress:
+//
+//   - pending attribute in /Earn/Allocations response for the strategy indicates that funds are being allocated.
+//   - pending attribute in /Earn/AllocateStatus response will be true.
+//
+// Following specific errors within Earnings class can be returned by this method:
+//
+//   - Minimum allocation: EEarnings:Below min:(De)allocation operation amount less than minimum
+//   - Allocation in progress: EEarnings:Busy:Another (de)allocation for the same strategy is in progress
+//   - Service temporarily unavailable: EEarnings:Busy. Try again in a few minutes.
+//   - User tier verification: EEarnings:Permission denied:The user's tier is not high enough
+//   - Strategy not found: EGeneral:Invalid arguments:Invalid strategy ID
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - params: AllocateEarnFunds request parameters.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - AllocateEarnFundsResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) AllocateEarnFunds(ctx context.Context, nonce int64, params earn.AllocateFundsRequestParameters, secopts *common.SecurityOptions) (*earn.AllocateFundsResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Prepare request body
-	body := url.Values{}
-	body.Set("asset", params.Asset)
-	body.Set("amount", params.Amount)
-	body.Set("method", params.Method)
-
-	// Make request
-	resp, err := api.queryPrivate(postStakeAsset, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &StakeAssetResponse{})
+	// Add params
+	form.Set("strategy_id", params.StrategyId)
+	form.Set("amount", params.Amount)
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, allocateEarnFundsPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for AllocateEarnFunds: %w", err)
 	}
-
-	// Cast response
-	result, ok := resp.(*StakeAssetResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to StakeAssetResponse. Got %T : %#v", resp, resp)
+	// Send the request
+	receiver := new(earn.AllocateFundsResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, resp, fmt.Errorf("request for AllocateEarnFunds failed: %w", err)
 	}
-
-	return result, nil
+	// Return results
+	return receiver, resp, nil
 }
 
-// UnstakeAsset unstake an asset from your staking wallet.
-func (client *KrakenSpotRESTClient) UnstakeAsset(params UnstakeAssetParameters, secopts *SecurityOptions) (*UnstakeAssetResponse, error) {
-
-	// Use empty value for otp if no second factor provided
-	otp := ""
+// # Description
+//
+// DeallocateEarnFunds - Deallocate funds to the Strategy.
+//
+// # Usage tips
+//
+// This method is asynchronous. A couple of preflight checks are performed synchronously on
+// behalf of the method before it is dispatched further. The client is required to poll the
+// result using GetDeallocationStatus.
+//
+// There can be only one (de)allocation request in progress for given user and strategy at any
+// time. While the operation is in progress:
+//
+//   - pending attribute in Allocations response for the strategy will hold the amount that is being deallocated (negative amount).
+//   - pending attribute in DeallocateStatus response will be true.
+//
+// Following specific errors within Earnings class can be returned by this method:
+//
+//   - Minimum allocation: EEarnings:Below min:(De)allocation operation amount less than minimum
+//   - Allocation in progress: EEarnings:Busy:Another (de)allocation for the same strategy is in progress
+//   - Service temporarily unavailable: EEarnings:Busy. Try again in a few minutes.
+//   - Strategy not found: EGeneral:Invalid arguments:Invalid strategy ID
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - params: DeallocateEarnFunds request parameters.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - DeallocateEarnFundsResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) DeallocateEarnFunds(ctx context.Context, nonce int64, params earn.DeallocateFundsRequestParameters, secopts *common.SecurityOptions) (*earn.DeallocateFundsResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Prepare request body
-	body := url.Values{}
-	body.Set("asset", params.Asset)
-	body.Set("amount", params.Amount)
-
-	// Make request
-	resp, err := api.queryPrivate(postUnstakeAsset, http.MethodPost, nil, "application/x-www-form-urlencoded", body, nil, otp, &UnstakeAssetResponse{})
+	// Add params
+	form.Set("strategy_id", params.StrategyId)
+	form.Set("amount", params.Amount)
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, deallocateEarnFundsPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for DeallocateEarnFunds: %w", err)
 	}
-
-	// Cast response
-	result, ok := resp.(*UnstakeAssetResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to UnstakeAssetResponse. Got %T : %#v", resp, resp)
+	// Send the request
+	receiver := new(earn.DeallocateFundsResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, resp, fmt.Errorf("request for DeallocateEarnFunds failed: %w", err)
 	}
-
-	return result, nil
+	// Return results
+	return receiver, resp, nil
 }
 
-// ListOfStakeableAssets returns the list of assets that the user is able to stake.
-func (client *KrakenSpotRESTClient) ListOfStakeableAssets(secopts *SecurityOptions) (*ListOfStakeableAssetsResponse, error) {
-
-	// Use empty value for otp if no second factor provided
-	otp := ""
+// # Description
+//
+// GetAllocationStatus - Get the status of the last allocation request.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - params: GetAllocationStatus request parameters.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - GetAllocationStatusResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) GetAllocationStatus(ctx context.Context, nonce int64, params earn.GetAllocationStatusRequestParameters, secopts *common.SecurityOptions) (*earn.GetAllocationStatusResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Make request
-	resp, err := api.queryPrivate(postListOfStakeableAssets, http.MethodPost, nil, "", nil, nil, otp, &ListOfStakeableAssetsResponse{})
+	// Add params
+	form.Set("strategy_id", params.StrategyId)
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getAllocationStatusPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetAllocationStatus: %w", err)
 	}
-
-	// Cast response
-	result, ok := resp.(*ListOfStakeableAssetsResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to ListOfStakeableAssetsResponse. Got %T : %#v", resp, resp)
+	// Send the request
+	receiver := new(earn.GetAllocationStatusResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, resp, fmt.Errorf("request for GetAllocationStatus failed: %w", err)
 	}
-
-	return result, nil
+	// Return results
+	return receiver, resp, nil
 }
 
-// GetPendingStakingTransactions returns the list of pending staking transactions.
-func (client *KrakenSpotRESTClient) GetPendingStakingTransactions(secopts *SecurityOptions) (*GetPendingStakingTransactionsResponse, error) {
-
-	// Use empty value for otp if no second factor provided
-	otp := ""
+// # Description
+//
+// GetDeallocationStatus - Get the status of the last deallocation request.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - params: GetDeallocationStatus request parameters.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - GetDeallocationStatusResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) GetDeallocationStatus(ctx context.Context, nonce int64, params earn.GetDeallocationStatusRequestParameters, secopts *common.SecurityOptions) (*earn.GetDeallocationStatusResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Make request
-	resp, err := api.queryPrivate(postGetPendingStakingTransactions, http.MethodPost, nil, "", nil, nil, otp, &GetPendingStakingTransactionsResponse{})
+	// Add params
+	form.Set("strategy_id", params.StrategyId)
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getDeallocationStatusPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetDeallocationStatus: %w", err)
 	}
-
-	// Cast response
-	result, ok := resp.(*GetPendingStakingTransactionsResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to GetPendingStakingTransactionsResponse. Got %T : %#v", resp, resp)
+	// Send the request
+	receiver := new(earn.GetDeallocationStatusResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, resp, fmt.Errorf("request for GetDeallocationStatus failed: %w", err)
 	}
-
-	return result, nil
+	// Return results
+	return receiver, resp, nil
 }
 
-// ListOfStakingTransactions returns the list of 1000 recent staking transactions from past 90 days.
-func (client *KrakenSpotRESTClient) ListOfStakingTransactions(secopts *SecurityOptions) (*ListOfStakingTransactionsResponse, error) {
-
-	// Use empty value for otp if no second factor provided
-	otp := ""
+// # Description
+//
+// ListEarnStrategies - List earn strategies along with their parameters.
+//
+// # Usage tips
+//
+// Returns only strategies that are available to the user based on geographic region.
+//
+// When the user does not meet the tier restriction, can_allocate will be false and
+// allocation_restriction_info indicates Tier as the restriction reason. Earn products
+// generally require Intermediate tier. Get your account verified to access earn.
+//
+// Paging isn't yet implemented, so it the endpoint always returns all data in the first page.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - opts: ListEarnStrategies request options. A nil value triggers all default behaviors.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - ListEarnStrategiesResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) ListEarnStrategies(ctx context.Context, nonce int64, opts *earn.ListEarnStrategiesRequestOptions, secopts *common.SecurityOptions) (*earn.ListEarnStrategiesResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
 	if secopts != nil {
-		otp = secopts.SecondFactor
+		form.Set("otp", secopts.SecondFactor)
 	}
-
-	// Make request
-	resp, err := api.queryPrivate(postListOfStakingTransactions, http.MethodPost, nil, "", nil, nil, otp, &ListOfStakingTransactionsResponse{})
+	// Add options
+	if opts != nil {
+		if opts.Ascending {
+			form.Set("ascending", strconv.FormatBool(opts.Ascending))
+		}
+		if opts.Asset != "" {
+			form.Set("asset", opts.Asset)
+		}
+		if opts.Cursor != "" {
+			form.Set("cursor", opts.Cursor)
+		}
+		if opts.Limit != 0 {
+			form.Set("limit", strconv.FormatInt(int64(opts.Limit), 10))
+		}
+		if opts.LockType != "" {
+			form.Set("lock_type", opts.LockType)
+		}
+	}
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, listEarnStartegiesPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for ListEarnStrategies: %w", err)
 	}
-
-	// Cast response
-	result, ok := resp.(*ListOfStakingTransactionsResponse)
-	if !ok {
-		return nil, fmt.Errorf("could not cast server response to a list of StakingTransactionInfo. Got %T : %#v", resp, resp)
+	// Send the request
+	receiver := new(earn.ListEarnStrategiesResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, resp, fmt.Errorf("request for ListEarnStrategies failed: %w", err)
 	}
-
-	return result, nil
+	// Return results
+	return receiver, resp, nil
 }
+
+// # Description
+//
+// ListEarnAllocations - List all allocations for the user.
+//
+// # Usage tips
+//
+// By default all allocations are returned, even for strategies that have been used in the past
+// and have zero balance now. That is so that the user can see how much was earned with given
+// strategy in the past. hide_zero_allocations parameter can be used to remove zero balance
+// entries from the output. Paging hasn't been implemented for this method as we don't expect
+// the result for a particular user to be overwhelmingly large.
+//
+// All amounts in the output can be denominated in a currency of user's choice (the converted_asset parameter).
+//
+// Information about when the next reward will be paid to the client is also provided in the output.
+//
+// Allocated funds can be in up to 4 states:
+//
+//   - bonding
+//   - allocated
+//   - exit_queue (ETH only)
+//   - unbonding
+//
+// Any funds in total not in bonding/unbonding are simply allocated and earning rewards.
+// Depending on the strategy funds in the other 3 states can also be earning rewards. Consult
+// the output of /Earn/Strategies to know whether bonding/unbonding earn rewards. ETH in
+// exit_queue still earns rewards.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - opts: ListEarnAllocations request options. A nil value triggers all default behaviors.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// Note that for ETH, when the funds are in the exit_queue state, the expires time given is the
+// time when the funds will have finished unbonding, not when they go from exit queue to unbonding.
+//
+// (Un)bonding time estimate can be inaccurate right after having (de)allocated the funds. Wait
+// 1-2 minutes after (de)allocating to get an accurate result.
+//
+// # Returns
+//
+//   - ListEarnAllocationsResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) ListEarnAllocations(ctx context.Context, nonce int64, opts *earn.ListEarnAllocationsRequestOptions, secopts *common.SecurityOptions) (*earn.ListEarnAllocationsResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
+	if secopts != nil {
+		form.Set("otp", secopts.SecondFactor)
+	}
+	// Add options
+	if opts != nil {
+		if opts.Ascending {
+			form.Set("ascending", strconv.FormatBool(opts.Ascending))
+		}
+		if opts.ConvertedAsset != "" {
+			form.Set("converted_asset", opts.ConvertedAsset)
+		}
+		if opts.HideZeroAllocations {
+			form.Set("hide_zero_allocations", strconv.FormatBool(opts.HideZeroAllocations))
+		}
+	}
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, listEarnAllocationsPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for ListEarnAllocations: %w", err)
+	}
+	// Send the request
+	receiver := new(earn.ListEarnAllocationsResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, resp, fmt.Errorf("request for ListEarnAllocations failed: %w", err)
+	}
+	// Return results
+	return receiver, resp, nil
+}
+
+// RESUME HERE FOR WEBSOCKETS
