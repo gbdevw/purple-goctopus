@@ -30,6 +30,13 @@ type GetDepositAddressesRequestOptions struct {
 	//
 	// Defaults to false.
 	New bool `json:"new"`
+	// Amount user wish to deposit on the address.
+	//
+	// This options is only required for "Bitcoin Lightning" deposit method in order to
+	// craft the Lightning network invoice.
+	//
+	// An empty string means option will not be used.
+	Amount string `json:"amount,omitempty"`
 }
 
 // Get Deposit Addresses response
