@@ -1,19 +1,23 @@
 package funding
 
-import "github.com/gbdevw/purple-goctopus/spot/rest/common"
+import (
+	"encoding/json"
+
+	"github.com/gbdevw/purple-goctopus/spot/rest/common"
+)
 
 // Data of a deposit address
 type DepositAddress struct {
 	// Deposit Address
-	Address string `json:"address"`
+	Address string `json:"address,omitempty"`
 	// Expiration time as a unix timestamp (seconds). 0 if not expiring.
-	Expiretm int64 `json:"expiretm,string"`
+	Expiretm json.Number `json:"expiretm,omitempty"`
 	// Whether or not address has ever been used
 	New bool `json:"new"`
 	// Only returned for STX, XLM, and EOS deposit addresses
-	Memo string `json:"memo"`
+	Memo string `json:"memo,omitempty"`
 	// Only returned for XRP deposit addresses
-	Tag string `json:"tag"`
+	Tag string `json:"tag,omitempty"`
 }
 
 // GetDepositAddresses request parameters

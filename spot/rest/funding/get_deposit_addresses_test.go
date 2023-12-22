@@ -67,7 +67,7 @@ func (suite *GetDepositAddressesTestSuite) TestGetDepositAddressesResponseUnmars
 	}`
 	expectedCount := 5
 	expectedItem1Address := "2N9fRkx5JTWXWHmXzZtvhQsufvoYRMq9ExV"
-	expectedItem2Expire := int64(0)
+	expectedItem2Expire := "0"
 	expectedItem4Tag := "1361101127"
 	expectedItem5Memo := "4150096490"
 	// Unmarshal payload into struct
@@ -80,7 +80,7 @@ func (suite *GetDepositAddressesTestSuite) TestGetDepositAddressesResponseUnmars
 	require.NotEmpty(suite.T(), response.Result)
 	require.Len(suite.T(), response.Result, expectedCount)
 	require.Equal(suite.T(), expectedItem1Address, response.Result[0].Address)
-	require.Equal(suite.T(), expectedItem2Expire, response.Result[1].Expiretm)
+	require.Equal(suite.T(), expectedItem2Expire, response.Result[1].Expiretm.String())
 	require.Equal(suite.T(), expectedItem4Tag, response.Result[3].Tag)
 	require.Equal(suite.T(), expectedItem5Memo, response.Result[4].Memo)
 }

@@ -30,12 +30,40 @@ type GetStatusOfRecentDepositsRequestOptions struct {
 	Limit int64 `json:"limit,omitempty"`
 }
 
+// Transaction details for a deposit
+type Deposit struct {
+	// Name of deposit method
+	Method string `json:"method"`
+	// Asset class
+	AssetClass string `json:"aclass"`
+	// Asset
+	Asset string `json:"asset"`
+	// Reference ID
+	ReferenceID string `json:"refid"`
+	// Method transaction ID
+	TransactionID string `json:"txid"`
+	// Method transaction information
+	Info string `json:"info"`
+	// Amount deposited/withdrawn
+	Amount string `json:"amount"`
+	// Fees paid. Can be empty
+	Fee string `json:"fee"`
+	// Unix timestamp when request was made
+	Time int64 `json:"time"`
+	// Status of deposit - IFEX financial transaction states
+	Status string `json:"status"`
+	// Additional status property. Can be empty.
+	StatusProperty string `json:"status-prop,omitempty"`
+	// Client sending transaction id(s) for deposits that credit with a sweeping transaction
+	Originators []string `json:"originators,omitempty"`
+}
+
 // GetStatusOfRecentDeposits result
 type GetStatusOfRecentDepositsResult struct {
 	// Provides next input to use for cursor in pagination.
 	NextCursor string `json:"next_cursor,omitempty"`
 	// Listed deposits
-	Deposits []TransactionDetails `json:"deposit"`
+	Deposits []Deposit `json:"deposit"`
 }
 
 // GetStatusOfRecentDeposits response

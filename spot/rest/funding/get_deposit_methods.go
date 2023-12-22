@@ -10,33 +10,33 @@ import (
 // Data of a deposit method
 type DepositMethod struct {
 	// Name of deposit method
-	Method string `json:"method"`
+	Method string `json:"method,omitempty"`
 	// Maximum net amount that can be deposited right now. Empty or "false" if no limit.
 	Limit string `json:"limit,omitempty"`
 	// Amount of fees that will be paid.
-	Fee string `json:"fee"`
+	Fee string `json:"fee,omitempty"`
 	// Whether or not method has an address setup fee.
-	AddressSetupFee string `json:"address-setup-fee"`
+	AddressSetupFee string `json:"address-setup-fee,omitempty"`
 	// Whether new addresses can be generated for this method.
 	GenAddress bool `json:"gen-address"`
 	// Minimum net amount that can be deposited right now
-	Minimum string `json:"minimum"`
+	Minimum string `json:"minimum,omitempty"`
 }
 
 // Data of a deposit method
 type depositMethod struct {
 	// Name of deposit method
-	Method string `json:"method"`
+	Method string `json:"method,omitempty"`
 	// Maximum net amount that can be deposited right now. Empty or "false" if no limit.
-	Limit interface{} `json:"limit"`
+	Limit interface{} `json:"limit,omitempty"`
 	// Amount of fees that will be paid.
-	Fee string `json:"fee"`
+	Fee string `json:"fee,omitempty"`
 	// Whether or not method has an address setup fee.
-	AddressSetupFee string `json:"address-setup-fee"`
+	AddressSetupFee string `json:"address-setup-fee,omitempty"`
 	// Whether new addresses can be generated for this method.
 	GenAddress bool `json:"gen-address"`
 	// Minimum net amount that can be deposited right now
-	Minimum string `json:"minimum"`
+	Minimum string `json:"minimum,omitempty"`
 }
 
 func (dm *DepositMethod) UnmarshalJSON(data []byte) error {
