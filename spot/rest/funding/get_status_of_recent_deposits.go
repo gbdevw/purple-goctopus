@@ -24,6 +24,10 @@ type GetStatusOfRecentDepositsRequestOptions struct {
 	//
 	// An empty value means first page/request.
 	Cursor string `json:"cursor,omitempty"`
+	// Number of results to include per page.
+	//
+	// Default to 25. A zero value will trigger the default behavior.
+	Limit int64 `json:"limit,omitempty"`
 }
 
 // GetStatusOfRecentDeposits result
