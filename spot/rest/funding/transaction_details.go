@@ -40,31 +40,3 @@ const (
 	// CancelDenied
 	TxCancelDenied TransactionStatus = "cancel-denied"
 )
-
-// Transaction details for a deposit or a withdrawal
-type TransactionDetails struct {
-	// Name of deposit method
-	Method string `json:"method"`
-	// Asset class
-	AssetClass string `json:"aclass"`
-	// Asset
-	Asset string `json:"asset"`
-	// Reference ID
-	ReferenceID string `json:"refid"`
-	// Method transaction ID
-	TransactionID string `json:"txid"`
-	// Method transaction information
-	Info string `json:"info"`
-	// Amount deposited/withdrawn
-	Amount string `json:"amount"`
-	// Fees paid. Can be empty
-	Fee string `json:"fee"`
-	// Unix timestamp when request was made
-	Time int64 `json:"time"`
-	// Status of deposit - IFEX financial transaction states
-	Status string `json:"status"`
-	// Additional status property. Can be empty.
-	StatusProperty string `json:"status-prop,omitempty"`
-	// Client sending transaction id(s) for deposits that credit with a sweeping transaction
-	Originators []string `json:"originators,omitempty"`
-}
