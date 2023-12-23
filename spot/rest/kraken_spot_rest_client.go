@@ -282,13 +282,16 @@ func (client *KrakenSpotRESTClient) forgeAndAuthorizeKrakenAPIRequest(
 	}
 	// Set User-Agent headers
 	req.Header.Set(managedHeaderUserAgent, client.agent)
-	// Set Content-Type to application/x-www-form-urlencoded
-	// This is done like that for several reasons:
-	//	- Kraken spot REST API says "Request payloads are form-encoded (Content-Type: application/x-www-form-urlencoded)"
-	//	- Content-Type has to be set to application/x-www-form-urlencoded in order for ParseForm to populate request.Form. This
-	//    is crucial as the defaut authorizer needs request.Form to be set in order to extract data used to forge the request
-	//    signature.
-	req.Header.Set(managedHeaderContentType, "application/x-www-form-urlencoded")
+	// Set content type to "application/x-www-form-urlencoded" in case a body is provided. This is
+	// done like that for several reasons:
+	//	- Kraken spot REST API says "Request payloads are form-encoded".
+	//	- Content-Type has to be set to application/x-www-form-urlencoded in order for ParseForm to
+	//    populate request.Form with form data within the provided request body. This is crucial as
+	//    the defaut authorizer needs request.Form to be set in order to extract data used to forge
+	//    the request signature.
+	if body != nil {
+		req.Header.Set(managedHeaderContentType, "application/x-www-form-urlencoded")
+	}
 	// Parse form to hanlde query string parameters and form body if any
 	err = req.ParseForm()
 	if err != nil {
