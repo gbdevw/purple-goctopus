@@ -255,6 +255,7 @@ func NewKrakenSpotRESTClient(authorizer KrakenSpotRESTClientAuthorizerIface, cfg
 //   - ctx: Context used for tracing and coordination purpose.
 //   - path: The URL path for the API operation to use (ex: /private/Balance)
 //   - httpMethod: The http method to use for the request
+//   - contentType: Value for the Content-Type HTTP header. Can be an empty string (for GET).
 //   - query: Query string parameters. Can be nil or empty if no parameters are provided.
 //   - body: Reader to use to get request body data. Can be nil if no body should be set.
 //
@@ -265,6 +266,7 @@ func (client *KrakenSpotRESTClient) forgeAndAuthorizeKrakenAPIRequest(
 	ctx context.Context,
 	path string,
 	httpMethod string,
+	contentType string,
 	query url.Values,
 	body io.Reader,
 ) (*http.Request, error) {
@@ -280,19 +282,13 @@ func (client *KrakenSpotRESTClient) forgeAndAuthorizeKrakenAPIRequest(
 	if err != nil {
 		return nil, fmt.Errorf("failed to forge HTTP request for Kraken API: %w", err)
 	}
-	// Set User-Agent headers
+	// Set User-Agent and Content-Type headers
 	req.Header.Set(managedHeaderUserAgent, client.agent)
-	// Set content type to "application/x-www-form-urlencoded" in case a body is provided. This is
-	// done like that for several reasons:
-	//	- Kraken spot REST API says "Request payloads are form-encoded".
-	//	- Content-Type has to be set to application/x-www-form-urlencoded in order for ParseForm to
-	//    populate request.Form with form data within the provided request body. This is crucial as
-	//    the defaut authorizer needs request.Form to be set in order to extract data used to forge
-	//    the request signature.
-	if body != nil {
-		req.Header.Set(managedHeaderContentType, "application/x-www-form-urlencoded")
-	}
-	// Parse form to hanlde query string parameters and form body if any
+	req.Header.Set(managedHeaderContentType, contentType)
+	// Parse form to hanlde query string parameters and form body if needed.
+	//
+	// Form body will be read only if httpMethod is POST, PACTH or PUT and if content type is
+	// "application/x-www-form-urlencoded".
 	err = req.ParseForm()
 	if err != nil {
 		return nil, fmt.Errorf("failed to forge HTTP request for Kraken API: %w", err)
@@ -431,7 +427,7 @@ func EncodeNonceAndSecurityOptions(form url.Values, nonce int64, secopts *common
 // Please note response body will always be closed except for RetrieveDataExport.
 func (client *KrakenSpotRESTClient) GetServerTime(ctx context.Context) (*market.GetServerTimeResponse, *http.Response, error) {
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, serverTimePath, http.MethodGet, nil, nil)
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, serverTimePath, http.MethodGet, "", nil, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetServerTime: %w", err)
 	}
@@ -478,7 +474,7 @@ func (client *KrakenSpotRESTClient) GetServerTime(ctx context.Context) (*market.
 // Please note response body will always be closed except for RetrieveDataExport.
 func (client *KrakenSpotRESTClient) GetSystemStatus(ctx context.Context) (*market.GetSystemStatusResponse, *http.Response, error) {
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, nil, nil)
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, systemStatusPath, http.MethodGet, "", nil, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetSystemStatus: %w", err)
 	}
@@ -536,7 +532,7 @@ func (client *KrakenSpotRESTClient) GetAssetInfo(ctx context.Context, opts *mark
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, assetInfoPath, http.MethodGet, query, nil)
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, assetInfoPath, http.MethodGet, "", query, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetAssetInfo: %w", err)
 	}
@@ -595,7 +591,7 @@ func (client *KrakenSpotRESTClient) GetTradableAssetPairs(ctx context.Context, o
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, tradableAssetPairsPath, http.MethodGet, query, nil)
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, tradableAssetPairsPath, http.MethodGet, "", query, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetTradableAssetPairs: %w", err)
 	}
@@ -649,7 +645,7 @@ func (client *KrakenSpotRESTClient) GetTickerInformation(ctx context.Context, op
 		query.Add("pair", strings.Join(opts.Pairs, ","))
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, tickerInformationPath, http.MethodGet, query, nil)
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, tickerInformationPath, http.MethodGet, "", query, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetTickerInformation: %w", err)
 	}
@@ -712,7 +708,7 @@ func (client *KrakenSpotRESTClient) GetOHLCData(ctx context.Context, params mark
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, ohlcDataPath, http.MethodGet, query, nil)
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, ohlcDataPath, http.MethodGet, "", query, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetOHLCData: %w", err)
 	}
@@ -769,7 +765,7 @@ func (client *KrakenSpotRESTClient) GetOrderBook(ctx context.Context, params mar
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, orderBookPath, http.MethodGet, query, nil)
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, orderBookPath, http.MethodGet, "", query, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetOrderBook: %w", err)
 	}
@@ -827,7 +823,7 @@ func (client *KrakenSpotRESTClient) GetRecentTrades(ctx context.Context, params 
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, recentTradesPath, http.MethodGet, query, nil)
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, recentTradesPath, http.MethodGet, "", query, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetRecentTrades: %w", err)
 	}
@@ -886,7 +882,7 @@ func (client *KrakenSpotRESTClient) GetRecentSpreads(ctx context.Context, params
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, recentSpreadsPath, http.MethodGet, query, nil)
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, recentSpreadsPath, http.MethodGet, "", query, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetRecentSpreads: %w", err)
 	}
@@ -943,7 +939,7 @@ func (client *KrakenSpotRESTClient) GetAccountBalance(ctx context.Context, nonce
 	// Encode nonce and optional common security options
 	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getAccountBalancePath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getAccountBalancePath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetAccountBalance: %w", err)
 	}
@@ -997,7 +993,7 @@ func (client *KrakenSpotRESTClient) GetExtendedBalance(ctx context.Context, nonc
 	// Encode nonce and optional common security options
 	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getExtendedBalancePath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getExtendedBalancePath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetExtendedBalance: %w", err)
 	}
@@ -1057,7 +1053,7 @@ func (client *KrakenSpotRESTClient) GetTradeBalance(ctx context.Context, nonce i
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getTradeBalancePath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getTradeBalancePath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetTradeBalance: %w", err)
 	}
@@ -1120,7 +1116,7 @@ func (client *KrakenSpotRESTClient) GetOpenOrders(ctx context.Context, nonce int
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getOpenOrdersPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getOpenOrdersPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetOpenOrders: %w", err)
 	}
@@ -1198,7 +1194,7 @@ func (client *KrakenSpotRESTClient) GetClosedOrders(ctx context.Context, nonce i
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getClosedOrdersPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getClosedOrdersPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetClosedOrders: %w", err)
 	}
@@ -1269,7 +1265,7 @@ func (client *KrakenSpotRESTClient) QueryOrdersInfo(ctx context.Context, nonce i
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, queryOrdersInfosPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, queryOrdersInfosPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for QueryOrdersInfo: %w", err)
 	}
@@ -1344,7 +1340,7 @@ func (client *KrakenSpotRESTClient) GetTradesHistory(ctx context.Context, nonce 
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getTradesHistoryPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getTradesHistoryPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetTradesHistory: %w", err)
 	}
@@ -1408,7 +1404,7 @@ func (client *KrakenSpotRESTClient) QueryTradesInfo(ctx context.Context, nonce i
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, queryTradesInfoPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, queryTradesInfoPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for QueryTradesInfo: %w", err)
 	}
@@ -1471,7 +1467,7 @@ func (client *KrakenSpotRESTClient) GetOpenPositions(ctx context.Context, nonce 
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getOpenPositionsPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getOpenPositionsPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetOpenPositions: %w", err)
 	}
@@ -1549,7 +1545,7 @@ func (client *KrakenSpotRESTClient) GetLedgersInfo(ctx context.Context, nonce in
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getLedgersInfoPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getLedgersInfoPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetLedgersInfo: %w", err)
 	}
@@ -1613,7 +1609,7 @@ func (client *KrakenSpotRESTClient) QueryLedgers(ctx context.Context, nonce int6
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, queryLedgersPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, queryLedgersPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for QueryLedgers: %w", err)
 	}
@@ -1676,7 +1672,7 @@ func (client *KrakenSpotRESTClient) GetTradeVolume(ctx context.Context, nonce in
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getTradeVolumePath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getTradeVolumePath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetTradeVolume: %w", err)
 	}
@@ -1749,7 +1745,7 @@ func (client *KrakenSpotRESTClient) RequestExportReport(ctx context.Context, non
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, requestExportReportPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, requestExportReportPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for RequestExportReport: %w", err)
 	}
@@ -1805,7 +1801,7 @@ func (client *KrakenSpotRESTClient) GetExportReportStatus(ctx context.Context, n
 	// Add parameters
 	form.Set("report", params.Report)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getExportReportStatusPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getExportReportStatusPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetExportReportStatus: %w", err)
 	}
@@ -1862,7 +1858,7 @@ func (client *KrakenSpotRESTClient) RetrieveDataExport(ctx context.Context, nonc
 	// Add parameters
 	form.Set("id", params.Id)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, retrieveDataExportPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, retrieveDataExportPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for RetrieveDataExport: %w", err)
 	}
@@ -1921,7 +1917,7 @@ func (client *KrakenSpotRESTClient) DeleteExportReport(ctx context.Context, nonc
 	form.Set("id", params.Id)
 	form.Set("type", params.Type)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, deleteExportReportPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, deleteExportReportPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for DeleteExportReport: %w", err)
 	}
@@ -2053,7 +2049,7 @@ func (client *KrakenSpotRESTClient) AddOrder(ctx context.Context, nonce int64, p
 		form.Set("validate", strconv.FormatBool(opts.Validate))
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, addOrderPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, addOrderPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for AddOrder: %w", err)
 	}
@@ -2196,7 +2192,7 @@ func (client *KrakenSpotRESTClient) AddOrderBatch(ctx context.Context, nonce int
 		form.Set("validate", strconv.FormatBool(opts.Validate))
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, addOrderBatchPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, addOrderBatchPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for AddOrderBatch: %w", err)
 	}
@@ -2298,7 +2294,7 @@ func (client *KrakenSpotRESTClient) EditOrder(ctx context.Context, nonce int64, 
 		form.Set("validate", strconv.FormatBool(opts.Validate))
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, editOrderPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, editOrderPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for EditOrder: %w", err)
 	}
@@ -2355,7 +2351,7 @@ func (client *KrakenSpotRESTClient) CancelOrder(ctx context.Context, nonce int64
 	// Set txid
 	form.Set("txid", params.Id)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, cancelOrderPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, cancelOrderPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for CancelOrder: %w", err)
 	}
@@ -2408,7 +2404,7 @@ func (client *KrakenSpotRESTClient) CancelAllOrders(ctx context.Context, nonce i
 	// Encode nonce and optional common security options
 	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, cancelAllOrdersPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, cancelAllOrdersPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for CancelAllOrders: %w", err)
 	}
@@ -2478,7 +2474,7 @@ func (client *KrakenSpotRESTClient) CancelAllOrdersAfterX(ctx context.Context, n
 	// Set timeout
 	form.Set("timeout", strconv.FormatInt(params.Timeout, 10))
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, cancelAllOrdersAfterXPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, cancelAllOrdersAfterXPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for CancelAllOrdersAfterX: %w", err)
 	}
@@ -2535,7 +2531,7 @@ func (client *KrakenSpotRESTClient) CancelOrderBatch(ctx context.Context, nonce 
 	// Set orders as a comma delimited list
 	form.Set("orders", strings.Join(params.OrderIds, ","))
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, cancelOrderBatchPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, cancelOrderBatchPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for CancelOrderBatch: %w", err)
 	}
@@ -2595,7 +2591,7 @@ func (client *KrakenSpotRESTClient) GetDepositMethods(ctx context.Context, nonce
 	// Add parameters
 	form.Set("asset", params.Asset)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getDepositMethodsPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getDepositMethodsPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetDepositMethods: %w", err)
 	}
@@ -2659,7 +2655,7 @@ func (client *KrakenSpotRESTClient) GetDepositAddresses(ctx context.Context, non
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getDepositAddressesPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getDepositAddressesPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetDepositAddresses: %w", err)
 	}
@@ -2741,7 +2737,7 @@ func (client *KrakenSpotRESTClient) GetStatusOfRecentDeposits(ctx context.Contex
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getStatusOfRecentDepositsPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getStatusOfRecentDepositsPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetStatusOfRecentDeposits: %w", err)
 	}
@@ -2804,7 +2800,7 @@ func (client *KrakenSpotRESTClient) GetWithdrawalMethods(ctx context.Context, no
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getWithdrawalMethodsPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getWithdrawalMethodsPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetWithdrawalMethods: %w", err)
 	}
@@ -2873,7 +2869,7 @@ func (client *KrakenSpotRESTClient) GetWithdrawalAddresses(ctx context.Context, 
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getWithdrawalAddressesPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getWithdrawalAddressesPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetWithdrawalAddresses: %w", err)
 	}
@@ -2931,7 +2927,7 @@ func (client *KrakenSpotRESTClient) GetWithdrawalInformation(ctx context.Context
 	form.Set("key", params.Key)
 	form.Set("amount", params.Amount)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getWithdrawalInformationPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getWithdrawalInformationPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetWithdrawalInformation: %w", err)
 	}
@@ -2999,7 +2995,7 @@ func (client *KrakenSpotRESTClient) WithdrawFunds(ctx context.Context, nonce int
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, withdrawFundsPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, withdrawFundsPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for WithdrawFunds: %w", err)
 	}
@@ -3075,7 +3071,7 @@ func (client *KrakenSpotRESTClient) GetStatusOfRecentWithdrawals(ctx context.Con
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getStatusOfRecentWithdrawalsPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getStatusOfRecentWithdrawalsPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetStatusOfRecentWithdrawals: %w", err)
 	}
@@ -3132,7 +3128,7 @@ func (client *KrakenSpotRESTClient) RequestWithdrawalCancellation(ctx context.Co
 	form.Set("asset", params.Asset)
 	form.Set("refid", params.ReferenceId)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, requestWithdrawalCancellationPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, requestWithdrawalCancellationPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for RequestWithdrawalCancellation: %w", err)
 	}
@@ -3193,7 +3189,7 @@ func (client *KrakenSpotRESTClient) RequestWalletTransfer(ctx context.Context, n
 	form.Set("to", params.To)
 	form.Set("amount", params.Amount)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, requestWalletTransferPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, requestWalletTransferPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for RequestWalletTransfer: %w", err)
 	}
@@ -3274,7 +3270,7 @@ func (client *KrakenSpotRESTClient) AllocateEarnFunds(ctx context.Context, nonce
 	form.Set("strategy_id", params.StrategyId)
 	form.Set("amount", params.Amount)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, allocateEarnFundsPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, allocateEarnFundsPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for AllocateEarnFunds: %w", err)
 	}
@@ -3350,7 +3346,7 @@ func (client *KrakenSpotRESTClient) DeallocateEarnFunds(ctx context.Context, non
 	form.Set("strategy_id", params.StrategyId)
 	form.Set("amount", params.Amount)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, deallocateEarnFundsPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, deallocateEarnFundsPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for DeallocateEarnFunds: %w", err)
 	}
@@ -3406,7 +3402,7 @@ func (client *KrakenSpotRESTClient) GetAllocationStatus(ctx context.Context, non
 	// Add params
 	form.Set("strategy_id", params.StrategyId)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getAllocationStatusPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getAllocationStatusPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetAllocationStatus: %w", err)
 	}
@@ -3462,7 +3458,7 @@ func (client *KrakenSpotRESTClient) GetDeallocationStatus(ctx context.Context, n
 	// Add params
 	form.Set("strategy_id", params.StrategyId)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getDeallocationStatusPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getDeallocationStatusPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetDeallocationStatus: %w", err)
 	}
@@ -3544,7 +3540,7 @@ func (client *KrakenSpotRESTClient) ListEarnStrategies(ctx context.Context, nonc
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, listEarnStartegiesPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, listEarnStartegiesPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for ListEarnStrategies: %w", err)
 	}
@@ -3640,7 +3636,7 @@ func (client *KrakenSpotRESTClient) ListEarnAllocations(ctx context.Context, non
 		}
 	}
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, listEarnAllocationsPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, listEarnAllocationsPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for ListEarnAllocations: %w", err)
 	}
@@ -3700,7 +3696,7 @@ func (client *KrakenSpotRESTClient) GetWebsocketToken(ctx context.Context, nonce
 	// Encode nonce and optional common security options
 	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Forge and authorize the request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getWebsocketTokenPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getWebsocketTokenPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetWebsocketToken: %w", err)
 	}

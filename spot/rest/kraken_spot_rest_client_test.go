@@ -119,6 +119,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestForgeAndAuthorizeKrakenAPIReques
 		context.Background(),
 		expectedPath,
 		expectedHttpMethod,
+		"application/x-www-form-urlencoded",
 		nil,
 		strings.NewReader(expectedFormData.Encode()))
 	require.NoError(suite.T(), err)
@@ -151,6 +152,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestForgeAndAuthorizeKrakenAPIReques
 	req, err := client.forgeAndAuthorizeKrakenAPIRequest(
 		context.Background(),
 		"/public/Assets",
+		"application/x-www-form-urlencoded",
 		expectedHttpMethod,
 		expectedQueryString,
 		nil)
@@ -186,6 +188,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestForgeAndAuthorizeKrakenAPIReques
 	req, err := client.forgeAndAuthorizeKrakenAPIRequest(
 		context.Background(),
 		path,
+		"",
 		expectedHttpMethod,
 		expectedQueryString,
 		nil)
