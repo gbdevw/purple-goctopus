@@ -280,15 +280,26 @@ func (client *KrakenSpotRESTClient) forgeAndAuthorizeKrakenAPIRequest(
 	if err != nil {
 		return nil, fmt.Errorf("failed to forge HTTP request for Kraken API: %w", err)
 	}
-	// Set Content-Type and User-Agent headers
+	// Set User-Agent headers
 	req.Header.Set(managedHeaderUserAgent, client.agent)
+	// Set Content-Type to application/x-www-form-urlencoded
+	// This is done like that for several reasons:
+	//	- Kraken spot REST API says "Request payloads are form-encoded (Content-Type: application/x-www-form-urlencoded)"
+	//	- Content-Type has to be set to application/x-www-form-urlencoded in order for ParseForm to populate request.Form. This
+	//    is crucial as the defaut authorizer needs request.Form to be set in order to extract data used to forge the request
+	//    signature.
+	req.Header.Set(managedHeaderContentType, "application/x-www-form-urlencoded")
 	// Parse form to hanlde query string parameters and form body if any
 	err = req.ParseForm()
 	if err != nil {
 		return nil, fmt.Errorf("failed to forge HTTP request for Kraken API: %w", err)
 	}
 	// If an authorizer is set, authorize the request and return results
-	return client.authorizer.Authorize(ctx, req)
+	if client.authorizer != nil {
+		return client.authorizer.Authorize(ctx, req)
+	}
+	// If no authorizer is set, return request
+	return req, nil
 }
 
 // # Description
