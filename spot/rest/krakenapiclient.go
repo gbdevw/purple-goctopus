@@ -18,6 +18,7 @@ import (
 	"github.com/gbdevw/purple-goctopus/spot/rest/funding"
 	"github.com/gbdevw/purple-goctopus/spot/rest/market"
 	"github.com/gbdevw/purple-goctopus/spot/rest/trading"
+	"github.com/gbdevw/purple-goctopus/spot/rest/websocket"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -27,7 +28,7 @@ import (
 
 // Kraken spot REST API endpoints URL path
 const (
-	// Base URL
+	// Base URL for Kraken spot REST API - V0 -  Production
 	KrakenProductionV0BaseUrl = "https://api.kraken.com/0"
 
 	// Market Data
@@ -85,12 +86,17 @@ const (
 	requestWalletTransferPath         = "/private/WalletTransfer"
 
 	// Earn
+
 	allocateEarnFundsPath     = "/private/Earn/Allocate"
 	deallocateEarnFundsPath   = "/private/Earn/Deallocate"
 	getAllocationStatusPath   = "/private/Earn/AllocateStatus"
 	getDeallocationStatusPath = "/private/Earn/DeallocateStatus"
 	listEarnStartegiesPath    = "/private/Earn/DeallocateStatus"
 	listEarnAllocationsPath   = "/private/Earn/DeallocateStatus"
+
+	// Websocket
+
+	getWebsocketTokenPath = "/private/GetWebSocketsToken"
 )
 
 // Headers managed by KrakenAPIClient
@@ -352,6 +358,25 @@ func (client *KrakenSpotRESTClient) doKrakenAPIRequest(ctx context.Context, req 
 			resp.Body.Close()
 			return nil, fmt.Errorf("response Content-Type is %s but ony application/json, application/octet-stream or application/zip are expected", mimeType)
 		}
+	}
+}
+
+// # Description
+//
+// Helper function which encodes the nonce and the optional common security options
+// in the provided form data.
+//
+// # Inputs
+//
+//   - form: Form data where nonce and security options will be added
+//   - nonce: Nonce to encode
+//   - secopts: Optional common security options to include.
+func EncodeNonceAndSecurityOptions(form url.Values, nonce int64, secopts *common.SecurityOptions) {
+	// Add nonce
+	form.Set("nonce", strconv.FormatInt(nonce, 10))
+	// Use 2FA if provided
+	if secopts != nil {
+		form.Set("otp", secopts.SecondFactor)
 	}
 }
 
@@ -901,12 +926,8 @@ func (client *KrakenSpotRESTClient) GetRecentSpreads(ctx context.Context, params
 func (client *KrakenSpotRESTClient) GetAccountBalance(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (*account.GetAccountBalanceResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Forge and authorize the request
 	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getAccountBalancePath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -959,12 +980,8 @@ func (client *KrakenSpotRESTClient) GetAccountBalance(ctx context.Context, nonce
 func (client *KrakenSpotRESTClient) GetExtendedBalance(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (*account.GetExtendedBalanceResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Forge and authorize the request
 	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getExtendedBalancePath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -1017,12 +1034,8 @@ func (client *KrakenSpotRESTClient) GetExtendedBalance(ctx context.Context, nonc
 func (client *KrakenSpotRESTClient) GetTradeBalance(ctx context.Context, nonce int64, opts *account.GetTradeBalanceRequestOptions, secopts *common.SecurityOptions) (*account.GetTradeBalanceResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add options
 	if opts != nil {
 		if opts.Asset != "" {
@@ -1081,12 +1094,8 @@ func (client *KrakenSpotRESTClient) GetTradeBalance(ctx context.Context, nonce i
 func (client *KrakenSpotRESTClient) GetOpenOrders(ctx context.Context, nonce int64, opts *account.GetOpenOrdersRequestOptions, secopts *common.SecurityOptions) (*account.GetOpenOrdersResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add options
 	if opts != nil {
 		if opts.Trades {
@@ -1148,12 +1157,8 @@ func (client *KrakenSpotRESTClient) GetOpenOrders(ctx context.Context, nonce int
 func (client *KrakenSpotRESTClient) GetClosedOrders(ctx context.Context, nonce int64, opts *account.GetClosedOrdersOptions, secopts *common.SecurityOptions) (*account.GetClosedOrdersResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add options
 	if opts != nil {
 		if opts.Trades {
@@ -1231,12 +1236,8 @@ func (client *KrakenSpotRESTClient) GetClosedOrders(ctx context.Context, nonce i
 func (client *KrakenSpotRESTClient) QueryOrdersInfo(ctx context.Context, nonce int64, params account.QueryOrdersInfoParameters, opts *account.QueryOrdersInfoRequestOptions, secopts *common.SecurityOptions) (*account.QueryOrdersInfoResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add parameters
 	// Add transaction ids as a comma separated string
 	form.Set("txid", strings.Join(params.TxId, ","))
@@ -1305,12 +1306,8 @@ func (client *KrakenSpotRESTClient) QueryOrdersInfo(ctx context.Context, nonce i
 func (client *KrakenSpotRESTClient) GetTradesHistory(ctx context.Context, nonce int64, opts *account.GetTradesHistoryRequestOptions, secopts *common.SecurityOptions) (*account.GetTradesHistoryResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add options
 	if opts != nil {
 		if opts.Trades {
@@ -1385,12 +1382,8 @@ func (client *KrakenSpotRESTClient) GetTradesHistory(ctx context.Context, nonce 
 func (client *KrakenSpotRESTClient) QueryTradesInfo(ctx context.Context, nonce int64, params account.QueryTradesRequestParameters, opts *account.QueryTradesRequestOptions, secopts *common.SecurityOptions) (*account.QueryTradesInfoResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add parameters
 	// Add transaction ids as a comma separated string
 	form.Set("txid", strings.Join(params.TransactionIds, ","))
@@ -1452,12 +1445,8 @@ func (client *KrakenSpotRESTClient) QueryTradesInfo(ctx context.Context, nonce i
 func (client *KrakenSpotRESTClient) GetOpenPositions(ctx context.Context, nonce int64, opts *account.GetOpenPositionsRequestOptions, secopts *common.SecurityOptions) (*account.GetOpenPositionsRequestOptions, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add options
 	if opts != nil {
 		if len(opts.TransactionIds) > 0 {
@@ -1519,12 +1508,8 @@ func (client *KrakenSpotRESTClient) GetOpenPositions(ctx context.Context, nonce 
 func (client *KrakenSpotRESTClient) GetLedgersInfo(ctx context.Context, nonce int64, opts *account.GetLedgersInfoRequestOptions, secopts *common.SecurityOptions) (*account.GetLedgersInfoResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add options
 	if opts != nil {
 		if opts.Assets != nil {
@@ -1602,12 +1587,8 @@ func (client *KrakenSpotRESTClient) GetLedgersInfo(ctx context.Context, nonce in
 func (client *KrakenSpotRESTClient) QueryLedgers(ctx context.Context, nonce int64, params account.QueryLedgersRequestParameters, opts *account.QueryLedgersOptions, secopts *common.SecurityOptions) (*account.QueryLedgersResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add parameters
 	// Add transaction ids as a comma separated string
 	form.Set("id", strings.Join(params.Id, ","))
@@ -1672,12 +1653,8 @@ func (client *KrakenSpotRESTClient) QueryLedgers(ctx context.Context, nonce int6
 func (client *KrakenSpotRESTClient) GetTradeVolume(ctx context.Context, nonce int64, opts *account.GetTradeVolumeRequestOptions, secopts *common.SecurityOptions) (*account.GetTradeVolumeResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add options
 	if opts != nil {
 		if len(opts.Pairs) > 0 {
@@ -1737,12 +1714,8 @@ func (client *KrakenSpotRESTClient) GetTradeVolume(ctx context.Context, nonce in
 func (client *KrakenSpotRESTClient) RequestExportReport(ctx context.Context, nonce int64, params account.RequestExportReportRequestParameters, opts *account.RequestExportReportRequestOptions, secopts *common.SecurityOptions) (*account.RequestExportReportResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add parameters
 	form.Set("report", params.Report)
 	form.Set("description", params.Description)
@@ -1813,12 +1786,8 @@ func (client *KrakenSpotRESTClient) RequestExportReport(ctx context.Context, non
 func (client *KrakenSpotRESTClient) GetExportReportStatus(ctx context.Context, nonce int64, params account.GetExportReportStatusRequestParameters, secopts *common.SecurityOptions) (*account.GetExportReportStatusResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add parameters
 	form.Set("report", params.Report)
 	// Forge and authorize the request
@@ -1874,12 +1843,8 @@ func (client *KrakenSpotRESTClient) GetExportReportStatus(ctx context.Context, n
 func (client *KrakenSpotRESTClient) RetrieveDataExport(ctx context.Context, nonce int64, params account.RetrieveDataExportParameters, secopts *common.SecurityOptions) (*account.RetrieveDataExportResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add parameters
 	form.Set("id", params.Id)
 	// Forge and authorize the request
@@ -1936,12 +1901,8 @@ func (client *KrakenSpotRESTClient) RetrieveDataExport(ctx context.Context, nonc
 func (client *KrakenSpotRESTClient) DeleteExportReport(ctx context.Context, nonce int64, params account.DeleteExportReportRequestParameters, secopts *common.SecurityOptions) (*account.DeleteExportReportResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add parameters
 	form.Set("id", params.Id)
 	form.Set("type", params.Type)
@@ -2002,12 +1963,8 @@ func (client *KrakenSpotRESTClient) DeleteExportReport(ctx context.Context, nonc
 func (client *KrakenSpotRESTClient) AddOrder(ctx context.Context, nonce int64, params trading.AddOrderRequestParameters, opts *trading.AddOrderRequestOptions, secopts *common.SecurityOptions) (*trading.AddOrderResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add parameters
 	// Set targeted asset pair
 	form.Set("pair", params.Pair)
@@ -2133,12 +2090,8 @@ func (client *KrakenSpotRESTClient) AddOrder(ctx context.Context, nonce int64, p
 func (client *KrakenSpotRESTClient) AddOrderBatch(ctx context.Context, nonce int64, params trading.AddOrderBatchRequestParameters, opts *trading.AddOrderBatchOptions, secopts *common.SecurityOptions) (*trading.AddOrderBatchResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add parameters
 	// Set targeted asset pair
 	form.Set("pair", params.Pair)
@@ -2285,12 +2238,8 @@ func (client *KrakenSpotRESTClient) AddOrderBatch(ctx context.Context, nonce int
 func (client *KrakenSpotRESTClient) EditOrder(ctx context.Context, nonce int64, params trading.EditOrderRequestParameters, opts *trading.EditOrderRequestOptions, secopts *common.SecurityOptions) (*trading.EditOrderResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add parameters
 	// Set txid
 	form.Set("txid", params.Id)
@@ -2386,12 +2335,8 @@ func (client *KrakenSpotRESTClient) EditOrder(ctx context.Context, nonce int64, 
 func (client *KrakenSpotRESTClient) CancelOrder(ctx context.Context, nonce int64, params trading.CancelOrderRequestParameters, secopts *common.SecurityOptions) (*trading.CancelOrderResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add parameters
 	// Set txid
 	form.Set("txid", params.Id)
@@ -2446,12 +2391,8 @@ func (client *KrakenSpotRESTClient) CancelOrder(ctx context.Context, nonce int64
 func (client *KrakenSpotRESTClient) CancelAllOrders(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (*trading.CancelAllOrdersResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Forge and authorize the request
 	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, cancelAllOrdersPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -2517,12 +2458,8 @@ func (client *KrakenSpotRESTClient) CancelAllOrders(ctx context.Context, nonce i
 func (client *KrakenSpotRESTClient) CancelAllOrdersAfterX(ctx context.Context, nonce int64, params trading.CancelAllOrdersAfterXRequestParameters, secopts *common.SecurityOptions) (*trading.CancelAllOrdersAfterXResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add parameters
 	// Set timeout
 	form.Set("timeout", strconv.FormatInt(params.Timeout, 10))
@@ -2578,12 +2515,8 @@ func (client *KrakenSpotRESTClient) CancelAllOrdersAfterX(ctx context.Context, n
 func (client *KrakenSpotRESTClient) CancelOrderBatch(ctx context.Context, nonce int64, params trading.CancelOrderBatchRequestParameters, secopts *common.SecurityOptions) (*trading.CancelOrderBatchResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add parameters
 	// Set orders as a comma delimited list
 	form.Set("orders", strings.Join(params.OrderIds, ","))
@@ -2643,12 +2576,8 @@ func (client *KrakenSpotRESTClient) CancelOrderBatch(ctx context.Context, nonce 
 func (client *KrakenSpotRESTClient) GetDepositMethods(ctx context.Context, nonce int64, params funding.GetDepositMethodsRequestParameters, secopts *common.SecurityOptions) (*funding.GetDepositMethodsResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add parameters
 	form.Set("asset", params.Asset)
 	// Forge and authorize the request
@@ -2704,12 +2633,8 @@ func (client *KrakenSpotRESTClient) GetDepositMethods(ctx context.Context, nonce
 func (client *KrakenSpotRESTClient) GetDepositAddresses(ctx context.Context, nonce int64, params funding.GetDepositAddressesRequestParameters, opts *funding.GetDepositAddressesRequestOptions, secopts *common.SecurityOptions) (*funding.GetDepositAddressesResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add parameters
 	form.Set("asset", params.Asset)
 	form.Set("method", params.Method)
@@ -2775,12 +2700,8 @@ func (client *KrakenSpotRESTClient) GetDepositAddresses(ctx context.Context, non
 func (client *KrakenSpotRESTClient) GetStatusOfRecentDeposits(ctx context.Context, nonce int64, opts *funding.GetStatusOfRecentDepositsRequestOptions, secopts *common.SecurityOptions) (*funding.GetStatusOfRecentDepositsResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Force pagination usage as response is too different otherwise
 	form.Set("cursor", strconv.FormatBool(true))
 	// Add options
@@ -2857,12 +2778,8 @@ func (client *KrakenSpotRESTClient) GetStatusOfRecentDeposits(ctx context.Contex
 func (client *KrakenSpotRESTClient) GetWithdrawalMethods(ctx context.Context, nonce int64, opts *funding.GetWithdrawalMethodsRequestOptions, secopts *common.SecurityOptions) (*funding.GetWithdrawalMethodsResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add options
 	if opts != nil {
 		if opts.Asset != "" {
@@ -2924,12 +2841,8 @@ func (client *KrakenSpotRESTClient) GetWithdrawalMethods(ctx context.Context, no
 func (client *KrakenSpotRESTClient) GetWithdrawalAddresses(ctx context.Context, nonce int64, opts *funding.GetWithdrawalAddressesRequestOptions, secopts *common.SecurityOptions) (*funding.GetWithdrawalAddressesResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add options
 	if opts != nil {
 		if opts.Asset != "" {
@@ -2997,12 +2910,8 @@ func (client *KrakenSpotRESTClient) GetWithdrawalAddresses(ctx context.Context, 
 func (client *KrakenSpotRESTClient) GetWithdrawalInformation(ctx context.Context, nonce int64, params funding.GetWithdrawalInformationRequestParameters, secopts *common.SecurityOptions) (*funding.GetWithdrawalInformationResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add params
 	form.Set("asset", params.Asset)
 	form.Set("key", params.Key)
@@ -3060,12 +2969,8 @@ func (client *KrakenSpotRESTClient) GetWithdrawalInformation(ctx context.Context
 func (client *KrakenSpotRESTClient) WithdrawFunds(ctx context.Context, nonce int64, params funding.WithdrawFundsRequestParameters, opts *funding.WithdrawFundsRequestOptions, secopts *common.SecurityOptions) (*funding.WithdrawFundsResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add params
 	form.Set("asset", params.Asset)
 	form.Set("key", params.Key)
@@ -3136,12 +3041,8 @@ func (client *KrakenSpotRESTClient) WithdrawFunds(ctx context.Context, nonce int
 func (client *KrakenSpotRESTClient) GetStatusOfRecentWithdrawals(ctx context.Context, nonce int64, opts *funding.GetStatusOfRecentWithdrawalsRequestOptions, secopts *common.SecurityOptions) (*funding.GetStatusOfRecentWithdrawalsResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Force deactivated pagination as documentation is unclear about the response payload.
 	form.Set("cursor", strconv.FormatBool(false))
 	// Add options
@@ -3211,12 +3112,8 @@ func (client *KrakenSpotRESTClient) GetStatusOfRecentWithdrawals(ctx context.Con
 func (client *KrakenSpotRESTClient) RequestWithdrawalCancellation(ctx context.Context, nonce int64, params funding.RequestWithdrawalCancellationRequestParameters, secopts *common.SecurityOptions) (*funding.RequestWithdrawalCancellationResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add params
 	form.Set("asset", params.Asset)
 	form.Set("refid", params.ReferenceId)
@@ -3274,12 +3171,8 @@ func (client *KrakenSpotRESTClient) RequestWithdrawalCancellation(ctx context.Co
 func (client *KrakenSpotRESTClient) RequestWalletTransfer(ctx context.Context, nonce int64, params funding.RequestWalletTransferRequestParameters, secopts *common.SecurityOptions) (*funding.RequestWalletTransferResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add params
 	form.Set("asset", params.Asset)
 	form.Set("from", params.From)
@@ -3361,12 +3254,8 @@ func (client *KrakenSpotRESTClient) RequestWalletTransfer(ctx context.Context, n
 func (client *KrakenSpotRESTClient) AllocateEarnFunds(ctx context.Context, nonce int64, params earn.AllocateFundsRequestParameters, secopts *common.SecurityOptions) (*earn.AllocateFundsResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add params
 	form.Set("strategy_id", params.StrategyId)
 	form.Set("amount", params.Amount)
@@ -3441,12 +3330,8 @@ func (client *KrakenSpotRESTClient) AllocateEarnFunds(ctx context.Context, nonce
 func (client *KrakenSpotRESTClient) DeallocateEarnFunds(ctx context.Context, nonce int64, params earn.DeallocateFundsRequestParameters, secopts *common.SecurityOptions) (*earn.DeallocateFundsResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add params
 	form.Set("strategy_id", params.StrategyId)
 	form.Set("amount", params.Amount)
@@ -3502,12 +3387,8 @@ func (client *KrakenSpotRESTClient) DeallocateEarnFunds(ctx context.Context, non
 func (client *KrakenSpotRESTClient) GetAllocationStatus(ctx context.Context, nonce int64, params earn.GetAllocationStatusRequestParameters, secopts *common.SecurityOptions) (*earn.GetAllocationStatusResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add params
 	form.Set("strategy_id", params.StrategyId)
 	// Forge and authorize the request
@@ -3562,12 +3443,8 @@ func (client *KrakenSpotRESTClient) GetAllocationStatus(ctx context.Context, non
 func (client *KrakenSpotRESTClient) GetDeallocationStatus(ctx context.Context, nonce int64, params earn.GetDeallocationStatusRequestParameters, secopts *common.SecurityOptions) (*earn.GetDeallocationStatusResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add params
 	form.Set("strategy_id", params.StrategyId)
 	// Forge and authorize the request
@@ -3632,12 +3509,8 @@ func (client *KrakenSpotRESTClient) GetDeallocationStatus(ctx context.Context, n
 func (client *KrakenSpotRESTClient) ListEarnStrategies(ctx context.Context, nonce int64, opts *earn.ListEarnStrategiesRequestOptions, secopts *common.SecurityOptions) (*earn.ListEarnStrategiesResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add options
 	if opts != nil {
 		if opts.Ascending {
@@ -3738,12 +3611,8 @@ func (client *KrakenSpotRESTClient) ListEarnStrategies(ctx context.Context, nonc
 func (client *KrakenSpotRESTClient) ListEarnAllocations(ctx context.Context, nonce int64, opts *earn.ListEarnAllocationsRequestOptions, secopts *common.SecurityOptions) (*earn.ListEarnAllocationsResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
-	// Add nonce
-	form.Set("nonce", strconv.FormatInt(nonce, 10))
-	// Use 2FA if provided
-	if secopts != nil {
-		form.Set("otp", secopts.SecondFactor)
-	}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
 	// Add options
 	if opts != nil {
 		if opts.Ascending {
@@ -3771,4 +3640,62 @@ func (client *KrakenSpotRESTClient) ListEarnAllocations(ctx context.Context, non
 	return receiver, resp, nil
 }
 
-// RESUME HERE FOR WEBSOCKETS
+/*****************************************************************************/
+/* KRAKEN API CLIENT: OPERATIONS - WEBSOCKET                                 */
+/*****************************************************************************/
+
+// # Description
+//
+// GetWebsocketToken - An authentication token must be requested via this REST API endpoint in
+// order to connect to and authenticate with our Websockets API. The token should be used
+// within 15 minutes of creation, but it does not expire once a successful Websockets
+// connection and private subscription has been made and is maintained.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose.
+//   - nonce: Nonce used to sign request.
+//   - secopts: Security options to use for the API call (2FA, ...)
+//
+// # Returns
+//
+//   - GetWebsocketTokenResponse: The parsed response from Kraken API.
+//   - http.Response: A reference to the raw HTTP response received from Kraken API.
+//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
+//
+// # Note on error
+//
+// The error is set only when something wrong has happened either at the HTTP level (while building the request,
+// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
+// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
+// when context has expired.
+//
+// An nil error does not mean everything is OK: You also have to check the response error field for specific
+// errors from Kraken API.
+//
+// # Note on the http.Response
+//
+// A reference to the received http.Response is always returned but it may be nil if no response was received.
+// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
+// to extract the metadata (or any other kind of data that are not used by the API client directly).
+//
+// Please note response body will always be closed except for RetrieveDataExport.
+func (client *KrakenSpotRESTClient) GetWebsocketToken(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (*websocket.GetWebsocketTokenResponse, *http.Response, error) {
+	// Prepare form body.
+	form := url.Values{}
+	// Encode nonce and optional common security options
+	EncodeNonceAndSecurityOptions(form, nonce, secopts)
+	// Forge and authorize the request
+	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getWebsocketTokenPath, http.MethodPost, nil, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetWebsocketToken: %w", err)
+	}
+	// Send the request
+	receiver := new(websocket.GetWebsocketTokenResponse)
+	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
+	if err != nil {
+		return nil, resp, fmt.Errorf("request for GetWebsocketToken failed: %w", err)
+	}
+	// Return results
+	return receiver, resp, nil
+}
