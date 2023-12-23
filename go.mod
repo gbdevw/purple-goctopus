@@ -4,6 +4,7 @@ go 1.21.1
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/gbdevw/gosette v0.0.0-20231029160843-0b9a6036c041 // indirect
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
