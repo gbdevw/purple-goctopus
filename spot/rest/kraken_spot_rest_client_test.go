@@ -152,8 +152,8 @@ func (suite *KrakenSpotRESTClientTestSuite) TestForgeAndAuthorizeKrakenAPIReques
 	req, err := client.forgeAndAuthorizeKrakenAPIRequest(
 		context.Background(),
 		"/public/Assets",
-		"application/x-www-form-urlencoded",
 		expectedHttpMethod,
+		"",
 		expectedQueryString,
 		nil)
 	require.NoError(suite.T(), err)
@@ -169,40 +169,38 @@ func (suite *KrakenSpotRESTClientTestSuite) TestForgeAndAuthorizeKrakenAPIReques
 	require.Empty(suite.T(), req.Header.Get(managedHeaderContentType))
 }
 
-// Test forgeAndAuthorizeKrakenAPIRequest when malformed request inputs are provided, like an
-// unknown http method.
+// Test forgeAndAuthorizeKrakenAPIRequest method when wrong inputs lead to a malformed request.
 //
-// Test will ensure the method will return an error and no  HTTP request.
-func (suite *KrakenSpotRESTClientTestSuite) TestForgeAndAuthorizeKrakenAPIRequestWithMalformedHttpParameters() {
-	// Expectations
-	expectedHttpMethod := http.MethodGet
-	expectedQueryStringAsset := "XBT,ETH"
-	expectedQueryString := url.Values{
-		"asset": []string{expectedQueryStringAsset},
-	}
-	path := "/public/Assets"
-	expectedPath := "/0" + path // Add /0 is missing as the client base url is set to default production v0
-	// Create new client without any authorizer and with default options
-	client := NewKrakenSpotRESTClient(nil, nil)
+// Test will ensure the method returns an error and no request when it fails to create the http.Request.
+func (suite *KrakenSpotRESTClientTestSuite) TestForgeAndAuthorizeKrakenAPIRequestWithMalformedInputs() {
 	// Forge request
-	req, err := client.forgeAndAuthorizeKrakenAPIRequest(
+	req, err := suite.client.forgeAndAuthorizeKrakenAPIRequest(
 		context.Background(),
-		path,
 		"",
-		expectedHttpMethod,
-		expectedQueryString,
+		"application/x-www-form-urlencoded", // Use "application/x-www-form-urlencoded" as method to trigger the expected error
+		"",
+		nil,
 		nil)
-	require.NoError(suite.T(), err)
-	require.NotNil(suite.T(), req)
-	// Check forged request method, path, form data
-	require.Equal(suite.T(), expectedHttpMethod, req.Method)
-	require.Equal(suite.T(), expectedPath, req.URL.Path)
-	require.Equal(suite.T(), expectedQueryString.Encode(), req.Form.Encode())
-	// Check request headers
-	require.Empty(suite.T(), req.Header[managedHeaderAPISign])
-	require.Empty(suite.T(), req.Header[managedHeaderAPIKey])
-	require.Equal(suite.T(), DefaultUserAgent, req.Header.Get(managedHeaderUserAgent))
-	require.Empty(suite.T(), req.Header.Get(managedHeaderContentType))
+	require.Error(suite.T(), err)
+	require.Nil(suite.T(), req)
+	require.Contains(suite.T(), err.Error(), `net/http: invalid method "application/x-www-form-urlencoded"`)
+}
+
+// Test forgeAndAuthorizeKrakenAPIRequest method when ParseForm fails.
+//
+// Test will ensure the method returns an error and no request when it fails to parse the form data.
+func (suite *KrakenSpotRESTClientTestSuite) TestForgeAndAuthorizeKrakenAPIRequestWithParseFormFail() {
+	// Forge request
+	req, err := suite.client.forgeAndAuthorizeKrakenAPIRequest(
+		context.Background(),
+		"",
+		http.MethodPost,
+		"application/x-www-form-urlencoded",
+		nil,
+		nil) // Do not set body to trigger the error
+	require.Error(suite.T(), err)
+	require.Nil(suite.T(), req)
+	require.Contains(suite.T(), err.Error(), "missing form body")
 }
 
 // /*****************************************************************************/
