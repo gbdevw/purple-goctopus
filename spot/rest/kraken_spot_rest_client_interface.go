@@ -1841,5 +1841,5 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	GetWebsocketToken(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (websocket.GetWebsocketTokenResponse, *http.Response, error)
+	GetWebsocketToken(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (*websocket.GetWebsocketTokenResponse, *http.Response, error)
 }
