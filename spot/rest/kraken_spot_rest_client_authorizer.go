@@ -63,8 +63,12 @@ func NewKrakenSpotRESTClientAuthorizer(key, secret string) (*KrakenSpotRESTClien
 
 // Authorize the request by using the request form data and the provided credentials.
 //
-// WARNING: The method expects request.Form data to be populated in order to extract the
-// nonce and all other data required to forge the signature. The method will call req.ParseForm
+// # WARNING
+//
+// The method expects request.Form data to be populated in order to extract the nonce and all
+// other data required to forge the signature. The method will call req.ParseForm. For this to
+// work, the provided request must have a body set, its http.Method equal to POST, PATCH or PUT
+// and its content-type header be set to "application/x-www-form-urlencoded".
 func (auth *KrakenSpotRESTClientAuthorizer) Authorize(ctx context.Context, req *http.Request) (*http.Request, error) {
 	// Ensure request is not nil or panic as it must not be nil.
 	if req == nil {
