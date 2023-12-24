@@ -326,7 +326,7 @@ func (client *KrakenSpotRESTClient) doKrakenAPIRequest(ctx context.Context, req 
 		//
 		// No body will be present.
 		if resp.StatusCode != http.StatusOK {
-			return resp, fmt.Errorf("error code received from Kraken API: %d", resp.StatusCode)
+			return resp, fmt.Errorf("unexpected status code received from Kraken API: %d", resp.StatusCode)
 		}
 		// Check mime type of response
 		mimeType, _, err := mime.ParseMediaType(resp.Header.Get("Content-Type"))
