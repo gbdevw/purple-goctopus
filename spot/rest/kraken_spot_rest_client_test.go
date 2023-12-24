@@ -2,16 +2,18 @@ package rest
 
 import (
 	"context"
-	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gbdevw/gosette"
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
+	"github.com/gbdevw/purple-goctopus/spot/rest/market"
 	"github.com/gbdevw/purple-goctopus/spot/rest/trading"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/stretchr/testify/require"
@@ -58,10 +60,15 @@ func TestKrakenSpotRESTClientTestSuite(t *testing.T) {
 	//	- The test server base url as base url
 	//	- A used defined value for the USer-Agent header (TST)
 	//	- A retryable http client as http client to use
+	httpclient := retryablehttp.NewClient()
+	httpclient.RetryWaitMax = 1 * time.Second
+	httpclient.RetryWaitMin = 1 * time.Second
+	httpclient.RetryMax = 3
+	httpclient.Logger = log.New(io.Discard, "", 0) // Silent debug logs
 	client := NewKrakenSpotRESTClient(authorizer, &KrakenSpotRESTClientConfiguration{
 		BaseURL: tstsrv.GetBaseURL(),
 		Agent:   usrAgent,
-		Client:  retryablehttp.NewClient().StandardClient(),
+		Client:  httpclient.StandardClient(),
 	})
 	// Run unit test suite
 	suite.Run(t, &KrakenSpotRESTClientTestSuite{
@@ -191,23 +198,6 @@ func (suite *KrakenSpotRESTClientTestSuite) TestForgeAndAuthorizeKrakenAPIReques
 	require.Contains(suite.T(), err.Error(), `net/http: invalid method "application/x-www-form-urlencoded"`)
 }
 
-// Test forgeAndAuthorizeKrakenAPIRequest method when ParseForm fails.
-//
-// Test will ensure the method returns an error and no request when it fails to parse the form data.
-func (suite *KrakenSpotRESTClientTestSuite) TestForgeAndAuthorizeKrakenAPIRequestWithParseFormFail() {
-	// Forge request
-	req, err := suite.client.forgeAndAuthorizeKrakenAPIRequest(
-		context.Background(),
-		"",
-		http.MethodPost,
-		"application/x-www-form-urlencoded",
-		nil,
-		nil) // Do not set body to trigger the error
-	require.Error(suite.T(), err)
-	require.Nil(suite.T(), req)
-	require.Contains(suite.T(), err.Error(), "missing form body")
-}
-
 // Test doKrakenAPIRequest method with a valid request that will be sent to the test server. Test
 // server will be configured to reply with a valid JSON response.
 //
@@ -215,7 +205,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestForgeAndAuthorizeKrakenAPIReques
 //   - Request is sent by the client
 //   - Recorded request on the test server side matches the expected request settings (path, method, ...)
 //   - Valid JSON response is parsed by the client and populates the provided receiver.
-func (suite *KrakenSpotRESTClientTestSuite) TestDoKrakenAPIRequest() {
+func (suite *KrakenSpotRESTClientTestSuite) TestDoKrakenAPIRequestWithJsonResponse() {
 	// Expected response
 	expectedResponseBody := `
 	{
@@ -283,7 +273,6 @@ func (suite *KrakenSpotRESTClientTestSuite) TestDoKrakenAPIRequest() {
 	record := suite.srv.PopServerRecord()
 	require.Equal(suite.T(), expectedHttpMethod, record.Request.Method)
 	require.Equal(suite.T(), expectedPath, record.Request.URL.Path)
-	fmt.Println(record.Request.Header)
 	// Check signature headers -> WARN: Recorded request has the headers in their canonical form
 	require.Equal(suite.T(), expectedSignature, record.Request.Header.Get("Api-Sign"))
 	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key"))
@@ -293,9 +282,222 @@ func (suite *KrakenSpotRESTClientTestSuite) TestDoKrakenAPIRequest() {
 	recBody, err := io.ReadAll(record.RequestBody)
 	require.NoError(suite.T(), err)
 	require.Equal(suite.T(), expectedEncodedFormData, string(recBody))
-
 }
 
+// Test doKrakenAPIRequest method with a valid request that will be sent to the test server. Test
+// server will be configured to reply with a valid binary response (application/octet-stream).
+//
+// Test will ensure:
+//   - Request is sent by the client
+//   - Recorded request on the test server side matches the expected request settings (path, method, ...)
+//   - Response body is not closed and contains the response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestDoKrakenAPIRequestWithBinaryStreamResponse() {
+	// Expected response
+	expectedResponse := "hello"
+	expectedStatusCode := http.StatusOK
+	expectedContentType := "application/octet-stream"
+	// Configure test server response
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status: expectedStatusCode,
+		Headers: map[string][]string{
+			"Content-Type": {expectedContentType},
+		},
+		Body: []byte(expectedResponse),
+	})
+	// Forge request
+	baseReq, err := suite.client.forgeAndAuthorizeKrakenAPIRequest(
+		context.Background(),
+		"",
+		http.MethodGet,
+		"",
+		nil,
+		nil)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), baseReq)
+	// Do request
+	resp, err := suite.client.doKrakenAPIRequest(context.Background(), baseReq, nil)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), resp)
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), expectedResponse, string(body))
+}
+
+// Test doKrakenAPIRequest method with a valid request that will be sent to the test server. Test
+// server will be configured to reply with a valid binary response (application/zip).
+//
+// Test will ensure:
+//   - Request is sent by the client
+//   - Recorded request on the test server side matches the expected request settings (path, method, ...)
+//   - Response body is not closed and contains the response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestDoKrakenAPIRequestWithBinaryZipResponse() {
+	// Expected response
+	expectedResponse := "hello"
+	expectedStatusCode := http.StatusOK
+	expectedContentType := "application/zip"
+	// Configure test server response
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status: expectedStatusCode,
+		Headers: map[string][]string{
+			"Content-Type": {expectedContentType},
+		},
+		Body: []byte(expectedResponse),
+	})
+	// Forge request
+	baseReq, err := suite.client.forgeAndAuthorizeKrakenAPIRequest(
+		context.Background(),
+		"",
+		http.MethodGet,
+		"",
+		nil,
+		nil)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), baseReq)
+	// Do request
+	resp, err := suite.client.doKrakenAPIRequest(context.Background(), baseReq, nil)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), resp)
+	// Read response body
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), expectedResponse, string(body))
+}
+
+// Test doKrakenAPIRequest method when called with an expired context.
+//
+// Test will ensure an error is returned in such a case. Test will also ensure the request
+// is not sent if the context has expired.
+func (suite *KrakenSpotRESTClientTestSuite) TestDoKrakenAPIRequestWithCanceledContext() {
+	// Configure expired context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	// Forge request
+	baseReq, err := suite.client.forgeAndAuthorizeKrakenAPIRequest(
+		context.Background(), // Do not provide the canceled context -> will fail
+		serverTimePath,
+		http.MethodGet,
+		"",
+		nil,
+		nil)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), baseReq)
+	// Do request and expect an error
+	receiver := new(market.GetServerTimeResponse)
+	_, err = suite.client.doKrakenAPIRequest(ctx, baseReq, receiver)
+	require.Error(suite.T(), err)
+	require.Contains(suite.T(), err.Error(), "aborting request")
+	// Check no request has been received by the test server
+	require.Nil(suite.T(), suite.srv.PopServerRecord())
+}
+
+// Test doKrakenAPIRequest method when the Do method of the underlying httpClient fails.
+//
+// Test will ensure an error is returned in such a case.
+func (suite *KrakenSpotRESTClientTestSuite) TestDoKrakenAPIRequestWithHttpClientDoError() {
+	// Configure test server response
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status: http.StatusServiceUnavailable,
+	})
+	// Forge request
+	baseReq, err := suite.client.forgeAndAuthorizeKrakenAPIRequest(
+		context.Background(),
+		serverTimePath,
+		http.MethodGet,
+		"",
+		nil,
+		nil)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), baseReq)
+	// Do request and expect an error
+	receiver := new(market.GetServerTimeResponse)
+	_, err = suite.client.doKrakenAPIRequest(context.Background(), baseReq, receiver)
+	require.Error(suite.T(), err)
+	require.Contains(suite.T(), err.Error(), "failed to process HTTP request")
+}
+
+// Test doKrakenAPIRequest method when the response contains an status code other than OK.
+//
+// Test will ensure an error is returned in such a case.
+func (suite *KrakenSpotRESTClientTestSuite) TestDoKrakenAPIRequestWithUnexpectedStatusCode() {
+	// Configure test server response
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status: http.StatusAccepted,
+	})
+	// Forge request
+	baseReq, err := suite.client.forgeAndAuthorizeKrakenAPIRequest(
+		context.Background(),
+		serverTimePath,
+		http.MethodGet,
+		"",
+		nil,
+		nil)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), baseReq)
+	// Do request and expect an error
+	receiver := new(market.GetServerTimeResponse)
+	_, err = suite.client.doKrakenAPIRequest(context.Background(), baseReq, receiver)
+	require.Error(suite.T(), err)
+	require.Contains(suite.T(), err.Error(), "unexpected status code received from Kraken API")
+}
+
+// Test doKrakenAPIRequest method when the method fails to parse response content-type
+//
+// Test will ensure an error is returned if the Content-Type cannot be parsed.
+func (suite *KrakenSpotRESTClientTestSuite) TestDoKrakenAPIRequestWithParseContentTypeFail() {
+	// Configure test server response
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status: http.StatusOK,
+		Headers: map[string][]string{
+			"Content-Type": {""},
+		},
+	})
+	// Forge request
+	baseReq, err := suite.client.forgeAndAuthorizeKrakenAPIRequest(
+		context.Background(),
+		serverTimePath,
+		http.MethodGet,
+		"",
+		nil,
+		nil)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), baseReq)
+	// Do request and expect an error
+	receiver := new(market.GetServerTimeResponse)
+	_, err = suite.client.doKrakenAPIRequest(context.Background(), baseReq, receiver)
+	require.Error(suite.T(), err)
+	require.Contains(suite.T(), err.Error(), "could not decode the response Content-Type header")
+}
+
+// Test doKrakenAPIRequest method when response has an unexpected content-type.
+//
+// Test will ensure an error is returned in such as case.
+func (suite *KrakenSpotRESTClientTestSuite) TestDoKrakenAPIRequestWithWronContentType() {
+	// Configure test server response
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status: http.StatusOK,
+		Headers: map[string][]string{
+			"Content-Type": {"text/plain"},
+		},
+	})
+	// Forge request
+	baseReq, err := suite.client.forgeAndAuthorizeKrakenAPIRequest(
+		context.Background(),
+		serverTimePath,
+		http.MethodGet,
+		"",
+		nil,
+		nil)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), baseReq)
+	// Do request and expect an error
+	receiver := new(market.GetServerTimeResponse)
+	_, err = suite.client.doKrakenAPIRequest(context.Background(), baseReq, receiver)
+	require.Error(suite.T(), err)
+	require.Contains(suite.T(), err.Error(), "response Content-Type is")
+}
+
+//
 // /*****************************************************************************/
 // /* UNIT TESTS - MARKET DATA                                                  */
 // /*****************************************************************************/
