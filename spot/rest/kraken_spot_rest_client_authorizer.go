@@ -81,9 +81,15 @@ func (auth *KrakenSpotRESTClientAuthorizer) Authorize(ctx context.Context, req *
 		return nil, fmt.Errorf("failed to authorize request: %w", ctx.Err())
 	default:
 		// Check if signature is required
-		if !strings.Contains(req.URL.Path, "/public") {
+		if !strings.Contains(req.URL.Path, "/public") && req.Body != nil {
+			// Save a copy of the form body as it has to be parsed in order for the authorizer
+			// to extract the data required for the signature.
+			cp, err := req.GetBody()
+			if err != nil {
+				return nil, fmt.Errorf("failed to authorize request: could not parse form data: %w", err)
+			}
 			// Parse form data
-			err := req.ParseForm()
+			err = req.ParseForm()
 			if err != nil {
 				return nil, fmt.Errorf("failed to authorize request: could not parse form data: %w", err)
 			}
@@ -95,6 +101,8 @@ func (auth *KrakenSpotRESTClientAuthorizer) Authorize(ctx context.Context, req *
 			// Set/Override Api-Key and API-Sign headers in request
 			req.Header[managedHeaderAPIKey] = []string{auth.key}
 			req.Header[managedHeaderAPISign] = []string{signature}
+			// Restore the copy of the body
+			req.Body = cp
 		}
 		// Return reference to the (signed) request.
 		return req, nil

@@ -2,6 +2,8 @@ package rest
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/gbdevw/gosette"
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
+	"github.com/gbdevw/purple-goctopus/spot/rest/trading"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -158,9 +161,11 @@ func (suite *KrakenSpotRESTClientTestSuite) TestForgeAndAuthorizeKrakenAPIReques
 		nil)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), req)
-	// Check forged request method, path, form data
+	// Check forged request method, path
 	require.Equal(suite.T(), expectedHttpMethod, req.Method)
 	require.Equal(suite.T(), expectedPath, req.URL.Path)
+	// Parse form data (as they are not parsed by the authorizer) and check on them
+	require.NoError(suite.T(), req.ParseForm())
 	require.Equal(suite.T(), expectedQueryString.Encode(), req.Form.Encode())
 	// Check request headers
 	require.Empty(suite.T(), req.Header[managedHeaderAPISign])
@@ -201,6 +206,94 @@ func (suite *KrakenSpotRESTClientTestSuite) TestForgeAndAuthorizeKrakenAPIReques
 	require.Error(suite.T(), err)
 	require.Nil(suite.T(), req)
 	require.Contains(suite.T(), err.Error(), "missing form body")
+}
+
+// Test doKrakenAPIRequest method with a valid request that will be sent to the test server. Test
+// server will be configured to reply with a valid JSON response.
+//
+// Test will ensure:
+//   - Request is sent by the client
+//   - Recorded request on the test server side matches the expected request settings (path, method, ...)
+//   - Valid JSON response is parsed by the client and populates the provided receiver.
+func (suite *KrakenSpotRESTClientTestSuite) TestDoKrakenAPIRequest() {
+	// Expected response
+	expectedResponseBody := `
+	{
+		"error": [],
+		"result": {
+		  "descr": {
+			"order": "buy 1.25000000 XBTUSD @ limit 27500.0"
+		  },
+		  "txid": [
+			"OU22CG-KLAF2-FWUDD7"
+		  ]
+		}
+	}`
+	expectedStatusCode := http.StatusOK
+	expectedContentType := "application/json"
+	expectedOrderDescr := "buy 1.25000000 XBTUSD @ limit 27500.0"
+	expectedOrderTxId := []string{"OU22CG-KLAF2-FWUDD7"}
+	// Configure test server response
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status: expectedStatusCode,
+		Headers: map[string][]string{
+			"Content-Type": {expectedContentType},
+		},
+		Body: []byte(expectedResponseBody),
+	})
+	// Request expectations
+	expectedHttpMethod := http.MethodPost
+	expectedFormData := url.Values{
+		"nonce":     []string{"1616492376594"},
+		"ordertype": []string{"limit"},
+		"pair":      []string{"XBTUSD"},
+		"price":     []string{"37500"},
+		"type":      []string{"buy"},
+		"volume":    []string{"1.25"},
+	}
+	expectedEncodedFormData := "nonce=1616492376594&ordertype=limit&pair=XBTUSD&price=37500&type=buy&volume=1.25"
+	require.Equal(suite.T(), expectedEncodedFormData, expectedFormData.Encode())
+	expectedSignature := "4/dpxb3iT4tp/ZCVEwSnEsLxx0bqyhLpdfOpc6fn7OR8+UClSV5n9E6aSS8MPtnRfp32bAb0nmbRn6H8ndwLUQ=="
+	expectedPath := "/0/private/AddOrder" // /0 is added as the client base url is set to the test server base url
+	// Forge request
+	baseReq, err := suite.client.forgeAndAuthorizeKrakenAPIRequest(
+		context.Background(),
+		expectedPath,
+		expectedHttpMethod,
+		"application/x-www-form-urlencoded",
+		nil,
+		strings.NewReader(expectedFormData.Encode()))
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), baseReq)
+	// Do request
+	receiver := new(trading.AddOrderResponse)
+	resp, err := suite.client.doKrakenAPIRequest(context.Background(), baseReq, receiver)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), resp)
+	// Check response
+	require.Equal(suite.T(), expectedStatusCode, resp.StatusCode)
+	require.Equal(suite.T(), expectedContentType, resp.Header.Get("Content-Type"))
+	// Check body is closed
+	_, err = resp.Body.Read(make([]byte, 0))
+	require.Error(suite.T(), err)
+	// Check receiver
+	require.Equal(suite.T(), expectedOrderDescr, receiver.Result.Description.Order)
+	require.ElementsMatch(suite.T(), expectedOrderTxId, receiver.Result.TransactionIDs)
+	// Pop server record & check recorded request
+	record := suite.srv.PopServerRecord()
+	require.Equal(suite.T(), expectedHttpMethod, record.Request.Method)
+	require.Equal(suite.T(), expectedPath, record.Request.URL.Path)
+	fmt.Println(record.Request.Header)
+	// Check signature headers -> WARN: Recorded request has the headers in their canonical form
+	require.Equal(suite.T(), expectedSignature, record.Request.Header.Get("Api-Sign"))
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key"))
+	require.Equal(suite.T(), usrAgent, record.Request.Header.Get(managedHeaderUserAgent))
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get(managedHeaderContentType))
+	// Check recorded request body
+	recBody, err := io.ReadAll(record.RequestBody)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), expectedEncodedFormData, string(recBody))
+
 }
 
 // /*****************************************************************************/

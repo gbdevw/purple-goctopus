@@ -270,7 +270,6 @@ func (client *KrakenSpotRESTClient) forgeAndAuthorizeKrakenAPIRequest(
 	query url.Values,
 	body io.Reader,
 ) (*http.Request, error) {
-
 	// Set request url
 	reqURL := fmt.Sprintf("%s%s", client.baseURL, path)
 	// Add query string parameters if provided to request url
@@ -285,14 +284,6 @@ func (client *KrakenSpotRESTClient) forgeAndAuthorizeKrakenAPIRequest(
 	// Set User-Agent and Content-Type headers
 	req.Header.Set(managedHeaderUserAgent, client.agent)
 	req.Header.Set(managedHeaderContentType, contentType)
-	// Parse form to hanlde query string parameters and form body if needed.
-	//
-	// Form body will be read only if httpMethod is POST, PACTH or PUT and if content type is
-	// "application/x-www-form-urlencoded".
-	err = req.ParseForm()
-	if err != nil {
-		return nil, fmt.Errorf("failed to forge HTTP request for Kraken API: %w", err)
-	}
 	// If an authorizer is set, authorize the request and return results
 	if client.authorizer != nil {
 		return client.authorizer.Authorize(ctx, req)
@@ -356,7 +347,7 @@ func (client *KrakenSpotRESTClient) doKrakenAPIRequest(ctx context.Context, req 
 			if err != nil {
 				return resp, fmt.Errorf("failed to read response body: %w", err)
 			}
-			err = json.Unmarshal(body, &receiver)
+			err = json.Unmarshal(body, receiver)
 			if err != nil {
 				return resp, fmt.Errorf("failed to parse JSON response: %w", err)
 			}
