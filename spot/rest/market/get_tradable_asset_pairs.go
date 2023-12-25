@@ -95,5 +95,5 @@ type GetTradableAssetPairsRequestOptions struct {
 type GetTradableAssetPairsResponse struct {
 	common.KrakenSpotRESTResponse
 	// Map each assert pair (ex: 1INCHEUR) to its info
-	Result map[string]AssetPairInfo `json:"result,omitempty"`
+	Result map[string]*AssetPairInfo `json:"result,omitempty"`
 }

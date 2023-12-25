@@ -46,5 +46,5 @@ type GetAssetInfoRequestOptions struct {
 // GetAssetInfo response
 type GetAssetInfoResponse struct {
 	common.KrakenSpotRESTResponse
-	Result map[string]AssetInfo `json:"result,omitempty"`
+	Result map[string]*AssetInfo `json:"result,omitempty"`
 }
