@@ -44,96 +44,96 @@ type GetTickerInformationResponse struct {
 /*************************************************************************************************/
 
 // Get the price of the best ask out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetAskPrice() string {
+func (ati AssetTickerInfo) GetAskPrice() string {
 	return ati.Ask[0]
 }
 
 // Get the whole lot volume of the best ask out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetAskWholeLotVolume() string {
+func (ati AssetTickerInfo) GetAskWholeLotVolume() string {
 	return ati.Ask[1]
 }
 
 // Get the lot volume of the best ask out of an AssetTickerInfo
-func (ati *AssetTickerInfo) GetAskLotVolume() string {
+func (ati AssetTickerInfo) GetAskLotVolume() string {
 	return ati.Ask[2]
 }
 
 // Get the price of the best bid out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetBidPrice() string {
+func (ati AssetTickerInfo) GetBidPrice() string {
 	return ati.Bid[0]
 }
 
 // Get the whole lot volume of the best bid out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetBidWholeLotVolume() string {
+func (ati AssetTickerInfo) GetBidWholeLotVolume() string {
 	return ati.Bid[1]
 }
 
 // Get the lot volume of the best bid out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetBidLotVolume() string {
+func (ati AssetTickerInfo) GetBidLotVolume() string {
 	return ati.Bid[2]
 }
 
 // Get the price of the last trade out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetLastTradePrice() string {
+func (ati AssetTickerInfo) GetLastTradePrice() string {
 	return ati.Close[0]
 }
 
 // Get the lot volume of the last trade out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetLastTradeLotVolume() string {
+func (ati AssetTickerInfo) GetLastTradeLotVolume() string {
 	return ati.Close[1]
 }
 
 // Get today's traded volume out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetTodayVolume() string {
+func (ati AssetTickerInfo) GetTodayVolume() string {
 	return ati.Volume[0]
 }
 
 // Get past 24h traded volume out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetPast24HVolume() string {
+func (ati AssetTickerInfo) GetPast24HVolume() string {
 	return ati.Volume[1]
 }
 
 // Get today's volume average price out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetTodayVolumeAveragePrice() string {
+func (ati AssetTickerInfo) GetTodayVolumeAveragePrice() string {
 	return ati.VolumeAveragePrice[0]
 }
 
 // Get past 24h volume average price out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetPast24HVolumeAveragePrice() string {
+func (ati AssetTickerInfo) GetPast24HVolumeAveragePrice() string {
 	return ati.VolumeAveragePrice[1]
 }
 
 // Get today's trade count out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetTodayTradeCount() int64 {
+func (ati AssetTickerInfo) GetTodayTradeCount() int64 {
 	return ati.Trades[0]
 }
 
 // Get today's trade count out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetPast24HTradeCount() int64 {
+func (ati AssetTickerInfo) GetPast24HTradeCount() int64 {
 	return ati.Trades[1]
 }
 
 // Get today's low price out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetTodayLow() string {
+func (ati AssetTickerInfo) GetTodayLow() string {
 	return ati.Low[0]
 }
 
 // Get past 24h low price out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetPast24HLow() string {
+func (ati AssetTickerInfo) GetPast24HLow() string {
 	return ati.Low[1]
 }
 
 // Get today's high price out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetTodayHigh() string {
+func (ati AssetTickerInfo) GetTodayHigh() string {
 	return ati.High[0]
 }
 
 // Get past 24h high price out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetPast24HHigh() string {
+func (ati AssetTickerInfo) GetPast24HHigh() string {
 	return ati.High[1]
 }
 
 // Get today's opening price out of this AssetTickerInfo
-func (ati *AssetTickerInfo) GetTodayOpen() string {
+func (ati AssetTickerInfo) GetTodayOpen() string {
 	return ati.OpeningPrice
 }
