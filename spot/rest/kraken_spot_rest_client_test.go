@@ -497,509 +497,339 @@ func (suite *KrakenSpotRESTClientTestSuite) TestDoKrakenAPIRequestWithWronConten
 	require.Contains(suite.T(), err.Error(), "response Content-Type is")
 }
 
+/*************************************************************************************************/
+/* UNIT TESTS - UTILITIES                                                                        */
+/*************************************************************************************************/
+
+// Test GetServerTime when a valid response is received from the test server.
 //
-// /*****************************************************************************/
-// /* UNIT TESTS - MARKET DATA                                                  */
-// /*****************************************************************************/
-
-// // TestGetServerTimeHappyPath Test will succeed if client handles well a valid response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetServerTimeHappyPath() {
-
-// 	// Predefined server response
-// 	expectedJSONResponse := `
-// 	{
-// 		"error": [ ],
-// 		"result": {
-// 			"unixtime": 1616336594,
-// 			"rfc1123": "Sun, 21 Mar 21 14:23:14 +0000"
-// 		}
-// 	}`
-
-// 	// Expected data
-// 	expUnixTime := int64(1616336594)
-// 	expRFC1123 := "Sun, 21 Mar 21 14:23:14 +0000"
-
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Make request
-// 	resp, err := suite.client.GetServerTime()
-
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check for client error & log response
-// 	require.NoError(suite.T(), err)
-// 	suite.T().Log(resp)
-
-// 	// Check request
-// 	require.Contains(suite.T(), req.URL.Path, getServerTime)
-// 	require.Equal(suite.T(), http.MethodGet, req.Method)
-// 	require.Equal(suite.T(), suite.client.agent, req.UserAgent())
-
-// 	// Check response
-// 	require.Empty(suite.T(), resp.Error)
-// 	require.NotNil(suite.T(), resp.Result)
-// 	require.Equal(suite.T(), expRFC1123, resp.Result.Rfc1123)
-// 	require.Equal(suite.T(), expUnixTime, resp.Result.Unixtime)
-// }
-
-// // TestGetServerTimeErrPath Test will succeed if client handles well an error response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetServerTimeErrPath() {
-
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Make request
-// 	_, err := suite.client.GetServerTime()
-
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check for error
-// 	require.Error(suite.T(), err)
-// }
-
-// // TestGetSystemStatusHappyPath Test will succeed if client handles well a valid response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetSystemStatusHappyPath() {
-
-// 	// Predefined server response
-// 	expectedJSONResponse := `
-// 	{
-// 		"error": [ ],
-// 		"result": {
-// 			"status": "online",
-// 			"timestamp": "2021-03-21T15:33:02Z"
-// 		}
-// 	}`
-
-// 	// Expected data
-// 	expStatus := "online"
-// 	expTimestamp := "2021-03-21T15:33:02Z"
-
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Make request
-// 	resp, err := suite.client.GetSystemStatus()
-
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check for client error & log response
-// 	require.NoError(suite.T(), err)
-// 	suite.T().Log(resp)
-
-// 	// Check request
-// 	require.Contains(suite.T(), req.URL.Path, getSystemStatus)
-// 	require.Equal(suite.T(), http.MethodGet, req.Method)
-// 	require.Equal(suite.T(), suite.client.agent, req.UserAgent())
-
-// 	// Check response
-// 	require.Equal(suite.T(), expStatus, resp.Result.Status)
-// 	require.Equal(suite.T(), expTimestamp, resp.Result.Timestamp)
-// }
-
-// // TestGetServerTimeErrPath Test will succeed if client handles well an error response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetSystemStatusErrPath() {
-
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusBadRequest,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(`{"error": "wrong"}`),
-// 	})
-
-// 	// Make request
-// 	_, err := suite.client.GetSystemStatus()
-
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check for error
-// 	require.Error(suite.T(), err)
-// }
-
-// // TestGetAssetInfoHappyPath Test will succeed if client handles well a valid response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetAssetInfoHappyPath() {
-
-// 	// Test parameters
-// 	options := GetAssetInfoOptions{
-// 		Assets:     []string{"XETH", "XXBT"},
-// 		AssetClass: "currency",
-// 	}
-
-// 	// Predefined server response
-// 	expectedJSONResponse := `
-// 	{
-// 		"error":[],
-// 		"result":{
-// 			"XETH":{
-// 				"aclass":"currency",
-// 				"altname":"ETH",
-// 				"decimals":10,
-// 				"display_decimals":5,
-// 				"collateral_value":1.0
-// 			},
-// 			"XXBT":{
-// 				"aclass":"currency",
-// 				"altname":"XBT",
-// 				"decimals":10,
-// 				"display_decimals":5,
-// 				"collateral_value":1.0
-// 			}
-// 		}
-// 	}`
-
-// 	expData := map[string]AssetInfo{
-// 		options.Assets[0]: {
-// 			AssetClass:      options.AssetClass,
-// 			Altname:         "ETH",
-// 			Decimals:        10,
-// 			DisplayDecimals: 5,
-// 			CollateralValue: 1.0,
-// 		},
-// 		options.Assets[1]: {
-// 			AssetClass:      options.AssetClass,
-// 			Altname:         "XBT",
-// 			Decimals:        10,
-// 			DisplayDecimals: 5,
-// 			CollateralValue: 1.0,
-// 		},
-// 	}
-
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Make request
-// 	resp, err := suite.client.GetAssetInfo(&options)
-
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check for client error & log response
-// 	require.NoError(suite.T(), err)
-// 	suite.T().Log(resp)
-
-// 	// Check request
-// 	require.Contains(suite.T(), req.URL.Path, getAssetInfo)
-// 	require.Equal(suite.T(), http.MethodGet, req.Method)
-// 	require.Equal(suite.T(), suite.client.agent, req.UserAgent())
-// 	require.ElementsMatch(suite.T(), options.Assets, strings.Split(req.Form.Get("asset"), ","))
-// 	require.Equal(suite.T(), options.AssetClass, req.Form.Get("aclass"))
-
-// 	// Check response
-// 	require.Empty(suite.T(), resp.Error)
-// 	require.NotNil(suite.T(), resp.Result)
-// 	require.Equal(suite.T(), expData, resp.Result)
-// }
-
-// // TestGetAssetInfoErrPath Test will succeed if client handles well an error response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetAssetInfoErrPath() {
-
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Make request
-// 	_, err := suite.client.GetAssetInfo(nil)
-
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check for error
-// 	require.Error(suite.T(), err)
-// }
-
-// // TestGetTradableAssetPairsHappyPath Test will succeed if client handles well a valid response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetTradableAssetPairsHappyPath() {
-
-// 	// Test parameters
-// 	options := GetTradableAssetPairsOptions{
-// 		Pairs: []string{"XETHXXBT", "XXBTZUSD"},
-// 		Info:  "all",
-// 	}
-
-// 	// Predefined server response
-// 	expectedJSONResponse := `
-// 	{
-// 		"error":[],
-// 		"result":{
-// 			"XETHXXBT":{
-// 				"altname":"ETHXBT",
-// 				"wsname":"ETH/XBT",
-// 				"aclass_base":"currency",
-// 				"base":"XETH",
-// 				"aclass_quote":"currency",
-// 				"quote":"XXBT",
-// 				"pair_decimals":5,
-// 				"lot_decimals":8,
-// 				"lot_multiplier":1,
-// 				"leverage_buy":[2,3,4,5],
-// 				"leverage_sell":[2,3,4,5],
-// 				"fees":[[0,0.26],[50000,0.24],[100000,0.22],[250000,0.2],[500000,0.18],[1000000,0.16],[2500000,0.14],[5000000,0.12],[10000000,0.1]],
-// 				"fees_maker":[[0,0.16],[50000,0.14],[100000,0.12],[250000,0.1],[500000,0.08],[1000000,0.06],[2500000,0.04],[5000000,0.02],[10000000,0.0]],
-// 				"fee_volume_currency":"ZUSD",
-// 				"margin_call":80,
-// 				"margin_stop":40,
-// 				"ordermin":"0.01"
-// 			},
-// 			"XXBTZUSD":{
-// 				"altname":"XBTUSD",
-// 				"wsname":"XBT/USD",
-// 				"aclass_base":"currency",
-// 				"base":"XXBT",
-// 				"aclass_quote":"currency",
-// 				"quote":"ZUSD",
-// 				"pair_decimals":1,
-// 				"lot_decimals":8,
-// 				"lot_multiplier":1,
-// 				"leverage_buy":[2,3,4,5],
-// 				"leverage_sell":[2,3,4,5],
-// 				"fees":[[0,0.26],[50000,0.24],[100000,0.22],[250000,0.2],[500000,0.18],[1000000,0.16],[2500000,0.14],[5000000,0.12],[10000000,0.1]],
-// 				"fees_maker":[[0,0.16],[50000,0.14],[100000,0.12],[250000,0.1],[500000,0.08],[1000000,0.06],[2500000,0.04],[5000000,0.02],[10000000,0.0]],
-// 				"fee_volume_currency":"ZUSD",
-// 				"margin_call":80,
-// 				"margin_stop":40,
-// 				"ordermin":"0.0001"
-// 			}
-// 		}
-// 	}`
-// 	expData := map[string]AssetPairInfo{
-// 		options.Pairs[0]: {
-// 			Altname:           "ETHXBT",
-// 			WsName:            "ETH/XBT",
-// 			AssetClassBase:    "currency",
-// 			Base:              "XETH",
-// 			AssetClassQuote:   "currency",
-// 			Quote:             "XXBT",
-// 			PairDecimals:      5,
-// 			LotDecimals:       8,
-// 			LotMultiplier:     1,
-// 			LeverageBuy:       []int{2, 3, 4, 5},
-// 			LeverageSell:      []int{2, 3, 4, 5},
-// 			Fees:              [][]float64{{0, 0.26}, {50000, 0.24}, {100000, 0.22}, {250000, 0.2}, {500000, 0.18}, {1000000, 0.16}, {2500000, 0.14}, {5000000, 0.12}, {10000000, 0.1}},
-// 			FeesMaker:         [][]float64{{0, 0.16}, {50000, 0.14}, {100000, 0.12}, {250000, 0.1}, {500000, 0.08}, {1000000, 0.06}, {2500000, 0.04}, {5000000, 0.02}, {10000000, 0.0}},
-// 			FeeVolumeCurrency: "ZUSD",
-// 			MarginCall:        80,
-// 			MarginStop:        40,
-// 			OrderMin:          "0.01",
-// 		},
-// 		options.Pairs[1]: {
-// 			Altname:           "XBTUSD",
-// 			WsName:            "XBT/USD",
-// 			AssetClassBase:    "currency",
-// 			Base:              "XXBT",
-// 			AssetClassQuote:   "currency",
-// 			Quote:             "ZUSD",
-// 			PairDecimals:      1,
-// 			LotDecimals:       8,
-// 			LotMultiplier:     1,
-// 			LeverageBuy:       []int{2, 3, 4, 5},
-// 			LeverageSell:      []int{2, 3, 4, 5},
-// 			Fees:              [][]float64{{0, 0.26}, {50000, 0.24}, {100000, 0.22}, {250000, 0.2}, {500000, 0.18}, {1000000, 0.16}, {2500000, 0.14}, {5000000, 0.12}, {10000000, 0.1}},
-// 			FeesMaker:         [][]float64{{0, 0.16}, {50000, 0.14}, {100000, 0.12}, {250000, 0.1}, {500000, 0.08}, {1000000, 0.06}, {2500000, 0.04}, {5000000, 0.02}, {10000000, 0.0}},
-// 			FeeVolumeCurrency: "ZUSD",
-// 			MarginCall:        80,
-// 			MarginStop:        40,
-// 			OrderMin:          "0.0001",
-// 		},
-// 	}
-
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Make request
-// 	resp, err := suite.client.GetTradableAssetPairs(&options)
-
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check for client error & log response
-// 	require.NoError(suite.T(), err)
-// 	suite.T().Log(resp)
-
-// 	// Check request
-// 	require.Contains(suite.T(), req.URL.Path, getTradableAssetPairs)
-// 	require.Equal(suite.T(), http.MethodGet, req.Method)
-// 	require.Equal(suite.T(), suite.client.agent, req.UserAgent())
-// 	require.ElementsMatch(suite.T(), options.Pairs, strings.Split(req.Form.Get("pair"), ","))
-// 	require.Equal(suite.T(), options.Info, req.Form.Get("info"))
-
-// 	// Check response
-// 	require.Empty(suite.T(), resp.Error)
-// 	require.NotNil(suite.T(), resp.Result)
-// 	require.Equal(suite.T(), expData, resp.Result)
-// }
-
-// // TestGetTradableAssetPairsErrPath Test will succeed if client handles well an error response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetTradableAssetPairsErrPath() {
-
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Make request
-// 	resp, err := suite.client.GetTradableAssetPairs(nil)
-
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check for error
-// 	require.Error(suite.T(), err)
-// 	require.Nil(suite.T(), resp)
-// }
-
-// // TestGetTickerInformationHappyPath Test will succeed if client handles well a valid response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetTickerInformationHappyPath() {
-
-// 	// Test parameters
-// 	opts := &GetTickerInformationOptions{
-// 		Pairs: []string{"XETHXXBT", "XXBTZUSD"},
-// 	}
-
-// 	// Predefined server response
-// 	expectedJSONResponse := `
-// 	{
-// 		"error":[],
-// 		"result":{
-// 			"XETHXXBT":{
-// 				"a":["0.078870","2","2.000"],
-// 				"b":["0.078860","1","1.000"],
-// 				"c":["0.078860","0.00484694"],
-// 				"v":["1487.94072797","3495.24626651"],
-// 				"p":["0.079151","0.079541"],
-// 				"t":[18730,28522],
-// 				"l":["0.078320","0.078320"],
-// 				"h":["0.080550","0.080960"],
-// 				"o":"0.079630"
-// 			},
-// 			"XXBTZUSD":{
-// 				"a":["24100.10000","10","10.000"],
-// 				"b":["24100.00000","1","1.000"],
-// 				"c":["24100.00000","0.00935269"],
-// 				"v":["2870.28639431","3816.56628826"],
-// 				"p":["24416.92776","24398.48513"],
-// 				"t":[23035,31242],
-// 				"l":["23900.00000","23900.00000"],
-// 				"h":["25200.00000","25200.00000"],
-// 				"o":"24315.30000"
-// 			}
-// 		}
-// 	}`
-
-// 	expData := map[string]AssetTickerInfo{
-// 		opts.Pairs[0]: {
-// 			Ask:                []string{"0.078870", "2", "2.000"},
-// 			Bid:                []string{"0.078860", "1", "1.000"},
-// 			Close:              []string{"0.078860", "0.00484694"},
-// 			Volume:             []string{"1487.94072797", "3495.24626651"},
-// 			VolumeAveragePrice: []string{"0.079151", "0.079541"},
-// 			Trades:             []int{18730, 28522},
-// 			Low:                []string{"0.078320", "0.078320"},
-// 			High:               []string{"0.080550", "0.080960"},
-// 			OpeningPrice:       "0.079630",
-// 		},
-// 		opts.Pairs[1]: {
-// 			Ask:                []string{"24100.10000", "10", "10.000"},
-// 			Bid:                []string{"24100.00000", "1", "1.000"},
-// 			Close:              []string{"24100.00000", "0.00935269"},
-// 			Volume:             []string{"2870.28639431", "3816.56628826"},
-// 			VolumeAveragePrice: []string{"24416.92776", "24398.48513"},
-// 			Trades:             []int{23035, 31242},
-// 			Low:                []string{"23900.00000", "23900.00000"},
-// 			High:               []string{"25200.00000", "25200.00000"},
-// 			OpeningPrice:       "24315.30000",
-// 		},
-// 	}
-
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Make request
-// 	resp, err := suite.client.GetTickerInformation(opts)
-
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check for client error & log response
-// 	require.NoError(suite.T(), err)
-// 	suite.T().Log(resp)
-
-// 	// Check request
-// 	require.Contains(suite.T(), req.URL.Path, getTickerInformation)
-// 	require.Equal(suite.T(), http.MethodGet, req.Method)
-// 	require.Equal(suite.T(), suite.client.agent, req.UserAgent())
-// 	require.ElementsMatch(suite.T(), opts.Pairs, strings.Split(req.Form.Get("pair"), ","))
-
-// 	// Check response
-// 	require.Empty(suite.T(), resp.Error)
-// 	require.NotNil(suite.T(), resp.Result)
-// 	require.Equal(suite.T(), expData, resp.Result)
-// }
-
-// // TestGetTickerInformationErrPath Test will succeed if client handles well an error response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetTickerInformationErrPath() {
-
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Make request
-// 	resp, err := suite.client.GetTickerInformation(nil)
-
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check for error
-// 	require.Error(suite.T(), err)
-// 	require.Nil(suite.T(), resp)
-// }
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetServerTime() {
+
+	// Predefined server response
+	expectedJSONResponse := `
+	{
+		"error": [ ],
+		"result": {
+			"unixtime": 1616336594,
+			"rfc1123": "Sun, 21 Mar 21 14:23:14 +0000"
+		}
+	}`
+
+	// Expected data
+	expUnixTime := int64(1616336594)
+	expRFC1123 := "Sun, 21 Mar 21 14:23:14 +0000"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetServerTime(context.Background())
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Equal(suite.T(), expUnixTime, resp.Result.Unixtime)
+	require.Equal(suite.T(), expRFC1123, resp.Result.Rfc1123)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, serverTimePath)
+	require.Equal(suite.T(), http.MethodGet, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+}
+
+// Test GetSystemStatus when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetSystemStatus() {
+
+	// Predefined server response
+	expectedJSONResponse := `
+	{
+		"error": [ ],
+		"result": {
+			"status": "online",
+			"timestamp": "2021-03-21T15:33:02Z"
+		}
+	}`
+
+	// Expected data
+	expStatus := "online"
+	expTimestamp := "2021-03-21T15:33:02Z"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetSystemStatus(context.Background())
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Equal(suite.T(), expStatus, resp.Result.Status)
+	require.Equal(suite.T(), expTimestamp, resp.Result.Timestamp)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, systemStatusPath)
+	require.Equal(suite.T(), http.MethodGet, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+}
+
+// Test GetAssetInfo when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetAssetInfo() {
+
+	// Test parameters
+	options := &market.GetAssetInfoRequestOptions{
+		Assets:     []string{"XETH", "XXBT"},
+		AssetClass: "currency",
+	}
+
+	// Predefined server response
+	expectedJSONResponse := `
+	{
+		"error":[],
+		"result":{
+			"XETH":{
+				"aclass":"currency",
+				"altname":"ETH",
+				"decimals":10,
+				"display_decimals":5,
+				"collateral_value":1.0
+			},
+			"XXBT":{
+				"aclass":"currency",
+				"altname":"XBT",
+				"decimals":10,
+				"display_decimals":5,
+				"collateral_value":1.0
+			}
+		}
+	}`
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetAssetInfo(context.Background(), options)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	for _, asset := range options.Assets {
+		require.NotEmpty(suite.T(), resp.Result[asset].Altname)
+	}
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, assetInfoPath)
+	require.Equal(suite.T(), http.MethodGet, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+
+	// Check request query string
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), options.AssetClass, record.Request.URL.Query().Get("aclass"))
+	require.Equal(suite.T(), strings.Join(options.Assets, ","), record.Request.URL.Query().Get("asset"))
+}
+
+// Test GetTradableAssetPairs when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetTradableAssetPairs() {
+
+	// Test parameters
+	options := &market.GetTradableAssetPairsRequestOptions{
+		Pairs: []string{"XETHXXBT", "XXBTZUSD"},
+		Info:  "all",
+	}
+
+	// Predefined server response
+	expectedJSONResponse := `
+	{
+		"error":[],
+		"result":{
+			"XETHXXBT":{
+				"altname":"ETHXBT",
+				"wsname":"ETH/XBT",
+				"aclass_base":"currency",
+				"base":"XETH",
+				"aclass_quote":"currency",
+				"quote":"XXBT",
+				"pair_decimals":5,
+				"lot_decimals":8,
+				"lot_multiplier":1,
+				"leverage_buy":[2,3,4,5],
+				"leverage_sell":[2,3,4,5],
+				"fees":[[0,0.26],[50000,0.24],[100000,0.22],[250000,0.2],[500000,0.18],[1000000,0.16],[2500000,0.14],[5000000,0.12],[10000000,0.1]],
+				"fees_maker":[[0,0.16],[50000,0.14],[100000,0.12],[250000,0.1],[500000,0.08],[1000000,0.06],[2500000,0.04],[5000000,0.02],[10000000,0.0]],
+				"fee_volume_currency":"ZUSD",
+				"margin_call":80,
+				"margin_stop":40,
+				"ordermin":"0.01"
+			},
+			"XXBTZUSD":{
+				"altname":"XBTUSD",
+				"wsname":"XBT/USD",
+				"aclass_base":"currency",
+				"base":"XXBT",
+				"aclass_quote":"currency",
+				"quote":"ZUSD",
+				"pair_decimals":1,
+				"lot_decimals":8,
+				"lot_multiplier":1,
+				"leverage_buy":[2,3,4,5],
+				"leverage_sell":[2,3,4,5],
+				"fees":[[0,0.26],[50000,0.24],[100000,0.22],[250000,0.2],[500000,0.18],[1000000,0.16],[2500000,0.14],[5000000,0.12],[10000000,0.1]],
+				"fees_maker":[[0,0.16],[50000,0.14],[100000,0.12],[250000,0.1],[500000,0.08],[1000000,0.06],[2500000,0.04],[5000000,0.02],[10000000,0.0]],
+				"fee_volume_currency":"ZUSD",
+				"margin_call":80,
+				"margin_stop":40,
+				"ordermin":"0.0001"
+			}
+		}
+	}`
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetTradableAssetPairs(context.Background(), options)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	for _, pair := range options.Pairs {
+		require.NotEmpty(suite.T(), resp.Result[pair].AlternativeName)
+	}
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, tradableAssetPairsPath)
+	require.Equal(suite.T(), http.MethodGet, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+
+	// Check request query string
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), options.Info, record.Request.URL.Query().Get("info"))
+	require.Equal(suite.T(), strings.Join(options.Pairs, ","), record.Request.URL.Query().Get("pair"))
+}
+
+// Test GetTickerInformation when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetTickerInformation() {
+
+	// Test parameters
+	opts := &market.GetTickerInformationRequestOptions{
+		Pairs: []string{"XETHXXBT", "XXBTZUSD"},
+	}
+
+	// Predefined server response
+	expectedJSONResponse := `
+	{
+		"error":[],
+		"result":{
+			"XETHXXBT":{
+				"a":["0.078870","2","2.000"],
+				"b":["0.078860","1","1.000"],
+				"c":["0.078860","0.00484694"],
+				"v":["1487.94072797","3495.24626651"],
+				"p":["0.079151","0.079541"],
+				"t":[18730,28522],
+				"l":["0.078320","0.078320"],
+				"h":["0.080550","0.080960"],
+				"o":"0.079630"
+			},
+			"XXBTZUSD":{
+				"a":["24100.10000","10","10.000"],
+				"b":["24100.00000","1","1.000"],
+				"c":["24100.00000","0.00935269"],
+				"v":["2870.28639431","3816.56628826"],
+				"p":["24416.92776","24398.48513"],
+				"t":[23035,31242],
+				"l":["23900.00000","23900.00000"],
+				"h":["25200.00000","25200.00000"],
+				"o":"24315.30000"
+			}
+		}
+	}`
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetTickerInformation(context.Background(), opts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	for _, pair := range opts.Pairs {
+		require.NotEmpty(suite.T(), resp.Result[pair].GetTodayOpen())
+	}
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, tickerInformationPath)
+	require.Equal(suite.T(), http.MethodGet, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+
+	// Check request query string
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strings.Join(opts.Pairs, ","), record.Request.URL.Query().Get("pair"))
+}
 
 // // TestGetOHLCDataHappyPath Test will succeed if client handles well a valid response from server.
 // func (suite *KrakenAPIClientUnitTestSuite) TestGetOHLCDataHappyPath() {
