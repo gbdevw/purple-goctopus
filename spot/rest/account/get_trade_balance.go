@@ -15,7 +15,7 @@ type GetTradeBalanceRequestOptions struct {
 }
 
 // Trade balance data.
-type TradeBalance struct {
+type GetTradeBalanceResult struct {
 	// Equivalent balance (combined balance of all currencies)
 	EquivalentBalance json.Number `json:"eb,omitempty"`
 	// Trade balance (combined balance of all equity currencies)
@@ -41,5 +41,5 @@ type TradeBalance struct {
 // GetTradeBalance response.
 type GetTradeBalanceResponse struct {
 	common.KrakenSpotRESTResponse
-	Result *TradeBalance `json:"result,omitempty"`
+	Result *GetTradeBalanceResult `json:"result,omitempty"`
 }

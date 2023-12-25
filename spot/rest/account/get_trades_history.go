@@ -47,7 +47,7 @@ type GetTradesHistoryRequestOptions struct {
 // GetTradesHistory results.
 type GetTradesHistoryResult struct {
 	// Map where each key is a transaction ID and value a trade info object.
-	Trades map[string]TradeInfo `json:"trades,omitempty"`
+	Trades map[string]*TradeInfo `json:"trades,omitempty"`
 	// Amount of available trades matching criteria.
 	Count int `json:"count"`
 }

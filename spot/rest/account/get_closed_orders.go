@@ -49,7 +49,7 @@ type GetClosedOrdersOptions struct {
 // GetClosedOrders results.
 type GetClosedOrdersResult struct {
 	// Map where keys are transaction ID and values the related closed orders.
-	Closed map[string]OrderInfo `json:"closed,omitempty"`
+	Closed map[string]*OrderInfo `json:"closed,omitempty"`
 	// Amount of available order info matching criteria.
 	Count int `json:"count"`
 }

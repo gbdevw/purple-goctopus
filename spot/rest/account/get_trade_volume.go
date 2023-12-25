@@ -29,9 +29,9 @@ type GetTradeVolumeResult struct {
 	// Current discount volume
 	Volume json.Number `json:"volume"`
 	// Fee info or Taker fee if asset is submitted to maker/taker fees - each key is an asset pair
-	Fees map[string]FeeTierInfo `json:"fees"`
+	Fees map[string]*FeeTierInfo `json:"fees"`
 	// Maker fee info - each key is an asset pair
-	FeesMaker map[string]FeeTierInfo `json:"fees_maker"`
+	FeesMaker map[string]*FeeTierInfo `json:"fees_maker"`
 }
 
 // GetTradeVolume request options.

@@ -20,5 +20,5 @@ type QueryTradesRequestOptions struct {
 type QueryTradesInfoResponse struct {
 	common.KrakenSpotRESTResponse
 	// Map where keys are transaction ID and values the requested trades.
-	Result map[string]TradeInfo `json:"result,omitempty"`
+	Result map[string]*TradeInfo `json:"result,omitempty"`
 }

@@ -17,7 +17,7 @@ type GetOpenOrdersRequestOptions struct {
 // GetOpenOrders result
 type GetOpenOrdersResult struct {
 	// Keys are transaction IDs and values are the related open order.
-	Open map[string]OrderInfo `json:"open"`
+	Open map[string]*OrderInfo `json:"open"`
 }
 
 // GetOpenOrders response

@@ -61,7 +61,7 @@ type GetLedgersInfoRequestOptions struct {
 // GetLedgersInfo result.
 type LedgersInfoResult struct {
 	// Map where each key is a ledger entry ID and value a ledger entry
-	Ledgers map[string]LedgerEntry `json:"ledger,omitempty"`
+	Ledgers map[string]*LedgerEntry `json:"ledger,omitempty"`
 	// Amount of available ledger info matching criteria
 	Count int `json:"count"`
 }

@@ -79,5 +79,5 @@ type GetOpenPositionsRequestOptions struct {
 type GetOpenPositionsResponse struct {
 	common.KrakenSpotRESTResponse
 	// Map where each key is a transaction ID and values an open position description.
-	Result map[string]PositionInfo `json:"result,omitempty"`
+	Result map[string]*PositionInfo `json:"result,omitempty"`
 }

@@ -20,5 +20,5 @@ type QueryLedgersOptions struct {
 type QueryLedgersResponse struct {
 	common.KrakenSpotRESTResponse
 	// Key are ledger entry IDs and values are ledger entries.
-	Result map[string]LedgerEntry `json:"result,omitempty"`
+	Result map[string]*LedgerEntry `json:"result,omitempty"`
 }

@@ -21,5 +21,5 @@ type ExtendedBalance struct {
 // GetExtendedBalance response
 type GetExtendedBalanceResponse struct {
 	common.KrakenSpotRESTResponse
-	Result map[string]ExtendedBalance `json:"result,omitempty"`
+	Result map[string]*ExtendedBalance `json:"result,omitempty"`
 }
