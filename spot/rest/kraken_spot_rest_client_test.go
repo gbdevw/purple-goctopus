@@ -498,7 +498,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestDoKrakenAPIRequestWithWronConten
 }
 
 /*************************************************************************************************/
-/* UNIT TESTS - UTILITIES                                                                        */
+/* UNIT TESTS - MARKET DATA                                                                      */
 /*************************************************************************************************/
 
 // Test GetServerTime when a valid response is received from the test server.
@@ -831,438 +831,363 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetTickerInformation() {
 	require.Equal(suite.T(), strings.Join(opts.Pairs, ","), record.Request.URL.Query().Get("pair"))
 }
 
-// // TestGetOHLCDataHappyPath Test will succeed if client handles well a valid response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetOHLCDataHappyPath() {
+// Test GetOHLCData when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetOHLCData() {
 
-// 	// Test parameters
-// 	params := GetOHLCDataParameters{
-// 		Pair: "XXBTZUSD",
-// 	}
-// 	now := time.Now().UTC()
-// 	options := GetOHLCDataOptions{
-// 		Interval: M60,
-// 		Since:    &now,
-// 	}
+	// Test parameters
+	params := market.GetOHLCDataRequestParameters{
+		Pair: "XXBTZUSD",
+	}
+	options := &market.GetOHLCDataRequestOptions{
+		Interval: int64(market.M1),
+		Since:    time.Now().Unix(),
+	}
 
-// 	// Predefined server response
-// 	expectedJSONResponse := `
-// 	{
-// 		"error":[],
-// 		"result":{
-// 			"XXBTZUSD":[
-// 				[1660534620,"25055.3","25067.1","25054.0","25054.0","25059.8","0.07453437",10],
-// 				[1660534680,"25041.0","25041.0","24988.4","24994.6","24992.0","1.41833093",98]
-// 			],
-// 			"last":1660577700
-// 		}
-// 	}`
+	// Predefined server response
+	expectedJSONResponse := `{
+		"error": [],
+		"result": {
+		  "XXBTZUSD": [
+			[
+			  1688671200,
+			  "30306.1",
+			  "30306.2",
+			  "30305.7",
+			  "30305.7",
+			  "30306.1",
+			  "3.39243896",
+			  23
+			],
+			[
+			  1688671260,
+			  "30304.5",
+			  "30304.5",
+			  "30300.0",
+			  "30300.0",
+			  "30300.0",
+			  "4.42996871",
+			  18
+			],
+			[
+			  1688671320,
+			  "30300.3",
+			  "30300.4",
+			  "30291.4",
+			  "30291.4",
+			  "30294.7",
+			  "2.13024789",
+			  25
+			],
+			[
+			  1688671380,
+			  "30291.8",
+			  "30295.1",
+			  "30291.8",
+			  "30295.0",
+			  "30293.8",
+			  "1.01836275",
+			  9
+			]
+		  ],
+		  "last": 1688672160
+		}
+	  }`
+	expectedXXBTZUSDLength := 4
 
-// 	expData := GetOHLCDataResult{
-// 		OHLC: map[string][]OHLCData{
-// 			params.Pair: {
-// 				{
-// 					Timestamp: time.Unix(1660534620, 0).UTC(),
-// 					Open:      "25055.3",
-// 					High:      "25067.1",
-// 					Low:       "25054.0",
-// 					Close:     "25054.0",
-// 					Avg:       "25059.8",
-// 					Volume:    "0.07453437",
-// 					Count:     10,
-// 				},
-// 				{
-// 					Timestamp: time.Unix(1660534680, 0).UTC(),
-// 					Open:      "25041.0",
-// 					High:      "25041.0",
-// 					Low:       "24988.4",
-// 					Close:     "24994.6",
-// 					Avg:       "24992.0",
-// 					Volume:    "1.41833093",
-// 					Count:     98,
-// 				},
-// 			},
-// 		},
-// 		Last: 1660577700,
-// 	}
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
 
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
+	// Make request
+	resp, httpresp, err := suite.client.GetOHLCData(context.Background(), params, options)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
 
-// 	// Make request
-// 	resp, err := suite.client.GetOHLCData(params, &options)
+	// Check parsed response
+	require.Len(suite.T(), resp.Result.Data, expectedXXBTZUSDLength)
 
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
 
-// 	// Check for client error & log response
-// 	require.NoError(suite.T(), err)
-// 	suite.T().Log(resp)
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, ohlcDataPath)
+	require.Equal(suite.T(), http.MethodGet, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
 
-// 	// Check request
-// 	require.Contains(suite.T(), req.URL.Path, getOHLCData)
-// 	require.Equal(suite.T(), http.MethodGet, req.Method)
-// 	require.Equal(suite.T(), suite.client.agent, req.UserAgent())
-// 	require.Equal(suite.T(), params.Pair, req.Form.Get("pair"))
-// 	require.Equal(suite.T(), strconv.FormatInt(int64(options.Interval), 10), req.Form.Get("interval"))
-// 	require.Equal(suite.T(), strconv.FormatInt(options.Since.Unix(), 10), req.Form.Get("since"))
+	// Check request query string
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), params.Pair, record.Request.URL.Query().Get("pair"))
+	require.Equal(suite.T(), strconv.FormatInt(options.Interval, 10), record.Request.URL.Query().Get("interval"))
+	require.Equal(suite.T(), strconv.FormatInt(options.Since, 10), record.Request.URL.Query().Get("since"))
+}
 
-// 	// Check response
-// 	require.Empty(suite.T(), resp.Error)
-// 	require.NotNil(suite.T(), resp.Result)
-// 	require.Equal(suite.T(), expData, resp.Result)
-// }
+// Test GetOrderBook when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetOrderBook() {
 
-// // TestGetOHLCDataErrPath Test will succeed if client handles well an error response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetOHLCDataErrPath() {
+	// Test parameters
+	params := market.GetOrderBookRequestParameters{
+		Pair: "XXBTZUSD",
+	}
+	options := &market.GetOrderBookRequestOptions{
+		Count: 2,
+	}
 
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
+	// Predefined server response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "XXBTZUSD": {
+			"asks": [
+			  [
+				"30384.10000",
+				"2.059",
+				1688671659
+			  ],
+			  [
+				"30387.90000",
+				"1.500",
+				1688671380
+			  ],
+			  [
+				"30393.70000",
+				"9.871",
+				1688671261
+			  ]
+			],
+			"bids": [
+			  [
+				"30297.00000",
+				"1.115",
+				1688671636
+			  ],
+			  [
+				"30296.70000",
+				"2.002",
+				1688671674
+			  ],
+			  [
+				"30289.80000",
+				"5.001",
+				1688671673
+			  ]
+			]
+		  }
+		}
+	}`
+	expectedLength := 3
 
-// 	// Make request
-// 	resp, err := suite.client.GetOHLCData(GetOHLCDataParameters{}, nil)
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
 
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
+	// Make request
+	resp, httpresp, err := suite.client.GetOrderBook(context.Background(), params, options)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
 
-// 	// Check for error
-// 	require.Error(suite.T(), err)
-// 	require.Nil(suite.T(), resp)
-// }
+	// Check parsed response
+	require.Equal(suite.T(), params.Pair, resp.Result.PairId)
+	require.Len(suite.T(), resp.Result.Asks, expectedLength)
+	require.Len(suite.T(), resp.Result.Bids, expectedLength)
 
-// // TestGetOrderBookHappyPath Test will succeed if client handles well a valid response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetOrderBookHappyPath() {
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
 
-// 	// Test parameters
-// 	params := GetOrderBookParameters{
-// 		Pair: "XXBTZUSD",
-// 	}
-// 	options := GetOrderBookOptions{
-// 		Count: 2,
-// 	}
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, orderBookPath)
+	require.Equal(suite.T(), http.MethodGet, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
 
-// 	// Predefined server response
-// 	expectedJSONResponse := `
-// 	{
-// 		"error":[],
-// 		"result":{
-// 			"XXBTZUSD":{
-// 				"asks":[
-// 					["23991.20000","3.039",1660634851],
-// 					["23991.50000","3.127",1660634829]
-// 				],
-// 				"bids":[
-// 					["23991.10000","0.011",1660634853],
-// 					["23986.90000","0.651",1660634852]
-// 				]
-// 			}
-// 		}
-// 	}`
+	// Check request query string
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), params.Pair, record.Request.URL.Query().Get("pair"))
+	require.Equal(suite.T(), strconv.FormatInt(int64(options.Count), 10), record.Request.URL.Query().Get("count"))
+}
 
-// 	expData := map[string]OrderBook{
-// 		params.Pair: {
-// 			Asks: []OrderBookEntry{
-// 				{
-// 					Timestamp: time.Unix(1660634851, 0).UTC(),
-// 					Price:     "23991.20000",
-// 					Volume:    "3.039",
-// 				},
-// 				{
-// 					Timestamp: time.Unix(1660634829, 0).UTC(),
-// 					Price:     "23991.50000",
-// 					Volume:    "3.127",
-// 				},
-// 			},
-// 			Bids: []OrderBookEntry{
-// 				{
-// 					Timestamp: time.Unix(1660634853, 0).UTC(),
-// 					Price:     "23991.10000",
-// 					Volume:    "0.011",
-// 				},
-// 				{
-// 					Timestamp: time.Unix(1660634852, 0).UTC(),
-// 					Price:     "23986.90000",
-// 					Volume:    "0.651",
-// 				},
-// 			},
-// 		},
-// 	}
+// Test GetRecentTrades when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetRecentTrades() {
 
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
+	// Test parameters
+	params := market.GetRecentTradesRequestParameters{
+		Pair: "XXBTZUSD",
+	}
+	options := &market.GetRecentTradesRequestOptions{
+		Since: time.Now().Unix(),
+		Count: 10,
+	}
 
-// 	// Make request
-// 	resp, err := suite.client.GetOrderBook(params, &options)
+	// Predefined server response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "XXBTZUSD": [
+			[
+			  "30243.40000",
+			  "0.34507674",
+			  1688669597.8277369,
+			  "b",
+			  "m",
+			  "",
+			  61044952
+			],
+			[
+			  "30243.30000",
+			  "0.00376960",
+			  1688669598.2804112,
+			  "s",
+			  "l",
+			  "",
+			  61044953
+			],
+			[
+			  "30243.30000",
+			  "0.01235716",
+			  1688669602.698379,
+			  "s",
+			  "m",
+			  "",
+			  61044956
+			]
+		  ],
+		  "last": "1688671969993150842"
+		}
+	}`
+	expectedLength := 3
 
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
 
-// 	// Check for client error & log response
-// 	require.NoError(suite.T(), err)
-// 	suite.T().Log(resp)
+	// Make request
+	resp, httpresp, err := suite.client.GetRecentTrades(context.Background(), params, options)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
 
-// 	// Check request
-// 	require.Contains(suite.T(), req.URL.Path, getOrderBook)
-// 	require.Equal(suite.T(), http.MethodGet, req.Method)
-// 	require.Equal(suite.T(), suite.client.agent, req.UserAgent())
-// 	require.Equal(suite.T(), params.Pair, req.Form.Get("pair"))
-// 	require.Equal(suite.T(), strconv.FormatInt(int64(options.Count), 10), req.Form.Get("count"))
+	// Check parsed response
+	require.Equal(suite.T(), params.Pair, resp.Result.PairId)
+	require.Len(suite.T(), resp.Result.Trades, expectedLength)
 
-// 	// Check response
-// 	require.Empty(suite.T(), resp.Error)
-// 	require.NotNil(suite.T(), resp.Result)
-// 	require.Equal(suite.T(), expData, resp.Result)
-// }
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
 
-// // TestGetOrderBookErrPath Test will succeed if client handles well an error response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetOrderBookErrPath() {
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, recentTradesPath)
+	require.Equal(suite.T(), http.MethodGet, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
 
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
+	// Check request query string
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), params.Pair, record.Request.URL.Query().Get("pair"))
+	require.Equal(suite.T(), strconv.FormatInt(int64(options.Count), 10), record.Request.URL.Query().Get("count"))
+	require.Equal(suite.T(), strconv.FormatInt(options.Since, 10), record.Request.URL.Query().Get("since"))
+}
 
-// 	// Make request
-// 	resp, err := suite.client.GetOrderBook(GetOrderBookParameters{}, nil)
+// Test GetRecentTrades when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetRecentSpreadsHappyPath() {
 
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
+	// Test parameters
+	params := market.GetRecentSpreadsRequestParameters{
+		Pair: "XXBTZUSD",
+	}
+	options := &market.GetRecentSpreadsRequestOptions{
+		Since: time.Now().Unix(),
+	}
 
-// 	// Check for error
-// 	require.Error(suite.T(), err)
-// 	require.Nil(suite.T(), resp)
-// }
+	// Predefined server response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "XXBTZUSD": [
+			[
+			  1688671834,
+			  "30292.10000",
+			  "30297.50000"
+			],
+			[
+			  1688671834,
+			  "30292.10000",
+			  "30296.70000"
+			],
+			[
+			  1688671834,
+			  "30292.70000",
+			  "30296.70000"
+			]
+		  ],
+		  "last": 1688672106
+		}
+	}`
+	expectedLength := 3
 
-// // TestGetRecentTradesHappyPath Test will succeed if client handles well a valid response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetRecentTradesHappyPath() {
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
 
-// 	// Test parameters
-// 	params := GetRecentTradesParameters{
-// 		Pair: "XXBTZUSD",
-// 	}
-// 	now := time.Now().UTC()
-// 	options := GetRecentTradesOptions{
-// 		Since: &now,
-// 	}
+	// Make request
+	resp, httpresp, err := suite.client.GetRecentSpreads(context.Background(), params, options)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
 
-// 	// Predefined server response
-// 	expectedJSONResponse := `
-// 	{
-// 		"error":[],
-// 		"result":{
-// 			"XXBTZUSD":[
-// 				["24006.10000","0.00010000",1660639679.019115255,"s","l","", 41557503],
-// 				["24006.20000","0.08329382",1660639679.494113755,"b","l","", 41557504],
-// 				["24006.10000","0.02300000",1660639679.596130855,"b","m","", 41557505]
-// 			],
-// 			"last":"1660639679596130788"
-// 		}
-// 	}`
+	// Check parsed response
+	require.Equal(suite.T(), params.Pair, resp.Result.PairId)
+	require.Len(suite.T(), resp.Result.Spreads, expectedLength)
 
-// 	expData := GetRecentTradesResult{
-// 		Last: "1660639679596130788",
-// 		Trades: map[string][]Trade{
-// 			params.Pair: {
-// 				{
-// 					Timestamp:     1660639679019,
-// 					Price:         "24006.10000",
-// 					Volume:        "0.00010000",
-// 					Side:          "s",
-// 					Type:          "l",
-// 					Miscellaneous: "",
-// 					Id:            41557503,
-// 				},
-// 				{
-// 					Timestamp:     1660639679494,
-// 					Price:         "24006.20000",
-// 					Volume:        "0.08329382",
-// 					Side:          "b",
-// 					Type:          "l",
-// 					Miscellaneous: "",
-// 					Id:            41557504,
-// 				},
-// 				{
-// 					Timestamp:     1660639679596,
-// 					Price:         "24006.10000",
-// 					Volume:        "0.02300000",
-// 					Side:          "b",
-// 					Type:          "m",
-// 					Miscellaneous: "",
-// 					Id:            41557505,
-// 				},
-// 			},
-// 		},
-// 	}
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
 
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, recentSpreadsPath)
+	require.Equal(suite.T(), http.MethodGet, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
 
-// 	// Make request
-// 	resp, err := suite.client.GetRecentTrades(params, &options)
+	// Check request query string
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), params.Pair, record.Request.URL.Query().Get("pair"))
+	require.Equal(suite.T(), strconv.FormatInt(options.Since, 10), record.Request.URL.Query().Get("since"))
+}
 
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check for client error & log response
-// 	require.NoError(suite.T(), err)
-// 	suite.T().Log(resp)
-
-// 	// Check request
-// 	require.Contains(suite.T(), req.URL.Path, getRecentTrades)
-// 	require.Equal(suite.T(), http.MethodGet, req.Method)
-// 	require.Equal(suite.T(), suite.client.agent, req.UserAgent())
-// 	require.Equal(suite.T(), params.Pair, req.Form.Get("pair"))
-// 	require.Equal(suite.T(), strconv.FormatInt(int64(options.Since.Unix()), 10), req.Form.Get("since"))
-
-// 	// Check response
-// 	require.Empty(suite.T(), resp.Error)
-// 	require.NotNil(suite.T(), resp.Result)
-// 	require.Equal(suite.T(), expData, resp.Result)
-// }
-
-// // TestGetRecentTradesErrPath Test will succeed if client handles well an error response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetRecentTradesErrPath() {
-
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Make request
-// 	resp, err := suite.client.GetRecentTrades(GetRecentTradesParameters{}, nil)
-
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check for error
-// 	require.Error(suite.T(), err)
-// 	require.Nil(suite.T(), resp)
-// }
-
-// // TestGetRecentSpreadsHappyPath Test will succeed if client handles well a valid response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetRecentSpreadsHappyPath() {
-
-// 	// Test parameters
-// 	params := GetRecentSpreadsParameters{
-// 		Pair: "XXBTZUSD",
-// 	}
-// 	now := time.Now().UTC()
-// 	options := GetRecentSpreadsOptions{
-// 		Since: &now,
-// 	}
-
-// 	// Predefined server response
-// 	expectedJSONResponse := `
-// 	{
-// 		"error":[],
-// 		"result":{
-// 			"XXBTZUSD":[
-// 				[1660641970,"24103.30000","24103.50000"],
-// 				[1660641970,"24103.30000","24103.40000"]
-// 			],
-// 			"last":1660641970
-// 		}
-// 	}`
-
-// 	expData := GetRecentSpreadsResult{
-// 		Last: "1660641970",
-// 		Spreads: map[string][]SpreadData{
-// 			params.Pair: {
-// 				{
-// 					Timestamp: time.Unix(1660641970, 0).UTC(),
-// 					BestBid:   "24103.50000",
-// 					BestAsk:   "24103.30000",
-// 				},
-// 				{
-// 					Timestamp: time.Unix(1660641970, 0).UTC(),
-// 					BestBid:   "24103.40000",
-// 					BestAsk:   "24103.30000",
-// 				},
-// 			},
-// 		},
-// 	}
-
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Make request
-// 	resp, err := suite.client.GetRecentSpreads(params, &options)
-
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check for client error & log response
-// 	require.NoError(suite.T(), err)
-// 	suite.T().Log(resp)
-
-// 	// Check request
-// 	require.Contains(suite.T(), req.URL.Path, getRecentSpreads)
-// 	require.Equal(suite.T(), http.MethodGet, req.Method)
-// 	require.Equal(suite.T(), suite.client.agent, req.UserAgent())
-// 	require.Equal(suite.T(), params.Pair, req.Form.Get("pair"))
-// 	require.Equal(suite.T(), strconv.FormatInt(int64(options.Since.Unix()), 10), req.Form.Get("since"))
-
-// 	// Check response
-// 	require.Empty(suite.T(), resp.Error)
-// 	require.NotNil(suite.T(), resp.Result)
-// 	require.Equal(suite.T(), expData, resp.Result)
-// }
-
-// // TestGetRecentSpreadsErrPath Test will succeed if client handles well an error response from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetRecentSpreadsErrPath() {
-
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Make request
-// 	resp, err := suite.client.GetRecentSpreads(GetRecentSpreadsParameters{}, nil)
-
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check for error
-// 	require.Error(suite.T(), err)
-// 	require.Nil(suite.T(), resp)
-// }
-
-// /*****************************************************************************/
-// /* UNIT TESTS - USER DATA													 */
-// /*****************************************************************************/
+/*************************************************************************************************/
+/* UNIT TESTS - MARKET DATA                                                                      */
+/*************************************************************************************************/
 
 // // TestGetAccountBalanceHappyPath Test will succeed if a valid response from server is well processed by client.
 // func (suite *KrakenAPIClientUnitTestSuite) TestGetAccountBalanceHappyPath() {
