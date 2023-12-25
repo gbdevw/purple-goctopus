@@ -812,6 +812,9 @@ func (client *KrakenSpotRESTClient) GetRecentTrades(ctx context.Context, params 
 		if opts.Since != 0 {
 			query.Add("since", strconv.FormatInt(opts.Since, 10))
 		}
+		if opts.Count != 0 {
+			query.Add("count", strconv.FormatInt(int64(opts.Count), 10))
+		}
 	}
 	// Forge and authorize the request
 	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, recentTradesPath, http.MethodGet, "", query, nil)
