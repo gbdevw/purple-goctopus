@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gbdevw/gosette"
+	"github.com/gbdevw/purple-goctopus/spot/rest/account"
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
 	"github.com/gbdevw/purple-goctopus/spot/rest/market"
 	"github.com/gbdevw/purple-goctopus/spot/rest/trading"
@@ -1189,2301 +1190,1564 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetRecentSpreadsHappyPath() {
 /* UNIT TESTS - MARKET DATA                                                                      */
 /*************************************************************************************************/
 
-// // TestGetAccountBalanceHappyPath Test will succeed if a valid response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetAccountBalanceHappyPath() {
-
-// 	// 2FA
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "N0PE",
-// 	}
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 		  "ZUSD": "171288.6158",
-// 		  "ZEUR": "504861.8946",
-// 		  "ZGBP": "459567.9171",
-// 		  "ZAUD": "500000.0000",
-// 		  "ZCAD": "500000.0000",
-// 		  "CHF": "500000.0000",
-// 		  "XXBT": "1011.1908877900",
-// 		  "XXRP": "100000.00000000",
-// 		  "XLTC": "2000.0000000000",
-// 		  "XETH": "818.5500000000",
-// 		  "XETC": "1000.0000000000",
-// 		  "XREP": "1000.0000000000",
-// 		  "XXMR": "1000.0000000000",
-// 		  "USDT": "500000.00000000",
-// 		  "DASH": "1000.0000000000",
-// 		  "GNO": "1000.0000000000",
-// 		  "EOS": "1000.0000000000",
-// 		  "BCH": "1016.6005000000",
-// 		  "ADA": "100000.00000000",
-// 		  "QTUM": "1000.0000000000",
-// 		  "XTZ": "100000.00000000",
-// 		  "ATOM": "100000.00000000",
-// 		  "SC": "9999.9999999999",
-// 		  "LSK": "1000.0000000000",
-// 		  "WAVES": "1000.0000000000",
-// 		  "ICX": "1000.0000000000",
-// 		  "BAT": "1000.0000000000",
-// 		  "OMG": "1000.0000000000",
-// 		  "LINK": "1000.0000000000",
-// 		  "DAI": "9999.9999999999",
-// 		  "PAXG": "1000.0000000000",
-// 		  "ALGO": "100000.00000000",
-// 		  "USDC": "100000.00000000",
-// 		  "TRX": "100000.00000000",
-// 		  "DOT": "2.5000000000",
-// 		  "OXT": "1000.0000000000",
-// 		  "ETH2.S": "198.3970800000",
-// 		  "ETH2": "2.5885574330",
-// 		  "USD.M": "1213029.2780"
-// 		}
-// 	}`
-
-// 	// Configure mock server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetAccountBalance(&secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Get client request recorded by mock http server
-// 	req := suite.srv.PopRecordedRequest()
-
-// 	// Log request
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postGetAccountBalance)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-
-// 	// Unmarshall predefined response
-// 	expectedJSONData := struct {
-// 		Result map[string]string `json:"result"`
-// 	}{}
-// 	json.Unmarshal([]byte(expectedJSONResponse), &expectedJSONData)
-
-// 	// Check that there is the same number of entries in predefined response and the response provided by client
-// 	require.Equal(suite.T(), expectedJSONData.Result, resp.Result)
-// }
-
-// // TestGetAccountBalanceEmptyResponse Test will succeed if a valid empty response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetAccountBalanceEmptyResponse() {
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 			"error": [],
-// 			"result": {}
-// 		}`
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetAccountBalance(nil)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response decoded by client : %#v", resp)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postGetAccountBalance)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-
-// 	// Check response - number of entries must be 0
-// 	require.Empty(suite.T(), resp.Result)
-
-// 	// Check that requested asset provide golang default value
-// 	require.Empty(suite.T(), resp.Result["XXBT"])
-// }
-
-// // TestGetAccountBalanceErrPath Test will succeed if an invalid response from server triggers an error.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetAccountBalanceErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetAccountBalance(nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check error and response
-// 	require.Nil(suite.T(), resp)
-// 	require.Error(suite.T(), err)
-// }
-
-// // TestGetTradeBalanceHapyPath Test will succeed if a valid response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetTradeBalanceHapyPath() {
-
-// 	// Test parameters
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "N0PE",
-// 	}
-// 	options := GetTradeBalanceOptions{
-// 		Asset: "ZUSD",
-// 	}
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 			"eb": "3224744.0162",
-// 			"tb": "3224744.0162",
-// 			"m": "0.0000",
-// 			"n": "0.0000",
-// 			"c": "0.0000",
-// 			"v": "0.0000",
-// 			"e": "3224744.0162",
-// 			"mf": "3224744.0162",
-// 			"ml": "0.0000"
-// 		}
-// 	}`
-
-// 	expResp := GetTradeBalanceResponse{
-// 		KrakenAPIResponse: KrakenAPIResponse{Error: []string{}},
-// 		Result: GetTradeBalanceResult{
-// 			EquivalentBalance: "3224744.0162",
-// 			TradeBalance:      "3224744.0162",
-// 			MarginAmount:      "0.0000",
-// 			UnrealizedNetPNL:  "0.0000",
-// 			CostBasis:         "0.0000",
-// 			FloatingValuation: "0.0000",
-// 			Equity:            "3224744.0162",
-// 			FreeMargin:        "3224744.0162",
-// 			MarginLevel:       "0.0000",
-// 		},
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetTradeBalance(&options, &secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response decoded by client : %#v", resp)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postGetTradeBalance)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-// 	require.Equal(suite.T(), options.Asset, req.Form.Get("asset"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expResp, *resp)
-// }
-
-// // TestGetTradeBalanceErrPath Test will succeed if an invalid response from server triggers an error.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetTradeBalanceErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetTradeBalance(nil, nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check error and response
-// 	require.Error(suite.T(), err)
-// 	require.Nil(suite.T(), resp)
-// }
-
-// // TestGetOpenOrdersHappyPath Test will succeed if a valid response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetOpenOrdersHappyPath() {
-
-// 	// Test parameters
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "N0PE",
-// 	}
-// 	options := GetOpenOrdersOptions{
-// 		Trades:        true,
-// 		UserReference: new(int64),
-// 	}
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 			"open": {
-// 				"txid1": {
-// 					"refid": "string",
-// 					"userref": "string",
-// 					"status": "pending",
-// 					"opentm": 0,
-// 					"starttm": 0,
-// 					"expiretm": 0,
-// 					"descr": {
-// 						"pair": "string",
-// 						"type": "buy",
-// 						"ordertype": "market",
-// 						"price": "string",
-// 						"price2": "string",
-// 						"leverage": "string",
-// 						"order": "string",
-// 						"close": "string"
-// 					},
-// 					"vol": "string",
-// 					"vol_exec": "string",
-// 					"cost": "string",
-// 					"fee": "string",
-// 					"price": "string",
-// 					"stopprice": "string",
-// 					"limitprice": "string",
-// 					"trigger": "last",
-// 					"misc": "string",
-// 					"oflags": "string",
-// 					"trades": [
-// 						"string"
-// 					]
-// 				},
-// 				"txid2": {
-// 					"refid": "string",
-// 					"userref": "string",
-// 					"status": "pending",
-// 					"opentm": 0,
-// 					"starttm": 0,
-// 					"expiretm": 0,
-// 					"descr": {
-// 						"pair": "string",
-// 						"type": "buy",
-// 						"ordertype": "market",
-// 						"price": "string",
-// 						"price2": "string",
-// 						"leverage": "string",
-// 						"order": "string",
-// 						"close": "string"
-// 					},
-// 					"vol": "string",
-// 					"vol_exec": "string",
-// 					"cost": "string",
-// 					"fee": "string",
-// 					"price": "string",
-// 					"stopprice": "string",
-// 					"limitprice": "string",
-// 					"trigger": "last",
-// 					"misc": "string",
-// 					"oflags": "string",
-// 					"trades": []
-// 				}
-// 			}
-// 		}
-// 	}`
-
-// 	expResp := GetOpenOrdersResponse{
-// 		KrakenAPIResponse: KrakenAPIResponse{Error: []string{}},
-// 		Result: GetOpenOrdersResult{
-// 			Open: map[string]OrderInfo{
-// 				"txid1": {
-// 					ReferralOrderTransactionId: "string",
-// 					UserReferenceId:            "string",
-// 					Status:                     "pending",
-// 					OpenTimestamp:              0,
-// 					StartTimestamp:             0,
-// 					ExpireTimestamp:            0,
-// 					Description: OrderInfoDescription{
-// 						Pair:                  "string",
-// 						Type:                  "buy",
-// 						OrderType:             "market",
-// 						Price:                 "string",
-// 						Price2:                "string",
-// 						Leverage:              "string",
-// 						OrderDescription:      "string",
-// 						CloseOrderDescription: "string",
-// 					},
-// 					Volume:         "string",
-// 					VolumeExecuted: "string",
-// 					Cost:           "string",
-// 					Fee:            "string",
-// 					Price:          "string",
-// 					StopPrice:      "string",
-// 					LimitPrice:     "string",
-// 					Trigger:        "last",
-// 					Miscellaneous:  "string",
-// 					OrderFlags:     "string",
-// 					Trades:         []string{"string"},
-// 				},
-// 				"txid2": {
-// 					ReferralOrderTransactionId: "string",
-// 					UserReferenceId:            "string",
-// 					Status:                     "pending",
-// 					OpenTimestamp:              0,
-// 					StartTimestamp:             0,
-// 					ExpireTimestamp:            0,
-// 					Description: OrderInfoDescription{
-// 						Pair:                  "string",
-// 						Type:                  "buy",
-// 						OrderType:             "market",
-// 						Price:                 "string",
-// 						Price2:                "string",
-// 						Leverage:              "string",
-// 						OrderDescription:      "string",
-// 						CloseOrderDescription: "string",
-// 					},
-// 					Volume:         "string",
-// 					VolumeExecuted: "string",
-// 					Cost:           "string",
-// 					Fee:            "string",
-// 					Price:          "string",
-// 					StopPrice:      "string",
-// 					LimitPrice:     "string",
-// 					Trigger:        "last",
-// 					Miscellaneous:  "string",
-// 					OrderFlags:     "string",
-// 					Trades:         []string{},
-// 				},
-// 			},
-// 		},
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetOpenOrders(&options, &secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response received by server : %#v", resp)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postGetOpenOrders)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-// 	require.Equal(suite.T(), strconv.FormatBool(options.Trades), req.Form.Get("trades"))
-// 	require.Equal(suite.T(), strconv.FormatInt(*options.UserReference, 10), req.Form.Get("userref"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expResp, *resp)
-// }
-
-// // TestGetOpenOrdersEmptyResponse Test will succeed if a valid response without any open orders from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetOpenOrdersEmptyResponse() {
-
-// 	// Expected API response with no open orders
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 			"open": {}
-// 		}
-// 	}`
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetOpenOrders(nil, nil)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response received by server : %#v", resp)
-
-// 	// Check response
-// 	require.NotNil(suite.T(), resp.Result.Open)
-// 	require.Empty(suite.T(), resp.Result.Open)
-// }
-
-// // TestGetOpenOrdersErrPath Test will succeed if an invalid response from server triggers an error.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetOpenOrdersErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetOpenOrders(nil, nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Nil(suite.T(), resp)
-// 	require.Error(suite.T(), err)
-// }
-
-// // TestGetClosedOrdersHappyPath Test will succeed if a valid response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetClosedOrdersHappyPath() {
-
-// 	// Test parameters
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "N0PE",
-// 	}
-// 	options := GetClosedOrdersOptions{
-// 		Trades:        true,
-// 		UserReference: new(int64),
-// 		Start:         &time.Time{},
-// 		End:           &time.Time{},
-// 		Offset:        new(int64),
-// 		Closetime:     "open",
-// 	}
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 			"closed": {
-// 				"txid1": {
-// 					"refid": "string",
-// 					"userref": "string",
-// 					"status": "pending",
-// 					"opentm": 0,
-// 					"starttm": 0,
-// 					"expiretm": 0,
-// 					"descr": {
-// 						"pair": "string",
-// 						"type": "buy",
-// 						"ordertype": "market",
-// 						"price": "string",
-// 						"price2": "string",
-// 						"leverage": "string",
-// 						"order": "string",
-// 						"close": "string"
-// 					},
-// 					"vol": "string",
-// 					"vol_exec": "string",
-// 					"cost": "string",
-// 					"fee": "string",
-// 					"price": "string",
-// 					"stopprice": "string",
-// 					"limitprice": "string",
-// 					"trigger": "last",
-// 					"misc": "string",
-// 					"oflags": "string",
-// 					"trades": [
-// 						"string"
-// 					],
-// 					"closetm": 0,
-// 					"reason": "string"
-// 				},
-// 				"txid2": {
-// 					"refid": "string",
-// 					"userref": "string",
-// 					"status": "pending",
-// 					"opentm": 0,
-// 					"starttm": 0,
-// 					"expiretm": 0,
-// 					"descr": {
-// 						"pair": "string",
-// 						"type": "buy",
-// 						"ordertype": "market",
-// 						"price": "string",
-// 						"price2": "string",
-// 						"leverage": "string",
-// 						"order": "string",
-// 						"close": "string"
-// 					},
-// 					"vol": "string",
-// 					"vol_exec": "string",
-// 					"cost": "string",
-// 					"fee": "string",
-// 					"price": "string",
-// 					"stopprice": "string",
-// 					"limitprice": "string",
-// 					"trigger": "last",
-// 					"misc": "string",
-// 					"oflags": "string",
-// 					"trades": [],
-// 					"closetm": 0,
-// 					"reason": "string"
-// 				}
-// 			},
-// 			"count": 2
-// 		}
-// 	}`
-
-// 	expResp := GetClosedOrdersResponse{
-// 		KrakenAPIResponse: KrakenAPIResponse{Error: []string{}},
-// 		Result: GetClosedOrdersResult{
-// 			Closed: map[string]OrderInfo{
-// 				"txid1": {
-// 					ReferralOrderTransactionId: "string",
-// 					UserReferenceId:            "string",
-// 					Status:                     "pending",
-// 					OpenTimestamp:              0,
-// 					StartTimestamp:             0,
-// 					ExpireTimestamp:            0,
-// 					Description: OrderInfoDescription{
-// 						Pair:                  "string",
-// 						Type:                  "buy",
-// 						OrderType:             "market",
-// 						Price:                 "string",
-// 						Price2:                "string",
-// 						Leverage:              "string",
-// 						OrderDescription:      "string",
-// 						CloseOrderDescription: "string",
-// 					},
-// 					Volume:         "string",
-// 					VolumeExecuted: "string",
-// 					Cost:           "string",
-// 					Fee:            "string",
-// 					Price:          "string",
-// 					StopPrice:      "string",
-// 					LimitPrice:     "string",
-// 					Trigger:        "last",
-// 					Miscellaneous:  "string",
-// 					OrderFlags:     "string",
-// 					Trades:         []string{"string"},
-// 					CloseTimestamp: 0,
-// 					Reason:         "string",
-// 				},
-// 				"txid2": {
-// 					ReferralOrderTransactionId: "string",
-// 					UserReferenceId:            "string",
-// 					Status:                     "pending",
-// 					OpenTimestamp:              0,
-// 					StartTimestamp:             0,
-// 					ExpireTimestamp:            0,
-// 					Description: OrderInfoDescription{
-// 						Pair:                  "string",
-// 						Type:                  "buy",
-// 						OrderType:             "market",
-// 						Price:                 "string",
-// 						Price2:                "string",
-// 						Leverage:              "string",
-// 						OrderDescription:      "string",
-// 						CloseOrderDescription: "string",
-// 					},
-// 					Volume:         "string",
-// 					VolumeExecuted: "string",
-// 					Cost:           "string",
-// 					Fee:            "string",
-// 					Price:          "string",
-// 					StopPrice:      "string",
-// 					LimitPrice:     "string",
-// 					Trigger:        "last",
-// 					Miscellaneous:  "string",
-// 					OrderFlags:     "string",
-// 					Trades:         []string{},
-// 					CloseTimestamp: 0,
-// 					Reason:         "string",
-// 				},
-// 			},
-// 			Count: 2,
-// 		},
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetClosedOrders(&options, &secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postGetClosedOrders)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-// 	require.Equal(suite.T(), strconv.FormatBool(options.Trades), req.Form.Get("trades"))
-// 	require.Equal(suite.T(), strconv.FormatInt(*options.UserReference, 10), req.Form.Get("userref"))
-// 	require.Equal(suite.T(), strconv.FormatInt(options.Start.Unix(), 10), req.Form.Get("start"))
-// 	require.Equal(suite.T(), strconv.FormatInt(options.End.Unix(), 10), req.Form.Get("end"))
-// 	require.Equal(suite.T(), strconv.FormatInt(*options.Offset, 10), req.Form.Get("ofs"))
-// 	require.Equal(suite.T(), string(options.Closetime), req.Form.Get("closetime"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expResp, *resp)
-// }
-
-// // TestGetClosedOrdersEmptyResponse Test will succeed if a valid, empty response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetClosedOrdersEmptyResponse() {
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 			"closed": {},
-// 			"count": 0
-// 		}
-// 	}`
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetClosedOrders(nil, nil)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.NotNil(suite.T(), resp)
-// 	require.Empty(suite.T(), resp.Result.Closed)
-// 	require.Equal(suite.T(), 0, resp.Result.Count)
-// }
-
-// // TestGetClosedOrdersErrPath Test will succeed if a error response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetClosedOrdersErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetClosedOrders(nil, nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Nil(suite.T(), resp)
-// 	require.Error(suite.T(), err)
-// }
-
-// // TestQueryOrdersInfoHappyPath Test will succeed if a valid response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestQueryOrdersInfoHappyPath() {
-
-// 	// Test parameters
-// 	params := QueryOrdersParameters{
-// 		TransactionIds: []string{"txid1", "txid2"},
-// 	}
-
-// 	options := QueryOrdersOptions{
-// 		Trades:        true,
-// 		UserReference: new(int64),
-// 	}
-
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "NOPE",
-// 	}
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 			"txid1": {
-// 				"refid": "string",
-// 				"userref": "string",
-// 				"status": "pending",
-// 				"opentm": 0,
-// 				"starttm": 0,
-// 				"expiretm": 0,
-// 				"descr": {
-// 					"pair": "string",
-// 					"type": "buy",
-// 					"ordertype": "market",
-// 					"price": "string",
-// 					"price2": "string",
-// 					"leverage": "string",
-// 					"order": "string",
-// 					"close": "string"
-// 				},
-// 				"vol": "string",
-// 				"vol_exec": "string",
-// 				"cost": "string",
-// 				"fee": "string",
-// 				"price": "string",
-// 				"stopprice": "string",
-// 				"limitprice": "string",
-// 				"trigger": "last",
-// 				"misc": "string",
-// 				"oflags": "string",
-// 				"trades": [
-// 					"string"
-// 				],
-// 				"closetm": 0,
-// 				"reason": "string"
-// 			},
-// 			"txid2": {
-// 				"refid": "string",
-// 				"userref": "string",
-// 				"status": "pending",
-// 				"opentm": 0,
-// 				"starttm": 0,
-// 				"expiretm": 0,
-// 				"descr": {
-// 					"pair": "string",
-// 					"type": "buy",
-// 					"ordertype": "market",
-// 					"price": "string",
-// 					"price2": "string",
-// 					"leverage": "string",
-// 					"order": "string",
-// 					"close": "string"
-// 				},
-// 				"vol": "string",
-// 				"vol_exec": "string",
-// 				"cost": "string",
-// 				"fee": "string",
-// 				"price": "string",
-// 				"stopprice": "string",
-// 				"limitprice": "string",
-// 				"trigger": "last",
-// 				"misc": "string",
-// 				"oflags": "string",
-// 				"trades": [],
-// 				"closetm": 0,
-// 				"reason": "string"
-// 			}
-// 		}
-// 	}`
-
-// 	expData := QueryOrdersInfoResponse{
-// 		Result: map[string]OrderInfo{
-// 			"txid1": {
-// 				ReferralOrderTransactionId: "string",
-// 				UserReferenceId:            "string",
-// 				Status:                     "pending",
-// 				OpenTimestamp:              0,
-// 				StartTimestamp:             0,
-// 				ExpireTimestamp:            0,
-// 				Description: OrderInfoDescription{
-// 					Pair:                  "string",
-// 					Type:                  "buy",
-// 					OrderType:             "market",
-// 					Price:                 "string",
-// 					Price2:                "string",
-// 					Leverage:              "string",
-// 					OrderDescription:      "string",
-// 					CloseOrderDescription: "string",
-// 				},
-// 				Volume:         "string",
-// 				VolumeExecuted: "string",
-// 				Cost:           "string",
-// 				Fee:            "string",
-// 				Price:          "string",
-// 				StopPrice:      "string",
-// 				LimitPrice:     "string",
-// 				Trigger:        "last",
-// 				Miscellaneous:  "string",
-// 				OrderFlags:     "string",
-// 				Trades:         []string{"string"},
-// 				CloseTimestamp: 0,
-// 				Reason:         "string",
-// 			},
-// 			"txid2": {
-// 				ReferralOrderTransactionId: "string",
-// 				UserReferenceId:            "string",
-// 				Status:                     "pending",
-// 				OpenTimestamp:              0,
-// 				StartTimestamp:             0,
-// 				ExpireTimestamp:            0,
-// 				Description: OrderInfoDescription{
-// 					Pair:                  "string",
-// 					Type:                  "buy",
-// 					OrderType:             "market",
-// 					Price:                 "string",
-// 					Price2:                "string",
-// 					Leverage:              "string",
-// 					OrderDescription:      "string",
-// 					CloseOrderDescription: "string",
-// 				},
-// 				Volume:         "string",
-// 				VolumeExecuted: "string",
-// 				Cost:           "string",
-// 				Fee:            "string",
-// 				Price:          "string",
-// 				StopPrice:      "string",
-// 				LimitPrice:     "string",
-// 				Trigger:        "last",
-// 				Miscellaneous:  "string",
-// 				OrderFlags:     "string",
-// 				Trades:         []string{},
-// 				CloseTimestamp: 0,
-// 				Reason:         "string",
-// 			},
-// 		},
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.QueryOrdersInfo(params, &options, &secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postQueryOrdersInfos)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-// 	require.Equal(suite.T(), strconv.FormatBool(options.Trades), req.Form.Get("trades"))
-// 	require.Equal(suite.T(), strconv.FormatInt(*options.UserReference, 10), req.Form.Get("userref"))
-// 	require.Equal(suite.T(), strings.Join(params.TransactionIds, ","), req.Form.Get("txid"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expData.Result, resp.Result)
-// }
-
-// // TestQueryOrdersInfoEmptyResponse Test will succeed if a valid, empty response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestQueryOrdersInfoEmptyResponse() {
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {}
-// 	}`
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.QueryOrdersInfo(QueryOrdersParameters{}, nil, nil)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.NotNil(suite.T(), resp)
-// 	require.Empty(suite.T(), resp.Result)
-// }
-
-// // TestQueryOrdersInfoErrPath Test will succeed if a error response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestQueryOrdersInfoErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.QueryOrdersInfo(QueryOrdersParameters{}, nil, nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Nil(suite.T(), resp)
-// 	require.Error(suite.T(), err)
-// }
-
-// // TestGetTradesHistoryHappyPath Test will succeed if a valid response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetTradesHistoryHappyPath() {
-
-// 	// Test parameters
-// 	now := time.Now().UTC()
-// 	offset := int64(0)
-// 	options := GetTradesHistoryOptions{
-// 		Type:   "all",
-// 		Trades: true,
-// 		Start:  &now,
-// 		End:    &now,
-// 		Offset: &offset,
-// 	}
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "NOPE",
-// 	}
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 			"trades": {
-// 				"txid1": {
-// 					"ordertxid": "string",
-// 					"pair": "string",
-// 					"time": 0,
-// 					"type": "string",
-// 					"ordertype": "string",
-// 					"price": "string",
-// 					"cost": "string",
-// 					"fee": "string",
-// 					"vol": "string",
-// 					"margin": "string",
-// 					"misc": "string",
-// 					"posstatus": "string",
-// 					"cprice": null,
-// 					"ccost": null,
-// 					"cfee": null,
-// 					"cvol": null,
-// 					"cmargin": null,
-// 					"net": null,
-// 					"trades": ["string"]
-// 				},
-// 				"txid2": {
-// 					"ordertxid": "string",
-// 					"pair": "string",
-// 					"time": 0,
-// 					"type": "string",
-// 					"ordertype": "string",
-// 					"price": "string",
-// 					"cost": "string",
-// 					"fee": "string",
-// 					"vol": "string",
-// 					"margin": "string",
-// 					"misc": "string",
-// 					"posstatus": "string",
-// 					"cprice": null,
-// 					"ccost": null,
-// 					"cfee": null,
-// 					"cvol": null,
-// 					"cmargin": null,
-// 					"net": null,
-// 					"trades": []
-// 				}
-// 			},
-// 			"count": 0
-// 		}
-// 	}`
-
-// 	expData := GetTradesHistoryResult{
-// 		Trades: map[string]TradeInfo{
-// 			"txid1": {
-// 				OrderTransactionId: "string",
-// 				Pair:               "string",
-// 				Timestamp:          0,
-// 				Type:               "string",
-// 				OrderType:          "string",
-// 				Price:              "string",
-// 				Cost:               "string",
-// 				Fee:                "string",
-// 				Volume:             "string",
-// 				Margin:             "string",
-// 				Miscellaneous:      "string",
-// 				PositionStatus:     "string",
-// 				ClosedPrice:        "",
-// 				ClosedCost:         "",
-// 				ClosedFee:          "",
-// 				ClosedVolume:       "",
-// 				ClosedMargin:       "",
-// 				ClosedNetPNL:       "",
-// 				ClosingTrades:      []string{"string"},
-// 			},
-// 			"txid2": {
-// 				OrderTransactionId: "string",
-// 				Pair:               "string",
-// 				Timestamp:          0,
-// 				Type:               "string",
-// 				OrderType:          "string",
-// 				Price:              "string",
-// 				Cost:               "string",
-// 				Fee:                "string",
-// 				Volume:             "string",
-// 				Margin:             "string",
-// 				Miscellaneous:      "string",
-// 				PositionStatus:     "string",
-// 				ClosedPrice:        "",
-// 				ClosedCost:         "",
-// 				ClosedFee:          "",
-// 				ClosedVolume:       "",
-// 				ClosedMargin:       "",
-// 				ClosedNetPNL:       "",
-// 				ClosingTrades:      []string{},
-// 			},
-// 		},
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetTradesHistory(&options, &secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postGetTradesHistory)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-// 	require.Equal(suite.T(), options.Type, req.Form.Get("type"))
-// 	require.Equal(suite.T(), strconv.FormatBool(options.Trades), req.Form.Get("trades"))
-// 	require.Equal(suite.T(), strconv.FormatInt(now.Unix(), 10), req.Form.Get("start"))
-// 	require.Equal(suite.T(), strconv.FormatInt(now.Unix(), 10), req.Form.Get("end"))
-// 	require.Equal(suite.T(), strconv.FormatInt(offset, 10), req.Form.Get("ofs"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expData, resp.Result)
-// }
-
-// // TestGetTradesHistoryEmptyResponse Test will succeed if a valid, empty response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetTradesHistoryEmptyResponse() {
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {}
-// 	}`
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetTradesHistory(nil, nil)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.NotNil(suite.T(), resp)
-// 	require.Empty(suite.T(), resp.Result.Trades)
-// }
-
-// // TestGetTradesHistoryErrPath Test will succeed if a error response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetTradesHistoryErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetTradesHistory(nil, nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Nil(suite.T(), resp)
-// 	require.Error(suite.T(), err)
-// }
-
-// // TestQueryTradesInfoHappyPath Test will succeed if a valid response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestQueryTradesInfoHappyPath() {
-
-// 	// Test parameters
-// 	params := QueryTradesParameters{
-// 		TransactionIds: []string{"THVRQM-33VKH-UCI7BS", "OH76VO-UKWAD-PSBDX6"},
-// 	}
-// 	options := QueryTradesOptions{
-// 		Trades: true,
-// 	}
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "NOPE",
-// 	}
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 			"THVRQM-33VKH-UCI7BS": {
-// 				"ordertxid": "OQCLML-BW3P3-BUCMWZ",
-// 				"pair": "XXBTZUSD",
-// 				"time": 1616667796.8802,
-// 				"type": "buy",
-// 				"ordertype": "limit",
-// 				"price": "30010.00000",
-// 				"cost": "600.20000",
-// 				"fee": "0.00000",
-// 				"vol": "0.02000000",
-// 				"margin": "0.00000",
-// 				"misc": ""
-// 				},
-// 			"TTEUX3-HDAAA-RC2RUO": {
-// 				"ordertxid": "OH76VO-UKWAD-PSBDX6",
-// 				"pair": "XXBTZEUR",
-// 				"time": 1614082549.3138,
-// 				"type": "buy",
-// 				"ordertype": "limit",
-// 				"price": "1001.00000",
-// 				"cost": "0.20020",
-// 				"fee": "0.00000",
-// 				"vol": "0.00020000",
-// 				"margin": "0.00000",
-// 				"misc": ""
-// 			}
-// 		}
-// 	}`
-
-// 	expData := QueryTradesInfoResponse{
-// 		Result: map[string]TradeInfo{
-// 			"THVRQM-33VKH-UCI7BS": {
-// 				OrderTransactionId: "OQCLML-BW3P3-BUCMWZ",
-// 				Pair:               "XXBTZUSD",
-// 				Timestamp:          1616667796.8802,
-// 				Type:               "buy",
-// 				OrderType:          "limit",
-// 				Price:              "30010.00000",
-// 				Cost:               "600.20000",
-// 				Fee:                "0.00000",
-// 				Volume:             "0.02000000",
-// 				Margin:             "0.00000",
-// 				Miscellaneous:      "",
-// 			},
-// 			"TTEUX3-HDAAA-RC2RUO": {
-// 				OrderTransactionId: "OH76VO-UKWAD-PSBDX6",
-// 				Pair:               "XXBTZEUR",
-// 				Timestamp:          1614082549.3138,
-// 				Type:               "buy",
-// 				OrderType:          "limit",
-// 				Price:              "1001.00000",
-// 				Cost:               "0.20020",
-// 				Fee:                "0.00000",
-// 				Volume:             "0.00020000",
-// 				Margin:             "0.00000",
-// 				Miscellaneous:      "",
-// 			},
-// 		},
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.QueryTradesInfo(params, &options, &secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postQueryTradesInfo)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-// 	require.ElementsMatch(suite.T(), params.TransactionIds, strings.Split(req.Form.Get("txid"), ","))
-// 	require.Equal(suite.T(), strconv.FormatBool(options.Trades), req.Form.Get("trades"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expData.Result, resp.Result)
-// }
-
-// // Test QueryTradesInfo Test will succeed if a valid, empty response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestQueryTradesInfoEmptyResponse() {
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {}
-// 	}`
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.QueryTradesInfo(QueryTradesParameters{}, nil, nil)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.NotNil(suite.T(), resp)
-// 	require.Empty(suite.T(), resp.Result)
-// }
-
-// // TestQueryTradesInfoErrPath Test will succeed if a error response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestQueryTradesInfoErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.QueryTradesInfo(QueryTradesParameters{}, nil, nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Nil(suite.T(), resp)
-// 	require.Error(suite.T(), err)
-// }
-
-// // TestGetOpenPositionsHappyPath Test will succeed if a valid response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetOpenPositionsHappyPath() {
-
-// 	// Test parameters
-// 	options := GetOpenPositionsOptions{
-// 		TransactionIds: []string{"TF5GVO-T7ZZ2-6NBKBI", "T24DOR-TAFLM-ID3NYP"},
-// 		DoCalcs:        true,
-// 	}
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "NOPE",
-// 	}
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 			"TF5GVO-T7ZZ2-6NBKBI": {
-// 				"ordertxid": "OLWNFG-LLH4R-D6SFFP",
-// 				"posstatus": "open",
-// 				"pair": "XXBTZUSD",
-// 				"time": 1605280097.8294,
-// 				"type": "buy",
-// 				"ordertype": "limit",
-// 				"cost": "104610.52842",
-// 				"fee": "289.06565",
-// 				"vol": "8.82412861",
-// 				"vol_closed": "0.20200000",
-// 				"margin": "20922.10568",
-// 				"value": "258797.5",
-// 				"net": "+154186.9728",
-// 				"terms": "0.0100% per 4 hours",
-// 				"rollovertm": "1616672637",
-// 				"misc": "",
-// 				"oflags": ""
-// 			},
-// 			"T24DOR-TAFLM-ID3NYP": {
-// 				"ordertxid": "OIVYGZ-M5EHU-ZRUQXX",
-// 				"posstatus": "open",
-// 				"pair": "XXBTZUSD",
-// 				"time": 1607943827.3172,
-// 				"type": "buy",
-// 				"ordertype": "limit",
-// 				"cost": "145756.76856",
-// 				"fee": "335.24057",
-// 				"vol": "8.00000000",
-// 				"vol_closed": "0.00000000",
-// 				"margin": "29151.35371",
-// 				"value": "240124.0",
-// 				"net": "+94367.2314",
-// 				"terms": "0.0100% per 4 hours",
-// 				"rollovertm": "1616672637",
-// 				"misc": "",
-// 				"oflags": ""
-// 			}
-// 		}
-// 	}`
-
-// 	expData := GetOpenPositionsResponse{
-// 		Result: map[string]PositionInfo{
-// 			"TF5GVO-T7ZZ2-6NBKBI": {
-// 				OrderTransactionId: "OLWNFG-LLH4R-D6SFFP",
-// 				PositionStatus:     "open",
-// 				Pair:               "XXBTZUSD",
-// 				Timestamp:          1605280097.8294,
-// 				Type:               "buy",
-// 				OrderType:          "limit",
-// 				Cost:               "104610.52842",
-// 				Fee:                "289.06565",
-// 				Volume:             "8.82412861",
-// 				ClosedVolume:       "0.20200000",
-// 				Margin:             "20922.10568",
-// 				Value:              "258797.5",
-// 				Net:                "+154186.9728",
-// 				Terms:              "0.0100% per 4 hours",
-// 				RolloverTimestamp:  "1616672637",
-// 				Miscellaneous:      "",
-// 				OrderFlags:         "",
-// 			},
-// 			"T24DOR-TAFLM-ID3NYP": {
-// 				OrderTransactionId: "OIVYGZ-M5EHU-ZRUQXX",
-// 				PositionStatus:     "open",
-// 				Pair:               "XXBTZUSD",
-// 				Timestamp:          1607943827.3172,
-// 				Type:               "buy",
-// 				OrderType:          "limit",
-// 				Cost:               "145756.76856",
-// 				Fee:                "335.24057",
-// 				Volume:             "8.00000000",
-// 				ClosedVolume:       "0.00000000",
-// 				Margin:             "29151.35371",
-// 				Value:              "240124.0",
-// 				Net:                "+94367.2314",
-// 				Terms:              "0.0100% per 4 hours",
-// 				RolloverTimestamp:  "1616672637",
-// 				Miscellaneous:      "",
-// 				OrderFlags:         "",
-// 			},
-// 		},
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetOpenPositions(&options, &secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postGetOpenPositions)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-// 	require.ElementsMatch(suite.T(), options.TransactionIds, strings.Split(req.Form.Get("txid"), ","))
-// 	require.Equal(suite.T(), strconv.FormatBool(options.DoCalcs), req.Form.Get("docalcs"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expData.Result, resp.Result)
-// }
-
-// // TestGetOpenPositionsEmptyResponse Test will succeed if a valid, empty response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetOpenPositionsEmptyResponse() {
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {}
-// 	}`
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetOpenPositions(nil, nil)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.NotNil(suite.T(), resp)
-// 	require.Empty(suite.T(), resp.Result)
-// }
-
-// // TestGetOpenPositionsErrPath Test will succeed if a error response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetOpenPositionsErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetOpenPositions(nil, nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Nil(suite.T(), resp)
-// 	require.Error(suite.T(), err)
-// }
-
-// // TestGetLedgersInfoHappyPath Test will succeed if a valid response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetLedgersInfoHappyPath() {
-
-// 	// Test parameters
-// 	now := time.Now().UTC()
-// 	offset := int64(0)
-// 	options := GetLedgersInfoOptions{
-// 		Assets:     []string{"string"},
-// 		AssetClass: "string",
-// 		Type:       "all",
-// 		Start:      &now,
-// 		End:        &now,
-// 		Offset:     &offset,
-// 	}
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "NOPE",
-// 	}
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 			"ledger": {
-// 				"ledger_id1": {
-// 					"refid": "string",
-// 					"time": 0,
-// 					"type": "trade",
-// 					"subtype": "string",
-// 					"aclass": "string",
-// 					"asset": "string",
-// 					"amount": "string",
-// 					"fee": "string",
-// 					"balance": "string"
-// 				},
-// 				"ledger_id2": {
-// 					"refid": "string",
-// 					"time": 0,
-// 					"type": "trade",
-// 					"subtype": "string",
-// 					"aclass": "string",
-// 					"asset": "string",
-// 					"amount": "string",
-// 					"fee": "string",
-// 					"balance": "string"
-// 				}
-// 			},
-// 			"count": 0
-// 		}
-// 	}`
-
-// 	expData := GetLedgersInfoResult{
-// 		Ledgers: map[string]LedgerEntry{
-// 			"ledger_id1": {
-// 				ReferenceId: "string",
-// 				Timestamp:   0,
-// 				Type:        "trade",
-// 				SubType:     "string",
-// 				AssetClass:  "string",
-// 				Asset:       "string",
-// 				Amount:      "string",
-// 				Fee:         "string",
-// 				Balance:     "string",
-// 			},
-// 			"ledger_id2": {
-// 				ReferenceId: "string",
-// 				Timestamp:   0,
-// 				Type:        "trade",
-// 				SubType:     "string",
-// 				AssetClass:  "string",
-// 				Asset:       "string",
-// 				Amount:      "string",
-// 				Fee:         "string",
-// 				Balance:     "string",
-// 			},
-// 		},
-// 		Count: 0,
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetLedgersInfo(&options, &secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postGetLedgersInfo)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-// 	require.ElementsMatch(suite.T(), options.Assets, strings.Split(req.Form.Get("asset"), ","))
-// 	require.Equal(suite.T(), options.AssetClass, req.Form.Get("aclass"))
-// 	require.Equal(suite.T(), options.Type, req.Form.Get("type"))
-// 	require.Equal(suite.T(), strconv.FormatInt(now.Unix(), 10), req.Form.Get("start"))
-// 	require.Equal(suite.T(), strconv.FormatInt(now.Unix(), 10), req.Form.Get("end"))
-// 	require.Equal(suite.T(), strconv.FormatInt(*options.Offset, 10), req.Form.Get("ofs"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expData, resp.Result)
-// }
-
-// // TestGetLedgersInfoEmptyResponse Test will succeed if a valid, empty response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetLedgersInfoEmptyResponse() {
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 			"ledger": {},
-// 			"count": 0
-// 		}
-// 	}`
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetLedgersInfo(nil, nil)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.NotNil(suite.T(), resp)
-// 	require.Empty(suite.T(), resp.Result.Ledgers)
-// 	require.Zero(suite.T(), resp.Result.Count)
-// }
-
-// // TestGetLedgersInfoErrPath Test will succeed if a error response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetLedgersInfoErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetLedgersInfo(nil, nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Nil(suite.T(), resp)
-// 	require.Error(suite.T(), err)
-// }
-
-// // TestQueryLedgersHappyPath Test will succeed if a valid response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestQueryLedgersHappyPath() {
-
-// 	// Test parameters
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "NOPE",
-// 	}
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 			"ledger_id1": {
-// 				"refid": "string",
-// 				"time": 0,
-// 				"type": "trade",
-// 				"subtype": "string",
-// 				"aclass": "string",
-// 				"asset": "string",
-// 				"amount": "string",
-// 				"fee": "string",
-// 				"balance": "string"
-// 			},
-// 			"ledger_id2": {
-// 				"refid": "string",
-// 				"time": 0,
-// 				"type": "trade",
-// 				"subtype": "string",
-// 				"aclass": "string",
-// 				"asset": "string",
-// 				"amount": "string",
-// 				"fee": "string",
-// 				"balance": "string"
-// 			}
-// 		}
-// 	}`
-
-// 	expData := QueryLedgersResponse{
-// 		Result: map[string]LedgerEntry{
-// 			"ledger_id1": {
-// 				ReferenceId: "string",
-// 				Timestamp:   0,
-// 				Type:        "trade",
-// 				SubType:     "string",
-// 				AssetClass:  "string",
-// 				Asset:       "string",
-// 				Amount:      "string",
-// 				Fee:         "string",
-// 				Balance:     "string",
-// 			},
-// 			"ledger_id2": {
-// 				ReferenceId: "string",
-// 				Timestamp:   0,
-// 				Type:        "trade",
-// 				SubType:     "string",
-// 				AssetClass:  "string",
-// 				Asset:       "string",
-// 				Amount:      "string",
-// 				Fee:         "string",
-// 				Balance:     "string",
-// 			},
-// 		},
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.QueryLedgers(QueryLedgersParameters{
-// 		LedgerIds: []string{"1", "2"},
-// 	},
-// 		nil,
-// 		&secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postGetLedgersInfo)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expData.Result, resp.Result)
-// }
-
-// // TestQueryLedgersEmptyResponse Test will succeed if a valid, empty response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestQueryLedgersEmptyResponse() {
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {}
-// 	}`
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.QueryLedgers(QueryLedgersParameters{}, nil, nil)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.NotNil(suite.T(), resp)
-// 	require.Empty(suite.T(), resp.Result)
-// }
-
-// // TestQueryLedgersErrPath Test will succeed if a error response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestQueryLedgersErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.QueryLedgers(QueryLedgersParameters{}, nil, nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Nil(suite.T(), resp)
-// 	require.Error(suite.T(), err)
-// }
-
-// // TestGetTradeVolumeHappyPath Test will succeed if a valid response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetTradeVolumeHappyPath() {
-
-// 	// Test parameters
-// 	params := GetTradeVolumeParameters{
-// 		Pairs: []string{"pair1", "pair2"},
-// 	}
-// 	options := GetTradeVolumeOptions{
-// 		FeeInfo: true,
-// 	}
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "NOPE",
-// 	}
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 			"currency": "string",
-// 			"volume": "string",
-// 			"fees": {
-// 				"pair1": {
-// 					"fee": "string",
-// 					"min_fee": "string",
-// 					"max_fee": "string",
-// 					"next_fee": "string",
-// 					"tier_volume": "string",
-// 					"next_volume": "string"
-// 				},
-// 				"pair2": {
-// 					"fee": "string",
-// 					"min_fee": "string",
-// 					"max_fee": "string",
-// 					"next_fee": "string",
-// 					"tier_volume": "string",
-// 					"next_volume": "string"
-// 				}
-// 			},
-// 			"fees_maker": {
-// 				"pair1": {
-// 					"fee": "string",
-// 					"min_fee": "string",
-// 					"max_fee": "string",
-// 					"next_fee": "string",
-// 					"tier_volume": "string",
-// 					"next_volume": "string"
-// 				},
-// 				"pair2": {
-// 					"fee": "string",
-// 					"min_fee": "string",
-// 					"max_fee": "string",
-// 					"next_fee": "string",
-// 					"tier_volume": "string",
-// 					"next_volume": "string"
-// 				}
-// 			}
-// 		}
-// 	}`
-
-// 	expData := GetTradeVolumeResult{
-// 		Currency: "string",
-// 		Volume:   "string",
-// 		Fees: map[string]FeeTierInfo{
-// 			"pair1": {
-// 				Fee:            "string",
-// 				MinimumFee:     "string",
-// 				MaximumFee:     "string",
-// 				NextFee:        "string",
-// 				TierVolume:     "string",
-// 				NextTierVolume: "string",
-// 			},
-// 			"pair2": {
-// 				Fee:            "string",
-// 				MinimumFee:     "string",
-// 				MaximumFee:     "string",
-// 				NextFee:        "string",
-// 				TierVolume:     "string",
-// 				NextTierVolume: "string",
-// 			},
-// 		},
-// 		FeesMaker: map[string]FeeTierInfo{
-// 			"pair1": {
-// 				Fee:            "string",
-// 				MinimumFee:     "string",
-// 				MaximumFee:     "string",
-// 				NextFee:        "string",
-// 				TierVolume:     "string",
-// 				NextTierVolume: "string",
-// 			},
-// 			"pair2": {
-// 				Fee:            "string",
-// 				MinimumFee:     "string",
-// 				MaximumFee:     "string",
-// 				NextFee:        "string",
-// 				TierVolume:     "string",
-// 				NextTierVolume: "string",
-// 			},
-// 		},
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetTradeVolume(params, &options, &secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postGetTradeVolume)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-// 	require.ElementsMatch(suite.T(), params.Pairs, strings.Split(req.Form.Get("pair"), ","))
-// 	require.Equal(suite.T(), strconv.FormatBool(options.FeeInfo), req.Form.Get("fee-info"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expData, resp.Result)
-// }
-
-// // TestGetTradeVolumeErrPath Test will succeed if a error response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetTradeVolumeErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetTradeVolume(GetTradeVolumeParameters{}, nil, nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Nil(suite.T(), resp)
-// 	require.Error(suite.T(), err)
-// }
-
-// // TestRequestExportReportHappyPath Test will succeed if a valid response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestRequestExportReportHappyPath() {
-
-// 	// Test parameters
-// 	params := RequestExportReportParameters{
-// 		Report:      "trades",
-// 		Description: "testing",
-// 	}
-// 	now := time.Now().UTC()
-// 	options := RequestExportReportOptions{
-// 		Format:  "csv",
-// 		Fields:  []string{"all"},
-// 		StartTm: &now,
-// 		EndTm:   &now,
-// 	}
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "NOPE",
-// 	}
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 			"id": "TCJA"
-// 		}
-// 	}`
-
-// 	expData := RequestExportReportResult{
-// 		Id: "TCJA",
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.RequestExportReport(params, &options, &secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postRequestExportReport)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-// 	require.Equal(suite.T(), params.Description, req.Form.Get("description"))
-// 	require.Equal(suite.T(), params.Report, req.Form.Get("report"))
-// 	require.Equal(suite.T(), options.Format, req.Form.Get("format"))
-// 	require.ElementsMatch(suite.T(), options.Fields, strings.Split(req.Form.Get("fields"), ","))
-// 	require.Equal(suite.T(), strconv.FormatInt(options.StartTm.Unix(), 10), req.Form.Get("starttm"))
-// 	require.Equal(suite.T(), strconv.FormatInt(options.EndTm.Unix(), 10), req.Form.Get("endtm"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expData, resp.Result)
-// }
-
-// // TestRequestExportReportErrPath Test will succeed if a error response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestRequestExportReportErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.RequestExportReport(RequestExportReportParameters{}, nil, nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Nil(suite.T(), resp)
-// 	require.Error(suite.T(), err)
-// }
-
-// // TestGetExportReportStatusHappyPath Test will succeed if a valid response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetExportReportStatusHappyPath() {
-
-// 	// Test parameters
-// 	params := GetExportReportStatusParameters{
-// 		Report: "trades",
-// 	}
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "NOPE",
-// 	}
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": [
-// 			{
-// 				"id": "VSKC",
-// 				"descr": "my_trades_1",
-// 				"format": "CSV",
-// 				"report": "trades",
-// 				"subtype": "all",
-// 				"status": "Processed",
-// 				"fields": "all",
-// 				"createdtm": "1616669085",
-// 				"starttm": "1616669093",
-// 				"completedtm": "1616669093",
-// 				"datastarttm": "1614556800",
-// 				"dataendtm": "1616669085",
-// 				"asset": "all"
-// 			},
-// 			{
-// 				"id": "TCJA",
-// 				"descr": "my_trades_1",
-// 				"format": "CSV",
-// 				"report": "trades",
-// 				"subtype": "all",
-// 				"status": "Processed",
-// 				"fields": "all",
-// 				"createdtm": "1617363637",
-// 				"starttm": "1617363664",
-// 				"completedtm": "1617363664",
-// 				"datastarttm": "1617235200",
-// 				"dataendtm": "1617363637",
-// 				"asset": "all"
-// 			}
-// 		]
-// 	}`
-
-// 	expData := GetExportReportStatusResponse{
-// 		Result: []ExportReportStatus{
-// 			{
-// 				Id:                 "VSKC",
-// 				Description:        "my_trades_1",
-// 				Format:             "CSV",
-// 				Report:             "trades",
-// 				SubType:            "all",
-// 				Status:             "Processed",
-// 				Fields:             "all",
-// 				RequestTimestamp:   "1616669085",
-// 				StartTimestamp:     "1616669093",
-// 				CompletedTimestamp: "1616669093",
-// 				DataStartTimestamp: "1614556800",
-// 				DataEndTimestamp:   "1616669085",
-// 				Asset:              "all",
-// 			},
-// 			{
-// 				Id:                 "TCJA",
-// 				Description:        "my_trades_1",
-// 				Format:             "CSV",
-// 				Report:             "trades",
-// 				SubType:            "all",
-// 				Status:             "Processed",
-// 				Fields:             "all",
-// 				RequestTimestamp:   "1617363637",
-// 				StartTimestamp:     "1617363664",
-// 				CompletedTimestamp: "1617363664",
-// 				DataStartTimestamp: "1617235200",
-// 				DataEndTimestamp:   "1617363637",
-// 				Asset:              "all",
-// 			},
-// 		},
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetExportReportStatus(params, &secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postGetExportReportStatus)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-// 	require.Equal(suite.T(), params.Report, req.Form.Get("report"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expData.Result, resp.Result)
-// }
-
-// // TestGetExportReportStatus Test will succeed if a error response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetExportReportStatusErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetExportReportStatus(GetExportReportStatusParameters{}, nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Nil(suite.T(), resp)
-// 	require.Error(suite.T(), err)
-// }
-
-// // TestRetrieveDataExportHappyPath Test will succeed if a valid response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestRetrieveDataExportHappyPath() {
-
-// 	// Test parameters
-// 	params := RetrieveDataExportParameters{
-// 		Id: "VSKC",
-// 	}
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "NOPE",
-// 	}
-
-// 	// Expected API response from API documentation
-// 	expectedBytesResponse := []byte{78, 48, 80, 69}
-
-// 	expData := RetrieveDataExportResponse{
-// 		Report: []byte{78, 48, 80, 69},
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/octet-stream"}},
-// 		Body:    expectedBytesResponse,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.RetrieveDataExport(params, &secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postRetrieveDataExport)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-// 	require.Equal(suite.T(), params.Id, req.Form.Get("id"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expData, *resp)
-// }
-
-// // TestRetrieveDataExportErrPath Test will succeed if a error response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestRetrieveDataExportErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.RetrieveDataExport(RetrieveDataExportParameters{}, nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Nil(suite.T(), resp)
-// 	require.Error(suite.T(), err)
-// }
-
-// // TestDeleteExportReportHappyPath Test will succeed if a valid response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestDeleteExportReportHappyPath() {
-
-// 	// Test parameters
-// 	params := DeleteExportReportParameters{
-// 		Id:   "VSKC",
-// 		Type: "delete",
-// 	}
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "NOPE",
-// 	}
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `
-// 	{
-// 		"error": [ ],
-// 		"result": {
-// 			"delete": true
-// 		}
-// 	}`
-
-// 	expData := DeleteExportReportResult{
-// 		Delete: true,
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.DeleteExportReport(params, &secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postDeleteExportReport)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-// 	require.Equal(suite.T(), params.Id, req.Form.Get("id"))
-// 	require.Equal(suite.T(), params.Type, req.Form.Get("type"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expData, resp.Result)
-// }
+// Test GetAccountBalance when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetAccountBalance() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Predefined server response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "ZUSD": "171288.6158",
+		  "ZEUR": "504861.8946",
+		  "XXBT": "1011.1908877900",
+		  "XETH": "818.5500000000",
+		  "USDT": "500000.00000000",
+		  "DAI": "9999.9999999999",
+		  "DOT": "2.5000000000",
+		  "ETH2.S": "198.3970800000",
+		  "ETH2": "2.5885574330",
+		  "USD.M": "1213029.2780"
+		}
+	}`
+	expectedLength := 10
+	expectedZUSDBalance := "171288.6158"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetAccountBalance(context.Background(), expectedNonce, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Len(suite.T(), resp.Result, expectedLength)
+	require.Equal(suite.T(), expectedZUSDBalance, resp.Result["ZUSD"].String())
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getAccountBalancePath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+}
+
+// Test GetExtendedBalance when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetExtendedBalance() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Predefined server response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "ZUSD": {
+			"balance": 25435.21,
+			"hold_trade": 8249.76
+		  },
+		  "XXBT": {
+			"balance": 1.2435,
+			"hold_trade": 0.8423
+		  }
+		}
+	  }`
+	expectedLength := 2
+	expectedZUSDBalance := "25435.21"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetExtendedBalance(context.Background(), expectedNonce, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Len(suite.T(), resp.Result, expectedLength)
+	require.NotNil(suite.T(), expectedZUSDBalance, resp.Result["ZUSD"])
+	require.NotNil(suite.T(), expectedZUSDBalance, resp.Result["ZUSD"].Balance.String())
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getExtendedBalancePath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+}
+
+// Test GetTradeBalance when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetTradeBalance() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+	// Expected options
+	options := &account.GetTradeBalanceRequestOptions{
+		Asset: "ZUSD",
+	}
+
+	// Expected API response from API documentation
+	expectedJSONResponse := `{
+		"error": [],
+		"result": {
+		  "eb": "1101.3425",
+		  "tb": "392.2264",
+		  "m": "7.0354",
+		  "n": "-10.0232",
+		  "c": "21.1063",
+		  "v": "31.1297",
+		  "e": "382.2032",
+		  "mf": "375.1678",
+		  "ml": "5432.57"
+		}
+	  }`
+	expectedEquivalentBalance := "1101.3425"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetTradeBalance(context.Background(), expectedNonce, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.Equal(suite.T(), expectedEquivalentBalance, resp.Result.EquivalentBalance.String())
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getTradeBalancePath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), options.Asset, record.Request.Form.Get("asset"))
+}
+
+// Test GetOpenOrders when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetOpenOrders() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+	// Expected options
+	options := &account.GetOpenOrdersRequestOptions{
+		Trades:        true,
+		UserReference: new(int64),
+	}
+
+	// Expected API response from API documentation
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "open": {
+			"OQCLML-BW3P3-BUCMWZ": {
+			  "refid": "None",
+			  "userref": 0,
+			  "status": "open",
+			  "opentm": 1688666559.8974,
+			  "starttm": 0,
+			  "expiretm": 0,
+			  "descr": {
+				"pair": "XBTUSD",
+				"type": "buy",
+				"ordertype": "limit",
+				"price": "30010.0",
+				"price2": "0",
+				"leverage": "none",
+				"order": "buy 1.25000000 XBTUSD @ limit 30010.0",
+				"close": ""
+			  },
+			  "vol": "1.25000000",
+			  "vol_exec": "0.37500000",
+			  "cost": "11253.7",
+			  "fee": "0.00000",
+			  "price": "30010.0",
+			  "stopprice": "0.00000",
+			  "limitprice": "0.00000",
+			  "misc": "",
+			  "oflags": "fciq",
+			  "trades": [
+				"TCCCTY-WE2O6-P3NB37"
+			  ]
+			},
+			"OB5VMB-B4U2U-DK2WRW": {
+			  "refid": "None",
+			  "userref": 45326,
+			  "status": "open",
+			  "opentm": 1688665899.5699,
+			  "starttm": 0,
+			  "expiretm": 0,
+			  "descr": {
+				"pair": "XBTUSD",
+				"type": "buy",
+				"ordertype": "limit",
+				"price": "14500.0",
+				"price2": "0",
+				"leverage": "5:1",
+				"order": "buy 0.27500000 XBTUSD @ limit 14500.0 with 5:1 leverage",
+				"close": ""
+			  },
+			  "vol": "0.27500000",
+			  "vol_exec": "0.00000000",
+			  "cost": "0.00000",
+			  "fee": "0.00000",
+			  "price": "0.00000",
+			  "stopprice": "0.00000",
+			  "limitprice": "0.00000",
+			  "misc": "",
+			  "oflags": "fciq"
+			}
+		  }
+		}
+	}`
+	expectedLength := 2
+	targetOrder := "OB5VMB-B4U2U-DK2WRW"
+	expectedTargetOrderDescrPair := "XBTUSD"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetOpenOrders(context.Background(), expectedNonce, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Len(suite.T(), resp.Result.Open, expectedLength)
+	require.NotNil(suite.T(), resp.Result.Open[targetOrder])
+	require.Equal(suite.T(), expectedTargetOrderDescrPair, resp.Result.Open[targetOrder].Description.Pair)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getOpenOrdersPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), strconv.FormatBool(options.Trades), record.Request.Form.Get("trades"))
+	require.Equal(suite.T(), strconv.FormatInt(*options.UserReference, 10), record.Request.Form.Get("userref"))
+}
+
+// Test GetClosedOrders when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetClosedOrders() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+	// Expected options
+	options := &account.GetClosedOrdersRequestOptions{
+		Trades:           true,
+		UserReference:    new(int64),
+		Start:            strconv.FormatInt(time.Now().Unix(), 10),
+		End:              strconv.FormatInt(time.Now().Unix(), 10),
+		Offset:           10,
+		Closetime:        string(account.UseBoth),
+		ConsolidateTaker: true,
+	}
+
+	// Expected API response from API documentation
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "closed": {
+			"O37652-RJWRT-IMO74O": {
+			  "refid": "None",
+			  "userref": 1,
+			  "status": "canceled",
+			  "reason": "User requested",
+			  "opentm": 1688148493.7708,
+			  "closetm": 1688148610.0482,
+			  "starttm": 0,
+			  "expiretm": 0,
+			  "descr": {
+				"pair": "XBTGBP",
+				"type": "buy",
+				"ordertype": "stop-loss-limit",
+				"price": "23667.0",
+				"price2": "0",
+				"leverage": "none",
+				"order": "buy 0.00100000 XBTGBP @ limit 23667.0",
+				"close": ""
+			  },
+			  "vol": "0.00100000",
+			  "vol_exec": "0.00000000",
+			  "cost": "0.00000",
+			  "fee": "0.00000",
+			  "price": "0.00000",
+			  "stopprice": "0.00000",
+			  "limitprice": "0.00000",
+			  "misc": "",
+			  "oflags": "fciq",
+			  "trigger": "index"
+			},
+			"O6YDQ5-LOMWU-37YKEE": {
+			  "refid": "None",
+			  "userref": 36493663,
+			  "status": "canceled",
+			  "reason": "User requested",
+			  "opentm": 1688148493.7708,
+			  "closetm": 1688148610.0477,
+			  "starttm": 0,
+			  "expiretm": 0,
+			  "descr": {
+				"pair": "XBTEUR",
+				"type": "buy",
+				"ordertype": "take-profit-limit",
+				"price": "27743.0",
+				"price2": "0",
+				"leverage": "none",
+				"order": "buy 0.00100000 XBTEUR @ limit 27743.0",
+				"close": ""
+			  },
+			  "vol": "0.00100000",
+			  "vol_exec": "0.00000000",
+			  "cost": "0.00000",
+			  "fee": "0.00000",
+			  "price": "0.00000",
+			  "stopprice": "0.00000",
+			  "limitprice": "0.00000",
+			  "misc": "",
+			  "oflags": "fciq",
+			  "trigger": "index"
+			}
+		  },
+		  "count": 2
+		}
+	}`
+	expectedCount := 2
+	targetOrder := "O6YDQ5-LOMWU-37YKEE"
+	expectedTargetOrderDescr := "buy 0.00100000 XBTEUR @ limit 27743.0"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetClosedOrders(context.Background(), expectedNonce, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Len(suite.T(), resp.Result.Closed, expectedCount)
+	require.Equal(suite.T(), resp.Result.Count, expectedCount)
+	require.NotNil(suite.T(), resp.Result.Closed[targetOrder])
+	require.Equal(suite.T(), expectedTargetOrderDescr, resp.Result.Closed[targetOrder].Description.OrderDescription)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getClosedOrdersPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), strconv.FormatBool(options.Trades), record.Request.Form.Get("trades"))
+	require.Equal(suite.T(), strconv.FormatInt(*options.UserReference, 10), record.Request.Form.Get("userref"))
+	require.Equal(suite.T(), options.Start, record.Request.Form.Get("start"))
+	require.Equal(suite.T(), options.End, record.Request.Form.Get("end"))
+	require.Equal(suite.T(), strconv.FormatInt(options.Offset, 10), record.Request.Form.Get("ofs"))
+	require.Equal(suite.T(), options.Closetime, record.Request.Form.Get("closetime"))
+	require.Equal(suite.T(), strconv.FormatBool(options.ConsolidateTaker), record.Request.Form.Get("consolidate_taker"))
+}
+
+// Test QueryOrdersInfo when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestQueryOrdersInfo() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected options
+	taker := true
+	options := &account.QueryOrdersInfoRequestOptions{
+		Trades:           true,
+		UserReference:    new(int64),
+		ConsolidateTaker: &taker,
+	}
+
+	// Expected parameters
+	params := account.QueryOrdersInfoParameters{
+		TxId: []string{"txid1", "txid2"},
+	}
+
+	// Expected API response from API documentation
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "OBCMZD-JIEE7-77TH3F": {
+			"refid": "None",
+			"userref": 0,
+			"status": "closed",
+			"reason": null,
+			"opentm": 1688665496.7808,
+			"closetm": 1688665499.1922,
+			"starttm": 0,
+			"expiretm": 0,
+			"descr": {
+			  "pair": "XBTUSD",
+			  "type": "buy",
+			  "ordertype": "stop-loss-limit",
+			  "price": "27500.0",
+			  "price2": "0",
+			  "leverage": "none",
+			  "order": "buy 1.25000000 XBTUSD @ limit 27500.0",
+			  "close": ""
+			},
+			"vol": "1.25000000",
+			"vol_exec": "1.25000000",
+			"cost": "27526.2",
+			"fee": "26.2",
+			"price": "27500.0",
+			"stopprice": "0.00000",
+			"limitprice": "0.00000",
+			"misc": "",
+			"oflags": "fciq",
+			"trigger": "index",
+			"trades": [
+			  "TZX2WP-XSEOP-FP7WYR"
+			]
+		  },
+		  "OMMDB2-FSB6Z-7W3HPO": {
+			"refid": "None",
+			"userref": 0,
+			"status": "closed",
+			"reason": null,
+			"opentm": 1688592012.2317,
+			"closetm": 1688592012.2335,
+			"starttm": 0,
+			"expiretm": 0,
+			"descr": {
+			  "pair": "XBTUSD",
+			  "type": "sell",
+			  "ordertype": "market",
+			  "price": "0",
+			  "price2": "0",
+			  "leverage": "none",
+			  "order": "sell 0.25000000 XBTUSD @ market",
+			  "close": ""
+			},
+			"vol": "0.25000000",
+			"vol_exec": "0.25000000",
+			"cost": "7500.0",
+			"fee": "7.5",
+			"price": "30000.0",
+			"stopprice": "0.00000",
+			"limitprice": "0.00000",
+			"misc": "",
+			"oflags": "fcib",
+			"trades": [
+			  "TJUW2K-FLX2N-AR2FLU"
+			]
+		  }
+		}
+	}`
+	expectedCount := 2
+	targetOrder := "OMMDB2-FSB6Z-7W3HPO"
+	expectedTargetOrderTrades := []string{"TJUW2K-FLX2N-AR2FLU"}
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.QueryOrdersInfo(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Len(suite.T(), resp.Result, expectedCount)
+	require.NotNil(suite.T(), resp.Result[targetOrder])
+	require.ElementsMatch(suite.T(), expectedTargetOrderTrades, resp.Result[targetOrder].Trades)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, queryOrdersInfosPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), strconv.FormatBool(options.Trades), record.Request.Form.Get("trades"))
+	require.Equal(suite.T(), strconv.FormatInt(*options.UserReference, 10), record.Request.Form.Get("userref"))
+	require.Equal(suite.T(), strconv.FormatBool(*options.ConsolidateTaker), record.Request.Form.Get("consolidate_taker"))
+	require.Equal(suite.T(), strings.Join(params.TxId, ","), record.Request.Form.Get("txid"))
+}
+
+// Test GetTradesHistory when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetTradesHistory() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected options
+	options := &account.GetTradesHistoryRequestOptions{
+		Type:             string(account.TradeTypeAll),
+		Trades:           true,
+		Start:            strconv.FormatInt(time.Now().Unix(), 10),
+		End:              strconv.FormatInt(time.Now().Unix(), 10),
+		Offset:           10,
+		ConsolidateTaker: true,
+	}
+
+	// Expected API response from API documentation
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "trades": {
+			"THVRQM-33VKH-UCI7BS": {
+			  "ordertxid": "OQCLML-BW3P3-BUCMWZ",
+			  "postxid": "TKH2SE-M7IF5-CFI7LT",
+			  "pair": "XXBTZUSD",
+			  "time": 1688667796.8802,
+			  "type": "buy",
+			  "ordertype": "limit",
+			  "price": "30010.00000",
+			  "cost": "600.20000",
+			  "fee": "0.00000",
+			  "vol": "0.02000000",
+			  "margin": "0.00000",
+			  "misc": ""
+			},
+			"TCWJEG-FL4SZ-3FKGH6": {
+			  "ordertxid": "OQCLML-BW3P3-BUCMWZ",
+			  "postxid": "TKH2SE-M7IF5-CFI7LT",
+			  "pair": "XXBTZUSD",
+			  "time": 1688667769.6396,
+			  "type": "buy",
+			  "ordertype": "limit",
+			  "price": "30010.00000",
+			  "cost": "300.10000",
+			  "fee": "0.00000",
+			  "vol": "0.01000000",
+			  "margin": "0.00000",
+			  "misc": ""
+			}
+		  }
+		}
+	}`
+	expectedCount := 2
+	targetOrder := "TCWJEG-FL4SZ-3FKGH6"
+	expectedTargetOrderTxID := "OQCLML-BW3P3-BUCMWZ"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetTradesHistory(context.Background(), expectedNonce, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Len(suite.T(), resp.Result.Trades, expectedCount)
+	require.Equal(suite.T(), 0, resp.Result.Count) // from doc, we should expect count to be populated but the provided response does not have a count field
+	require.NotNil(suite.T(), resp.Result.Trades[targetOrder])
+	require.Equal(suite.T(), expectedTargetOrderTxID, resp.Result.Trades[targetOrder].OrderTransactionId)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getTradesHistoryPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), strconv.FormatBool(options.Trades), record.Request.Form.Get("trades"))
+	require.Equal(suite.T(), options.Start, record.Request.Form.Get("start"))
+	require.Equal(suite.T(), options.End, record.Request.Form.Get("end"))
+	require.Equal(suite.T(), strconv.FormatInt(options.Offset, 10), record.Request.Form.Get("ofs"))
+	require.Equal(suite.T(), strconv.FormatBool(options.ConsolidateTaker), record.Request.Form.Get("consolidate_taker"))
+}
+
+// Test QueryTradesInfo when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestQueryTradesInfo() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected options
+	options := &account.QueryTradesRequestOptions{
+		Trades: true,
+	}
+
+	// Expected parameters
+	params := account.QueryTradesRequestParameters{
+		TransactionIds: []string{"THVRQM-33VKH-UCI7BS", "OH76VO-UKWAD-PSBDX6"},
+	}
+
+	// Expected API response from API documentation
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "THVRQM-33VKH-UCI7BS": {
+			"ordertxid": "OQCLML-BW3P3-BUCMWZ",
+			"postxid": "TKH2SE-M7IF5-CFI7LT",
+			"pair": "XXBTZUSD",
+			"time": 1688667796.8802,
+			"type": "buy",
+			"ordertype": "limit",
+			"price": "30010.00000",
+			"cost": "600.20000",
+			"fee": "0.00000",
+			"vol": "0.02000000",
+			"margin": "0.00000",
+			"misc": ""
+		  },
+		  "TTEUX3-HDAAA-RC2RUO": {
+			"ordertxid": "OH76VO-UKWAD-PSBDX6",
+			"postxid": "TKH2SE-M7IF5-CFI7LT",
+			"pair": "XXBTZEUR",
+			"time": 1688082549.3138,
+			"type": "buy",
+			"ordertype": "limit",
+			"price": "27732.00000",
+			"cost": "0.20020",
+			"fee": "0.00000",
+			"vol": "0.00020000",
+			"margin": "0.00000",
+			"misc": ""
+		  }
+		}
+	}`
+	expectedCount := 2
+	targetOrder := "TTEUX3-HDAAA-RC2RUO"
+	expectedTargetOrderTxID := "OH76VO-UKWAD-PSBDX6"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.QueryTradesInfo(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Len(suite.T(), resp.Result, expectedCount)
+	require.NotNil(suite.T(), resp.Result[targetOrder])
+	require.Equal(suite.T(), expectedTargetOrderTxID, resp.Result[targetOrder].OrderTransactionId)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, queryTradesInfoPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), strconv.FormatBool(options.Trades), record.Request.Form.Get("trades"))
+	require.Equal(suite.T(), strings.Join(params.TransactionIds, ","), record.Request.Form.Get("txid"))
+}
+
+// Test GetOpenPositions when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetOpenPositions() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected options
+	options := &account.GetOpenPositionsRequestOptions{
+		TransactionIds: []string{"TF5GVO-T7ZZ2-6NBKBI", "T24DOR-TAFLM-ID3NYP"},
+		DoCalcs:        true,
+	}
+
+	// Expected API response from API documentation
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "TF5GVO-T7ZZ2-6NBKBI": {
+			"ordertxid": "OLWNFG-LLH4R-D6SFFP",
+			"posstatus": "open",
+			"pair": "XXBTZUSD",
+			"time": 1605280097.8294,
+			"type": "buy",
+			"ordertype": "limit",
+			"cost": "104610.52842",
+			"fee": "289.06565",
+			"vol": "8.82412861",
+			"vol_closed": "0.20200000",
+			"margin": "20922.10568",
+			"value": "258797.5",
+			"net": "+154186.9728",
+			"terms": "0.0100% per 4 hours",
+			"rollovertm": "1616672637",
+			"misc": "",
+			"oflags": ""
+		  },
+		  "T24DOR-TAFLM-ID3NYP": {
+			"ordertxid": "OIVYGZ-M5EHU-ZRUQXX",
+			"posstatus": "open",
+			"pair": "XXBTZUSD",
+			"time": 1607943827.3172,
+			"type": "buy",
+			"ordertype": "limit",
+			"cost": "145756.76856",
+			"fee": "335.24057",
+			"vol": "8.00000000",
+			"vol_closed": "0.00000000",
+			"margin": "29151.35371",
+			"value": "240124.0",
+			"net": "+94367.2314",
+			"terms": "0.0100% per 4 hours",
+			"rollovertm": "1616672637",
+			"misc": "",
+			"oflags": ""
+		  },
+		  "TYMRFG-URRG5-2ZTQSD": {
+			"ordertxid": "OF5WFH-V57DP-QANDAC",
+			"posstatus": "open",
+			"pair": "XXBTZUSD",
+			"time": 1610448039.8374,
+			"type": "buy",
+			"ordertype": "limit",
+			"cost": "0.00240",
+			"fee": "0.00000",
+			"vol": "0.00000010",
+			"vol_closed": "0.00000000",
+			"margin": "0.00048",
+			"value": "0",
+			"net": "+0.0006",
+			"terms": "0.0100% per 4 hours",
+			"rollovertm": "1616672637",
+			"misc": "",
+			"oflags": ""
+		  },
+		  "TAFGBN-TZNFC-7CCYIM": {
+			"ordertxid": "OF5WFH-V57DP-QANDAC",
+			"posstatus": "open",
+			"pair": "XXBTZUSD",
+			"time": 1610448039.8448,
+			"type": "buy",
+			"ordertype": "limit",
+			"cost": "2.40000",
+			"fee": "0.00264",
+			"vol": "0.00010000",
+			"vol_closed": "0.00000000",
+			"margin": "0.48000",
+			"value": "3.0",
+			"net": "+0.6015",
+			"terms": "0.0100% per 4 hours",
+			"rollovertm": "1616672637",
+			"misc": "",
+			"oflags": ""
+		  },
+		  "T4O5L3-4VGS4-IRU2UL": {
+			"ordertxid": "OF5WFH-V57DP-QANDAC",
+			"posstatus": "open",
+			"pair": "XXBTZUSD",
+			"time": 1610448040.7722,
+			"type": "buy",
+			"ordertype": "limit",
+			"cost": "21.59760",
+			"fee": "0.02376",
+			"vol": "0.00089990",
+			"vol_closed": "0.00000000",
+			"margin": "4.31952",
+			"value": "27.0",
+			"net": "+5.4133",
+			"terms": "0.0100% per 4 hours",
+			"rollovertm": "1616672637",
+			"misc": "",
+			"oflags": ""
+		  }
+		}
+	}`
+	expectedCount := 5
+	targetPosition := "T4O5L3-4VGS4-IRU2UL"
+	expectedTargetOrderTxID := "OF5WFH-V57DP-QANDAC"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetOpenPositions(context.Background(), expectedNonce, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Len(suite.T(), resp.Result, expectedCount)
+	require.NotNil(suite.T(), resp.Result[targetPosition])
+	require.Equal(suite.T(), expectedTargetOrderTxID, resp.Result[targetPosition].OrderTransactionId)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getOpenPositionsPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), strconv.FormatBool(options.DoCalcs), record.Request.Form.Get("docalcs"))
+	require.Equal(suite.T(), strings.Join(options.TransactionIds, ","), record.Request.Form.Get("txid"))
+}
+
+// Test GetLedgersInfo when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetLedgersInfo() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected options
+	options := &account.GetLedgersInfoRequestOptions{
+		Assets:       []string{"XXBT"},
+		AssetClass:   "currency",
+		Type:         string(account.LedgerAll),
+		Start:        strconv.FormatInt(time.Now().Unix(), 10),
+		End:          strconv.FormatInt(time.Now().Unix(), 10),
+		Offset:       10,
+		WithoutCount: true,
+	}
+
+	// Expected API response from API documentation
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "ledger": {
+			"L4UESK-KG3EQ-UFO4T5": {
+			  "refid": "TJKLXF-PGMUI-4NTLXU",
+			  "time": 1688464484.1787,
+			  "type": "trade",
+			  "subtype": "",
+			  "aclass": "currency",
+			  "asset": "ZGBP",
+			  "amount": "-24.5000",
+			  "fee": "0.0490",
+			  "balance": "459567.9171"
+			},
+			"LMKZCZ-Z3GVL-CXKK4H": {
+			  "refid": "TBZIP2-F6QOU-TMB6FY",
+			  "time": 1688444262.8888,
+			  "type": "trade",
+			  "subtype": "",
+			  "aclass": "currency",
+			  "asset": "ZUSD",
+			  "amount": "0.9852",
+			  "fee": "0.0010",
+			  "balance": "52732.1132"
+			}
+		  },
+		  "count": 2
+		}
+	}`
+	expectedCount := 2
+	targetLedger := "LMKZCZ-Z3GVL-CXKK4H"
+	expectedTargetRefId := "TBZIP2-F6QOU-TMB6FY"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetLedgersInfo(context.Background(), expectedNonce, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Len(suite.T(), resp.Result.Ledgers, expectedCount)
+	require.Equal(suite.T(), expectedCount, resp.Result.Count)
+	require.NotNil(suite.T(), resp.Result.Ledgers[targetLedger])
+	require.Equal(suite.T(), expectedTargetRefId, resp.Result.Ledgers[targetLedger].ReferenceId)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getLedgersInfoPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), strings.Join(options.Assets, ","), record.Request.Form.Get("asset"))
+	require.Equal(suite.T(), options.AssetClass, record.Request.Form.Get("aclass"))
+	require.Equal(suite.T(), options.Type, record.Request.Form.Get("type"))
+	require.Equal(suite.T(), options.Start, record.Request.Form.Get("start"))
+	require.Equal(suite.T(), options.End, record.Request.Form.Get("end"))
+	require.Equal(suite.T(), strconv.FormatInt(options.Offset, 10), record.Request.Form.Get("ofs"))
+	require.Equal(suite.T(), strconv.FormatBool(options.WithoutCount), record.Request.Form.Get("without_count"))
+}
+
+// Test QueryLedgers when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestQueryLedgers() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected options
+	options := &account.QueryLedgersRequestOptions{
+		Trades: true,
+	}
+
+	// Expected parameters
+	params := account.QueryLedgersRequestParameters{
+		Id: []string{"L4UESK-KG3EQ-UFO4T5", "L4UESK-KG3EQ-UFO4T5"},
+	}
+
+	// Expected API response from API documentation
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "L4UESK-KG3EQ-UFO4T5": {
+			"refid": "TJKLXF-PGMUI-4NTLXU",
+			"time": 1688464484.1787,
+			"type": "trade",
+			"subtype": "",
+			"aclass": "currency",
+			"asset": "ZGBP",
+			"amount": "-24.5000",
+			"fee": "0.0490",
+			"balance": "459567.9171"
+		  }
+		}
+	}`
+	expectedCount := 1
+	targetLedger := "L4UESK-KG3EQ-UFO4T5"
+	expectedTargetRefId := "TJKLXF-PGMUI-4NTLXU"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.QueryLedgers(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Len(suite.T(), resp.Result, expectedCount)
+	require.NotNil(suite.T(), resp.Result[targetLedger])
+	require.Equal(suite.T(), expectedTargetRefId, resp.Result[targetLedger].ReferenceId)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, queryLedgersPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), strings.Join(params.Id, ","), record.Request.Form.Get("id"))
+	require.Equal(suite.T(), strconv.FormatBool(options.Trades), record.Request.Form.Get("trades"))
+}
+
+// Test GetTradeVolume when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetTradeVolume() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected options
+	options := &account.GetTradeVolumeRequestOptions{
+		Pairs: []string{"XXBTZUSD", "XETHZUSD"},
+	}
+
+	// Expected API response from API documentation
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "currency": "ZUSD",
+		  "volume": "200709587.4223",
+		  "fees": {
+			"XXBTZUSD": {
+			  "fee": "0.1000",
+			  "minfee": "0.1000",
+			  "maxfee": "0.2600",
+			  "nextfee": null,
+			  "nextvolume": null,
+			  "tiervolume": "10000000.0000"
+			}
+		  },
+		  "fees_maker": {
+			"XXBTZUSD": {
+			  "fee": "0.0000",
+			  "minfee": "0.0000",
+			  "maxfee": "0.1600",
+			  "nextfee": null,
+			  "nextvolume": null,
+			  "tiervolume": "10000000.0000"
+			}
+		  }
+		}
+	}`
+	targetFee := "XXBTZUSD"
+	expectedTargetTierVolume := "10000000.0000"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetTradeVolume(context.Background(), expectedNonce, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.NotNil(suite.T(), resp.Result.Fees[targetFee])
+	require.Equal(suite.T(), expectedTargetTierVolume, resp.Result.Fees[targetFee].TierVolume.String())
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getTradeVolumePath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), strings.Join(options.Pairs, ","), record.Request.Form.Get("pair"))
+}
+
+// Test RequestExportReport when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestRequestExportReport() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected options
+	options := &account.RequestExportReportRequestOptions{
+		Format:  string(account.TSV),
+		Fields:  []string{string(account.FieldsAmount), string(account.FieldsBalance)},
+		StartTm: time.Now().Unix(),
+		EndTm:   time.Now().Unix(),
+	}
+
+	// Expected params
+	params := account.RequestExportReportRequestParameters{
+		Report:      string(account.ReportLedgers),
+		Description: "Lorem",
+	}
+
+	// Expected API response from API documentation
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "id": "TCJA"
+		}
+	}`
+	expectedId := "TCJA"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.RequestExportReport(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.Equal(suite.T(), expectedId, resp.Result.Id)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, requestExportReportPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), params.Report, record.Request.Form.Get("report"))
+	require.Equal(suite.T(), params.Description, record.Request.Form.Get("description"))
+	require.Equal(suite.T(), options.Format, record.Request.Form.Get("format"))
+	require.Equal(suite.T(), strings.Join(options.Fields, ","), record.Request.Form.Get("fields"))
+	require.Equal(suite.T(), strconv.FormatInt(options.StartTm, 10), record.Request.Form.Get("starttm"))
+	require.Equal(suite.T(), strconv.FormatInt(options.EndTm, 10), record.Request.Form.Get("endtm"))
+}
+
+// Test GetExportReportStatus when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetExportReportStatus() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := account.GetExportReportStatusRequestParameters{
+		Report: string(account.ReportLedgers),
+	}
+
+	// Expected API response from API documentation
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": [
+		  {
+			"id": "VSKC",
+			"descr": "my_trades_1",
+			"format": "CSV",
+			"report": "trades",
+			"subtype": "all",
+			"status": "Processed",
+			"flags": "0",
+			"fields": "all",
+			"createdtm": "1688669085",
+			"expiretm": "1688878685",
+			"starttm": "1688669093",
+			"completedtm": "1688669093",
+			"datastarttm": "1683556800",
+			"dataendtm": "1688669085",
+			"aclass": "forex",
+			"asset": "all"
+		  },
+		  {
+			"id": "TCJA",
+			"descr": "my_trades_1",
+			"format": "CSV",
+			"report": "trades",
+			"subtype": "all",
+			"status": "Processed",
+			"flags": "0",
+			"fields": "all",
+			"createdtm": "1688363637",
+			"expiretm": "1688573237",
+			"starttm": "1688363664",
+			"completedtm": "1688363664",
+			"datastarttm": "1683235200",
+			"dataendtm": "1688363637",
+			"aclass": "forex",
+			"asset": "all"
+		  }
+		]
+	}`
+	expectedCount := 2
+	expectedItem0Id := "VSKC"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetExportReportStatus(context.Background(), expectedNonce, params, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Len(suite.T(), resp.Result, expectedCount)
+	require.NotNil(suite.T(), resp.Result[0])
+	require.Equal(suite.T(), expectedItem0Id, resp.Result[0].Id)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getExportReportStatusPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), params.Report, record.Request.Form.Get("report"))
+}
+
+// Test RetrieveDataExport when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestRetrieveDataExport() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := account.RetrieveDataExportParameters{
+		Id: "42",
+	}
+
+	// Expected API response
+	expectedResponseBody := "hello world"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/octet-stream"}},
+		Body:    []byte(expectedResponseBody),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.RetrieveDataExport(context.Background(), expectedNonce, params, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Read body
+	require.NotNil(suite.T(), resp.Report)
+	body, err := io.ReadAll(resp.Report)
+	require.NoError(suite.T(), err)
+	require.Equal(suite.T(), expectedResponseBody, string(body))
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, retrieveDataExportPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), params.Id, record.Request.Form.Get("id"))
+}
+
+// Test DeleteExportReport when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestDeleteExportReport() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := account.DeleteExportReportRequestParameters{
+		Id:   "42",
+		Type: string(account.DeleteReport),
+	}
+
+	// Expected API response from API documentation
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "delete": true
+		}
+	}`
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.DeleteExportReport(context.Background(), expectedNonce, params, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.True(suite.T(), resp.Result.Delete)
+	require.False(suite.T(), resp.Result.Cancel)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, deleteExportReportPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), params.Id, record.Request.Form.Get("id"))
+}
 
 // // TestDeleteExportReportErrPath Test will succeed if a error response from server is well processed by client.
 // func (suite *KrakenAPIClientUnitTestSuite) TestDeleteExportReportErrPath() {
