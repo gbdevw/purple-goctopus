@@ -15,7 +15,7 @@ const (
 )
 
 // GetClosedOrders request options.
-type GetClosedOrdersOptions struct {
+type GetClosedOrdersRequestOptions struct {
 	// Whether or not to include trades related to position in output.
 	//
 	// Defaults to false.

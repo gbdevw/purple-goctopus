@@ -496,7 +496,7 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	GetClosedOrders(ctx context.Context, nonce int64, opts *account.GetClosedOrdersOptions, secopts *common.SecurityOptions) (*account.GetClosedOrdersResponse, *http.Response, error)
+	GetClosedOrders(ctx context.Context, nonce int64, opts *account.GetClosedOrdersRequestOptions, secopts *common.SecurityOptions) (*account.GetClosedOrdersResponse, *http.Response, error)
 	// # Description
 	//
 	// QueryOrdersInfo - Retrieve information about specific orders.

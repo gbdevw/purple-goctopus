@@ -1158,7 +1158,7 @@ func (client *KrakenSpotRESTClient) GetOpenOrders(ctx context.Context, nonce int
 // to extract the metadata (or any other kind of data that are not used by the API client directly).
 //
 // Please note response body will always be closed except for RetrieveDataExport.
-func (client *KrakenSpotRESTClient) GetClosedOrders(ctx context.Context, nonce int64, opts *account.GetClosedOrdersOptions, secopts *common.SecurityOptions) (*account.GetClosedOrdersResponse, *http.Response, error) {
+func (client *KrakenSpotRESTClient) GetClosedOrders(ctx context.Context, nonce int64, opts *account.GetClosedOrdersRequestOptions, secopts *common.SecurityOptions) (*account.GetClosedOrdersResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
 	// Encode nonce and optional common security options
