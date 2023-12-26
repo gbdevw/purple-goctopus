@@ -1446,7 +1446,7 @@ func (client *KrakenSpotRESTClient) QueryTradesInfo(ctx context.Context, nonce i
 // to extract the metadata (or any other kind of data that are not used by the API client directly).
 //
 // Please note response body will always be closed except for RetrieveDataExport.
-func (client *KrakenSpotRESTClient) GetOpenPositions(ctx context.Context, nonce int64, opts *account.GetOpenPositionsRequestOptions, secopts *common.SecurityOptions) (*account.GetOpenPositionsRequestOptions, *http.Response, error) {
+func (client *KrakenSpotRESTClient) GetOpenPositions(ctx context.Context, nonce int64, opts *account.GetOpenPositionsRequestOptions, secopts *common.SecurityOptions) (*account.GetOpenPositionsResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
 	// Encode nonce and optional common security options
@@ -1466,7 +1466,7 @@ func (client *KrakenSpotRESTClient) GetOpenPositions(ctx context.Context, nonce 
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for GetOpenPositions: %w", err)
 	}
 	// Send the request
-	receiver := new(account.GetOpenPositionsRequestOptions)
+	receiver := new(account.GetOpenPositionsResponse)
 	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
 	if err != nil {
 		return nil, resp, fmt.Errorf("request for GetOpenPositions failed: %w", err)
