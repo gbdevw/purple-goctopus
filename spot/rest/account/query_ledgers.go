@@ -9,7 +9,7 @@ type QueryLedgersRequestParameters struct {
 }
 
 // QueryLedgers request options.
-type QueryLedgersOptions struct {
+type QueryLedgersRequestOptions struct {
 	// Whether or not to include trades related to position in output.
 	//
 	// Defaults to false.

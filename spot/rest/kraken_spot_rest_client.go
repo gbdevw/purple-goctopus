@@ -1588,7 +1588,7 @@ func (client *KrakenSpotRESTClient) GetLedgersInfo(ctx context.Context, nonce in
 // to extract the metadata (or any other kind of data that are not used by the API client directly).
 //
 // Please note response body will always be closed except for RetrieveDataExport.
-func (client *KrakenSpotRESTClient) QueryLedgers(ctx context.Context, nonce int64, params account.QueryLedgersRequestParameters, opts *account.QueryLedgersOptions, secopts *common.SecurityOptions) (*account.QueryLedgersResponse, *http.Response, error) {
+func (client *KrakenSpotRESTClient) QueryLedgers(ctx context.Context, nonce int64, params account.QueryLedgersRequestParameters, opts *account.QueryLedgersRequestOptions, secopts *common.SecurityOptions) (*account.QueryLedgersResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
 	// Encode nonce and optional common security options
