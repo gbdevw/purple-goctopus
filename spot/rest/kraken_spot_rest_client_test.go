@@ -4653,3 +4653,68 @@ func (suite *KrakenSpotRESTClientTestSuite) TestListEarnAllocations() {
 	require.Equal(suite.T(), strconv.FormatBool(options.HideZeroAllocations), record.Request.Form.Get("hide_zero_allocations"))
 	require.Equal(suite.T(), options.ConvertedAsset, record.Request.Form.Get("converted_asset"))
 }
+
+/*************************************************************************************************/
+/* UNIT TESTS - WEBSOCKET                                                                        */
+/*************************************************************************************************/
+
+// Test GetWebsocketsToken when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetWebsocketsToken() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "token": "1Dwc4lzSwNWOAwkMdqhssNNFhs1ed606d1WcF3XfEMw",
+		  "expires": 900
+		}
+	}`
+	expectedExpire := int64(900)
+	expectedToken := "1Dwc4lzSwNWOAwkMdqhssNNFhs1ed606d1WcF3XfEMw"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetWebsocketToken(context.Background(), expectedNonce, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.Equal(suite.T(), expectedExpire, resp.Result.Expires)
+	require.Equal(suite.T(), expectedToken, resp.Result.Token)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getWebsocketTokenPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+}
