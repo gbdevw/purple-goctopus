@@ -36,6 +36,13 @@ type EditOrderRequestOptions struct {
 	//
 	// An empty value means data must not be changed.
 	NewVolume string `json:"volume,omitempty"`
+	// Used to edit an iceberg order, this is the visible order quantity in terms of the base asset.
+	// The rest of the order will be hidden, although the full volume can be filled at any time by
+	// any order of that size or larger that matches in the order book. displayvol can only be used
+	// with the limit order type, must be greater than 0, and less than volume.
+	//
+	// An empty value means data must not be changed.
+	NewDisplayedVolume string `json:"displayvol,omitempty"`
 	// # Description
 	//
 	// New price:

@@ -2268,31 +2268,29 @@ func (client *KrakenSpotRESTClient) EditOrder(ctx context.Context, nonce int64, 
 		if opts.NewVolume != "" {
 			form.Set("volume", opts.NewVolume)
 		}
-
+		// Set displayed volume if not empty
+		if opts.NewDisplayedVolume != "" {
+			form.Set("displayvol", opts.NewDisplayedVolume)
+		}
 		// Set price if not empty
 		if opts.Price != "" {
 			form.Set("price", opts.Price)
 		}
-
 		// Set price2 if not empty
 		if opts.Price2 != "" {
 			form.Set("price2", opts.Price2)
 		}
-
 		// Set oflags if not nil
 		if opts.OFlags != nil {
 			// oflags is a comma separated list
 			form.Set("oflags", strings.Join(opts.OFlags, ","))
 		}
-
 		// Set deadline if defined
 		if !opts.Deadline.IsZero() {
 			form.Set("deadline", opts.Deadline.Format(time.RFC3339))
 		}
-
 		// Set cancel_response
 		form.Set("cancel_response", strconv.FormatBool(opts.CancelResponse))
-
 		// Set validate
 		form.Set("validate", strconv.FormatBool(opts.Validate))
 	}
