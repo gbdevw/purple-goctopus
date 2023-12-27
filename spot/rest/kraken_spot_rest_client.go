@@ -2119,6 +2119,11 @@ func (client *KrakenSpotRESTClient) AddOrderBatch(ctx context.Context, nonce int
 		// Set volume
 		form.Set(fmt.Sprintf("orders[%d][%s]", index, "volume"), order.Volume)
 
+		// Set displayed volume if not empty
+		if order.DisplayedVolume != "" {
+			form.Set(fmt.Sprintf("orders[%d][%s]", index, "displayvol"), order.DisplayedVolume)
+		}
+
 		// Set price if not empty
 		if order.Price != "" {
 			form.Set(fmt.Sprintf("orders[%d][%s]", index, "price"), order.Price)
@@ -2141,7 +2146,7 @@ func (client *KrakenSpotRESTClient) AddOrderBatch(ctx context.Context, nonce int
 
 		// Set STP flag if not empty
 		if order.StpType != "" {
-			form.Set(fmt.Sprintf("orders[%d][%s]", index, "stp_type"), order.StpType)
+			form.Set(fmt.Sprintf("orders[%d][%s]", index, "stptype"), order.StpType)
 		}
 
 		// Set Reduce only if set
