@@ -15,6 +15,7 @@ import (
 	"github.com/gbdevw/gosette"
 	"github.com/gbdevw/purple-goctopus/spot/rest/account"
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
+	"github.com/gbdevw/purple-goctopus/spot/rest/earn"
 	"github.com/gbdevw/purple-goctopus/spot/rest/funding"
 	"github.com/gbdevw/purple-goctopus/spot/rest/market"
 	"github.com/gbdevw/purple-goctopus/spot/rest/trading"
@@ -4183,4 +4184,472 @@ func (suite *KrakenSpotRESTClientTestSuite) TestRequestWalletTransfer() {
 	require.Equal(suite.T(), params.From, record.Request.Form.Get("from"))
 	require.Equal(suite.T(), params.To, record.Request.Form.Get("to"))
 	require.Equal(suite.T(), params.Amount, record.Request.Form.Get("amount"))
+}
+
+/*************************************************************************************************/
+/* UNIT TESTS - EARN                                                                             */
+/*************************************************************************************************/
+
+// Test AllocateEarnFunds when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestAllocateEarnFunds() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := earn.AllocateFundsRequestParameters{
+		Amount:     "1.2",
+		StrategyId: "ESRFUO3-Q62XD-WIOIL7",
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": true
+	}`
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.AllocateEarnFunds(context.Background(), expectedNonce, params, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.True(suite.T(), resp.Result)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, allocateEarnFundsPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), params.Amount, record.Request.Form.Get("amount"))
+	require.Equal(suite.T(), params.StrategyId, record.Request.Form.Get("strategy_id"))
+}
+
+// Test DeallocateEarnFunds when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestDeallocateEarnFunds() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := earn.DeallocateFundsRequestParameters{
+		Amount:     "1.2",
+		StrategyId: "ESRFUO3-Q62XD-WIOIL7",
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": true
+	}`
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.DeallocateEarnFunds(context.Background(), expectedNonce, params, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.True(suite.T(), resp.Result)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, deallocateEarnFundsPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), params.Amount, record.Request.Form.Get("amount"))
+	require.Equal(suite.T(), params.StrategyId, record.Request.Form.Get("strategy_id"))
+}
+
+// Test GetAllocationStatus when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetAllocationStatus() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := earn.GetAllocationStatusRequestParameters{
+		StrategyId: "ESRFUO3-Q62XD-WIOIL7",
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "pending": true
+		}
+	}`
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetAllocationStatus(context.Background(), expectedNonce, params, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.True(suite.T(), resp.Result.Pending)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getAllocationStatusPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), params.StrategyId, record.Request.Form.Get("strategy_id"))
+}
+
+// Test GetDeallocationStatus when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetDeallocationStatus() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := earn.GetDeallocationStatusRequestParameters{
+		StrategyId: "ESRFUO3-Q62XD-WIOIL7",
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "pending": true
+		}
+	}`
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetDeallocationStatus(context.Background(), expectedNonce, params, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.True(suite.T(), resp.Result.Pending)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getDeallocationStatusPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), params.StrategyId, record.Request.Form.Get("strategy_id"))
+}
+
+// Test ListEarnStrategies when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestListEarnStrategies() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected options
+	options := &earn.ListEarnStrategiesRequestOptions{
+		Ascending: true,
+		Asset:     "XXBT",
+		Cursor:    "false", // Set to false and verify if true -> pagination use is forced
+		Limit:     10,
+		LockType:  string(earn.Bonded),
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "next_cursor": "2",
+		  "items": [
+			{
+			  "id": "ESRFUO3-Q62XD-WIOIL7",
+			  "asset": "DOT",
+			  "lock_type": {
+				"type": "instant",
+				"payout_frequency": 604800
+			  },
+			  "apr_estimate": {
+				"low": "8.0000",
+				"high": "12.0000"
+			  },
+			  "user_min_allocation": "0.01",
+			  "allocation_fee": "0.0000",
+			  "deallocation_fee": "0.0000",
+			  "auto_compound": {
+				"type": "enabled"
+			  },
+			  "yield_source": {
+				"type": "staking"
+			  },
+			  "can_allocate": true,
+			  "can_deallocate": true,
+			  "allocation_restriction_info": []
+			}
+		  ]
+		}
+	}`
+	expectedCount := 1
+	expectedNextCursor := "2"
+	expectedItem0Id := "ESRFUO3-Q62XD-WIOIL7"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.ListEarnStrategies(context.Background(), expectedNonce, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.Len(suite.T(), resp.Result.Items, expectedCount)
+	require.Equal(suite.T(), expectedNextCursor, resp.Result.NextCursor)
+	require.NotNil(suite.T(), resp.Result.Items[0])
+	require.Equal(suite.T(), expectedItem0Id, resp.Result.Items[0].Id)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, listEarnStartegiesPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), strconv.FormatBool(options.Ascending), record.Request.Form.Get("ascending"))
+	require.Equal(suite.T(), options.Asset, record.Request.Form.Get("asset"))
+	require.Equal(suite.T(), strconv.FormatBool(true), record.Request.Form.Get("cursor"))
+	require.Equal(suite.T(), strconv.FormatInt(int64(options.Limit), 10), record.Request.Form.Get("limit"))
+	require.Equal(suite.T(), options.LockType, record.Request.Form.Get("lock_type"))
+}
+
+// Test ListEarnAllocations when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestListEarnAllocations() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected options
+	options := &earn.ListEarnAllocationsRequestOptions{
+		Ascending:           true,
+		ConvertedAsset:      "ZUSD",
+		HideZeroAllocations: true,
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "converted_asset": "USD",
+		  "total_allocated": "49.2398",
+		  "total_rewarded": "0.0675",
+		  "next_cursor": "2",
+		  "items": [
+			{
+			  "strategy_id": "ESDQCOL-WTZEU-NU55QF",
+			  "native_asset": "ETH",
+			  "amount_allocated": {
+				"bonding": {
+				  "native": "0.0210000000",
+				  "converted": "39.0645",
+				  "allocation_count": 2,
+				  "allocations": [
+					{
+					  "created_at": "2023-07-06T10:52:05Z",
+					  "expires": "2023-08-19T02:34:05.807Z",
+					  "native": "0.0010000000",
+					  "converted": "1.8602"
+					},
+					{
+					  "created_at": "2023-08-01T11:25:52Z",
+					  "expires": "2023-09-06T07:55:52.648Z",
+					  "native": "0.0200000000",
+					  "converted": "37.2043"
+					}
+				  ]
+				},
+				"total": {
+				  "native": "0.0210000000",
+				  "converted": "39.0645"
+				}
+			  },
+			  "total_rewarded": {
+				"native": "0",
+				"converted": "0.0000"
+			  }
+			}
+		  ]
+		}
+	}`
+	expectedCount := 1
+	expectedItem0AllocatedTotalNative := "0.0210000000"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.ListEarnAllocations(context.Background(), expectedNonce, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.Len(suite.T(), resp.Result.Items, expectedCount)
+	require.NotNil(suite.T(), resp.Result.Items[0])
+	require.Equal(suite.T(), expectedItem0AllocatedTotalNative, resp.Result.Items[0].AmountAllocated.Total.Native)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, listEarnAllocationsPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), strconv.FormatBool(options.Ascending), record.Request.Form.Get("ascending"))
+	require.Equal(suite.T(), strconv.FormatBool(options.HideZeroAllocations), record.Request.Form.Get("hide_zero_allocations"))
+	require.Equal(suite.T(), options.ConvertedAsset, record.Request.Form.Get("converted_asset"))
 }
