@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -2749,923 +2750,617 @@ func (suite *KrakenSpotRESTClientTestSuite) TestDeleteExportReport() {
 	require.Equal(suite.T(), params.Id, record.Request.Form.Get("id"))
 }
 
-// // TestDeleteExportReportErrPath Test will succeed if a error response from server is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestDeleteExportReportErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.DeleteExportReport(DeleteExportReportParameters{}, nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Nil(suite.T(), resp)
-// 	require.Error(suite.T(), err)
-// }
-
-// /*****************************************************************************/
-// /* UNIT TESTS - USER TRADING												 */
-// /*****************************************************************************/
-
-// // Test Add Order Method - Happy path
-// //
-// // Test will succeed if all provided input parameters are in request sent by client
-// // and if predefined response from server is correctly processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestAddOrderHappyPath() {
-
-// 	// Test parameters
-// 	pair := "XXBTZUSD"
-// 	userref := new(int64)
-// 	*userref = 42
-// 	deadline := time.Now().UTC()
-// 	validate := true
-// 	otp := "Once"
-// 	order := &Order{
-// 		UserReference:      userref,
-// 		OrderType:          OTypeLimit,
-// 		Type:               Buy,
-// 		Volume:             "2.1234",
-// 		Price:              "45000.1",
-// 		Price2:             "45000.1",
-// 		Trigger:            TriggerLast,
-// 		Leverage:           "2:1",
-// 		StpType:            StpCancelNewest,
-// 		OrderFlags:         strings.Join([]string{OFlagFeeInQuote, OFlagPost}, ","),
-// 		TimeInForce:        GoodTilCanceled,
-// 		ScheduledStartTime: "0",
-// 		ExpirationTime:     "0",
-// 		Close:              &CloseOrder{OrderType: OTypeStopLossLimit, Price: "38000.42", Price2: "36000"},
-// 	}
-
-// 	// Predefined server response
-// 	expectedJSONResponse := `{
-// 		"error": [ ],
-// 		"result": {
-// 			"descr": {
-// 				"order": "buy 2.12340000 XBTUSD @ limit 45000.1 with 2:1 leverage",
-// 				"close": "close position @ stop loss 38000.42 -> limit 36000.0"
-// 			},
-// 			"txid": [
-// 				"OUF4EM-FRGI2-MQMWZD",
-// 				"OUF4EM-FRGI2-MQMW42"
-// 			]
-// 		}
-// 	}`
-
-// 	// Expected response data
-// 	expOrderDescr := "buy 2.12340000 XBTUSD @ limit 45000.1 with 2:1 leverage"
-// 	expCloseDescr := "close position @ stop loss 38000.42 -> limit 36000.0"
-// 	expTxID := []string{"OUF4EM-FRGI2-MQMWZD", "OUF4EM-FRGI2-MQMW42"}
-
-// 	// Configure Mock HTTP Server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Perform request
-// 	resp, err := suite.client.AddOrder(
-// 		AddOrderParameters{Pair: pair, Order: *order},
-// 		&AddOrderOptions{Deadline: &deadline, Validate: validate},
-// 		&SecurityOptions{SecondFactor: otp})
-
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check client error and log response
-// 	require.NoError(suite.T(), err)
-// 	suite.T().Log(resp)
-
-// 	// Check URL, Method and some Headers
-// 	require.Contains(suite.T(), req.URL.Path, postAddOrder)
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Equal(suite.T(), suite.client.agent, req.UserAgent())
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.client.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-
-// 	// Check request body
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), otp, req.Form.Get("otp"))
-// 	require.Equal(suite.T(), pair, req.Form.Get("pair"))
-// 	actUserRef, err := strconv.ParseInt(req.Form.Get("userref"), 10, 64)
-// 	require.NoError(suite.T(), err)
-// 	require.Equal(suite.T(), *order.UserReference, actUserRef)
-// 	require.Equal(suite.T(), order.OrderType, req.Form.Get("ordertype"))
-// 	require.Equal(suite.T(), order.Type, req.Form.Get("type"))
-// 	require.Equal(suite.T(), order.Volume, req.Form.Get("volume"))
-// 	require.Equal(suite.T(), order.Price, req.Form.Get("price"))
-// 	require.Equal(suite.T(), order.Price2, req.Form.Get("price2"))
-// 	require.Equal(suite.T(), order.Trigger, req.Form.Get("trigger"))
-// 	require.Equal(suite.T(), order.Leverage, req.Form.Get("leverage"))
-// 	require.Equal(suite.T(), order.StpType, req.Form.Get("stp_type"))
-// 	require.Equal(suite.T(), order.OrderFlags, req.Form.Get("oflags"))
-// 	require.Equal(suite.T(), order.TimeInForce, req.Form.Get("timeinforce"))
-// 	require.Equal(suite.T(), order.ScheduledStartTime, req.Form.Get("starttm"))
-// 	require.Equal(suite.T(), order.ExpirationTime, req.Form.Get("expiretm"))
-// 	require.Equal(suite.T(), order.Close.OrderType, req.Form.Get("close[ordertype]"))
-// 	require.Equal(suite.T(), order.Close.Price, req.Form.Get("close[price]"))
-// 	require.Equal(suite.T(), order.Close.Price2, req.Form.Get("close[price2]"))
-// 	actValidate, err := strconv.ParseBool(req.Form.Get("validate"))
-// 	require.NoError(suite.T(), err)
-// 	require.Equal(suite.T(), validate, actValidate)
-// 	actDeadline, err := time.Parse(time.RFC3339, req.Form.Get("deadline"))
-// 	require.NoError(suite.T(), err)
-// 	// Nanoseconds are not provided
-// 	require.Equal(suite.T(), deadline.Truncate(time.Second), actDeadline)
-
-// 	// Check server response
-// 	require.Equal(suite.T(), expOrderDescr, resp.Result.Description.Order)
-// 	require.Equal(suite.T(), expCloseDescr, resp.Result.Description.Close)
-// 	require.ElementsMatch(suite.T(), expTxID, resp.Result.TransactionIDs)
-// }
-
-// // Test Add Order Method - Empty parameters
-// //
-// // Test will succeed if a valid request is sent by client, if empty parameters are not included
-// // in request and if predefined response from server is correctly processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestAddOrderEmptyParameters() {
-
-// 	// Test parameters
-// 	pair := "XXBTZUSD"
-// 	order := &Order{
-// 		OrderType: OTypeMarket,
-// 		Type:      Buy,
-// 		Volume:    "2.1234",
-// 	}
-
-// 	// Predefined server response
-// 	expectedJSONResponse := `{
-// 		"error": [ ],
-// 		"result": {
-// 			"descr": {
-// 				"order": "buy 2.12340000 XBTUSD @ market"
-// 			},
-// 			"txid": [
-// 				"OUF4EM-FRGI2-MQMWZD"
-// 			]
-// 		}
-// 	}`
-
-// 	// Expected response data
-// 	expOrderDescr := "buy 2.12340000 XBTUSD @ market"
-// 	expTxID := []string{"OUF4EM-FRGI2-MQMWZD"}
-
-// 	// Configure Mock HTTP Server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Perform request
-// 	resp, err := suite.client.AddOrder(AddOrderParameters{Pair: pair, Order: *order}, nil, nil)
-
-// 	// Get and log client request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check for client error & log response
-// 	require.NoError(suite.T(), err)
-// 	suite.T().Log(resp)
-
-// 	// Check URL, Method and some Headers
-// 	require.Contains(suite.T(), req.URL.Path, postAddOrder)
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Equal(suite.T(), suite.client.agent, req.UserAgent())
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.client.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-
-// 	// Check request body
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Empty(suite.T(), req.Form.Get("otp"))
-// 	require.Equal(suite.T(), pair, req.Form.Get("pair"))
-// 	require.Nil(suite.T(), order.UserReference)
-// 	require.Empty(suite.T(), req.Form.Get("userref"))
-// 	require.Equal(suite.T(), order.OrderType, req.Form.Get("ordertype"))
-// 	require.Equal(suite.T(), order.Type, req.Form.Get("type"))
-// 	require.Equal(suite.T(), order.Volume, req.Form.Get("volume"))
-// 	require.Empty(suite.T(), order.Price)
-// 	require.Empty(suite.T(), order.Price2)
-// 	require.Empty(suite.T(), req.Form.Get("price"))
-// 	require.Empty(suite.T(), req.Form.Get("price2"))
-// 	require.Empty(suite.T(), order.Trigger)
-// 	require.Empty(suite.T(), req.Form.Get("trigger"))
-// 	require.Empty(suite.T(), order.Leverage)
-// 	require.Empty(suite.T(), req.Form.Get("leverage"))
-// 	require.Empty(suite.T(), order.StpType)
-// 	require.Empty(suite.T(), req.Form.Get("stp_type"))
-// 	require.Empty(suite.T(), order.OrderFlags)
-// 	require.Empty(suite.T(), req.Form.Get("oflags"))
-// 	require.Empty(suite.T(), order.TimeInForce)
-// 	require.Empty(suite.T(), req.Form.Get("timeinforce"))
-// 	require.Empty(suite.T(), order.ScheduledStartTime)
-// 	require.Empty(suite.T(), req.Form.Get("starttm"))
-// 	require.Empty(suite.T(), order.ExpirationTime)
-// 	require.Empty(suite.T(), req.Form.Get("expiretm"))
-// 	require.Nil(suite.T(), order.Close)
-// 	require.Empty(suite.T(), req.Form.Get("close[ordertype]"))
-// 	require.Empty(suite.T(), req.Form.Get("close[price]"))
-// 	require.Empty(suite.T(), req.Form.Get("close[price2]"))
-// 	require.Empty(suite.T(), req.Form.Get("validate"))
-// 	require.Empty(suite.T(), req.Form.Get("deadline"))
-
-// 	// Check server response
-// 	require.Equal(suite.T(), expOrderDescr, resp.Result.Description.Order)
-// 	require.Empty(suite.T(), resp.Result.Description.Close)
-// 	require.ElementsMatch(suite.T(), expTxID, resp.Result.TransactionIDs)
-// }
-
-// // Test Add Order Method - Error path
-// //
-// // Test will succeed if API call fail because of invalid server response.
-// func (suite *KrakenAPIClientUnitTestSuite) TestAddOrderErrPath() {
-
-// 	// Test parameters
-// 	pair := "XXBTZUSD"
-// 	validate := true
-// 	order := &Order{
-// 		OrderType: OTypeMarket,
-// 		Type:      Buy,
-// 		Volume:    "2.1234",
-// 	}
-
-// 	// Configure Mock HTTP Server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Perform request
-// 	_, err := suite.client.AddOrder(
-// 		AddOrderParameters{Pair: pair, Order: *order},
-// 		&AddOrderOptions{Deadline: nil, Validate: validate},
-// 		nil)
-// 	require.Error(suite.T(), err)
-// }
-
-// // Test Add Order Batch - Happy Path
-// //
-// // Test will succeed if a request sent by client is well formatted, contains
-// // all input parameters and if server response is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestAddOrderBatchHappyPath() {
-
-// 	// Test parameters
-// 	pair := "XXBTZUSD"
-// 	userref := new(int64)
-// 	*userref = 123
-// 	deadline := time.Now().UTC()
-// 	validate := true
-// 	otp := "otp"
-// 	orders := []Order{
-// 		{
-// 			OrderType:   OTypeLimit,
-// 			Type:        Buy,
-// 			Volume:      "1.2",
-// 			Price:       "40000",
-// 			Price2:      "40000.42",
-// 			Trigger:     TriggerIndex,
-// 			StpType:     StpCancelNewest,
-// 			TimeInForce: GoodTilCanceled,
-// 			Close: &CloseOrder{
-// 				OrderType: OTypeStopLossLimit,
-// 				Price:     "37000",
-// 				Price2:    "36000",
-// 			},
-// 		},
-// 		{
-// 			UserReference:      userref,
-// 			OrderType:          OTypeLimit,
-// 			Type:               Sell,
-// 			Volume:             "1.2",
-// 			Price:              "42000",
-// 			Leverage:           "2:1",
-// 			OrderFlags:         "fciq,post",
-// 			ScheduledStartTime: "0",
-// 			ExpirationTime:     "0",
-// 			Close:              nil,
-// 		},
-// 	}
-
-// 	// Predefined response
-// 	expectedJSONResponse := `{
-// 		"error": [ ],
-// 		"result": {
-// 			"orders": [
-// 				{
-// 					"descr": {
-// 						"order": "buy 1.2 BTCUSD @ limit 40000",
-// 						"close": "close position @ stop loss 37000.0 -> limit 36000.0"
-// 					},
-// 					"txid": "OUF4EM-FRGI2-MQMWZD"
-// 				},
-// 				{
-// 					"descr": {
-// 						"order": "sell 1.2 BTCUSD @ limit 42000"
-// 					},
-// 					"txid": ["OCF5EM-FRGI2-MQWEDD", "OUF4EM-FRGI2-MQMWZD"]
-// 				}
-// 			]
-// 		}
-// 	}`
-
-// 	expResp := &AddOrderBatchResponse{}
-// 	err := json.Unmarshal([]byte(expectedJSONResponse), expResp)
-// 	require.NoError(suite.T(), err)
-
-// 	// Configure Mock HTTP Server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Perform request
-// 	resp, err := suite.client.AddOrderBatch(
-// 		AddOrderBatchParameters{Pair: pair, Orders: orders},
-// 		&AddOrderBatchOptions{Deadline: &deadline, Validate: validate},
-// 		&SecurityOptions{SecondFactor: otp})
-// 	require.NoError(suite.T(), err)
-
-// 	// Get and log client request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check client error and log response
-// 	require.NoError(suite.T(), err)
-
-// 	// Check request
-// 	// Check URL, Method and some Headers
-// 	require.Contains(suite.T(), req.URL.Path, postAddOrderBatch)
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Equal(suite.T(), suite.client.agent, req.UserAgent())
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.client.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-
-// 	// Check request body
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), otp, req.Form.Get("otp"))
-// 	require.Equal(suite.T(), pair, req.Form.Get("pair"))
-// 	require.Equal(suite.T(), orders[0].OrderType, req.Form.Get("orders[0][ordertype]"))
-// 	require.Equal(suite.T(), orders[0].Type, req.Form.Get("orders[0][type]"))
-// 	require.Equal(suite.T(), orders[0].Volume, req.Form.Get("orders[0][volume]"))
-// 	require.Equal(suite.T(), orders[0].Price, req.Form.Get("orders[0][price]"))
-// 	require.Equal(suite.T(), orders[0].Price2, req.Form.Get("orders[0][price2]"))
-// 	require.Equal(suite.T(), orders[0].Trigger, req.Form.Get("orders[0][trigger]"))
-// 	require.Equal(suite.T(), orders[0].StpType, req.Form.Get("orders[0][stp_type]"))
-// 	require.Equal(suite.T(), orders[0].TimeInForce, req.Form.Get("orders[0][timeinforce]"))
-// 	require.Equal(suite.T(), orders[0].Close.OrderType, req.Form.Get("orders[0][close][ordertype]"))
-// 	require.Equal(suite.T(), orders[0].Close.Price, req.Form.Get("orders[0][close][price]"))
-// 	require.Equal(suite.T(), orders[0].Close.Price2, req.Form.Get("orders[0][close][price2]"))
-// 	require.Empty(suite.T(), req.Form.Get("orders[0][userref]"))
-// 	require.Empty(suite.T(), req.Form.Get("orders[0][leverage]"))
-// 	require.Empty(suite.T(), req.Form.Get("orders[0][oflags]"))
-// 	require.Empty(suite.T(), req.Form.Get("orders[0][starttm]"))
-// 	require.Empty(suite.T(), req.Form.Get("orders[0][expiretm]"))
-// 	require.Equal(suite.T(), orders[1].OrderType, req.Form.Get("orders[1][ordertype]"))
-// 	require.Equal(suite.T(), orders[1].Type, req.Form.Get("orders[1][type]"))
-// 	require.Equal(suite.T(), orders[1].Volume, req.Form.Get("orders[1][volume]"))
-// 	require.Equal(suite.T(), orders[1].Price, req.Form.Get("orders[1][price]"))
-// 	require.Empty(suite.T(), req.Form.Get("orders[1][price2]"))
-// 	require.Empty(suite.T(), req.Form.Get("orders[1][trigger]"))
-// 	require.Empty(suite.T(), req.Form.Get("orders[1][stp_type]"))
-// 	require.Empty(suite.T(), req.Form.Get("orders[1][timeinforce]"))
-// 	require.Empty(suite.T(), req.Form.Get("orders[1][close][ordertype]"))
-// 	require.Empty(suite.T(), req.Form.Get("orders[1][close][price]"))
-// 	require.Empty(suite.T(), req.Form.Get("orders[1][close][price2]"))
-// 	require.Equal(suite.T(), strconv.FormatInt(*orders[1].UserReference, 10), req.Form.Get("orders[1][userref]"))
-// 	require.Equal(suite.T(), orders[1].Leverage, req.Form.Get("orders[1][leverage]"))
-// 	require.Equal(suite.T(), orders[1].OrderFlags, req.Form.Get("orders[1][oflags]"))
-// 	require.Equal(suite.T(), orders[1].ScheduledStartTime, req.Form.Get("orders[1][starttm]"))
-// 	require.Equal(suite.T(), orders[1].ExpirationTime, req.Form.Get("orders[1][expiretm]"))
-// 	actValidate, err := strconv.ParseBool(req.Form.Get("validate"))
-// 	require.NoError(suite.T(), err)
-// 	require.Equal(suite.T(), validate, actValidate)
-// 	actDeadline, err := time.Parse(time.RFC3339, req.Form.Get("deadline"))
-// 	require.NoError(suite.T(), err)
-// 	// Nanoseconds are not provided
-// 	require.Equal(suite.T(), deadline.Truncate(time.Second), actDeadline)
-
-// 	// Check response
-// 	require.Equal(suite.T(), expResp, resp)
-// }
-
-// // Test Add Order Batch - Empty orders
-// //
-// // Test will succeed if an error is thrown by client when
-// // an empty list of orders is submitted.
-// func (suite *KrakenAPIClientUnitTestSuite) TestAddOrderBatchEmptyOrders() {
-
-// 	// Perform request
-// 	_, err := suite.client.AddOrderBatch(AddOrderBatchParameters{}, nil, nil)
-// 	require.Error(suite.T(), err)
-
-// 	// Ensure no request has been sent
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.Nil(suite.T(), req)
-// }
-
-// // Test Add Order Batch - Partial success
-// //
-// // Test will succeed if a response with some failed orders is well processed
-// // by client. Response should contain non-failed orders and a non nil error.
-// func (suite *KrakenAPIClientUnitTestSuite) TestAddOrderBatchPartialSuccess() {
-
-// 	// Test parameters
-// 	pair := "XXBTZUSD"
-// 	validate := false
-// 	orders := []Order{
-// 		{
-// 			OrderType: OTypeMarket,
-// 			Type:      Buy,
-// 			Volume:    "100000000.00000000",
-// 		},
-// 		{
-// 			OrderType: OTypeMarket,
-// 			Type:      Sell,
-// 			Volume:    "100000000.00000000",
-// 		},
-// 	}
-
-// 	// Predefined server response
-// 	expectedJSONResponse := `{
-// 		"error":[],
-// 		"result":{
-// 			"orders":[
-// 				{
-// 					"error":"EOrder:Insufficient funds",
-// 					"descr":{
-// 						"order":"buy 100000000.00000000 XBTEUR @ market"
-// 					}
-// 				},
-// 				{
-// 					"error":["EOrder:Insufficient funds", "wrong"],
-// 					"descr":{
-// 						"order":"sell 100000000.00000000 XBTEUR @ market"
-// 					}
-// 				}
-// 			]
-// 		}
-// 	}`
-
-// 	expResp := &AddOrderBatchResponse{}
-// 	err := json.Unmarshal([]byte(expectedJSONResponse), expResp)
-// 	require.NoError(suite.T(), err)
-
-// 	// Configure Mock HTTP Server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Perform request
-// 	resp, _ := suite.client.AddOrderBatch(
-// 		AddOrderBatchParameters{Pair: pair, Orders: orders},
-// 		&AddOrderBatchOptions{Deadline: nil, Validate: validate},
-// 		nil)
-
-// 	// Get and log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check response
-// 	require.Equal(suite.T(), expResp, resp)
-// }
-
-// // Test Add Order Batch - Error path
-// //
-// // Test will succeed if an error is returned when an invalid response is
-// // received from server.
-// func (suite *KrakenAPIClientUnitTestSuite) TestAddOrderBatchErrPath() {
-
-// 	// Test parameters
-// 	pair := "XXBTZUSD"
-// 	validate := false
-// 	orders := []Order{
-// 		{
-// 			OrderType: OTypeMarket,
-// 			Type:      Buy,
-// 			Volume:    "100000000.00000000",
-// 		},
-// 		{
-// 			OrderType: OTypeMarket,
-// 			Type:      Sell,
-// 			Volume:    "100000000.00000000",
-// 		},
-// 	}
-
-// 	// Configure Mock HTTP Server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Perform request
-// 	resp, err := suite.client.AddOrderBatch(
-// 		AddOrderBatchParameters{Pair: pair, Orders: orders},
-// 		&AddOrderBatchOptions{Deadline: nil, Validate: validate},
-// 		nil)
-
-// 	// Check client error and response
-// 	require.Error(suite.T(), err)
-// 	require.Nil(suite.T(), resp)
-// }
-
-// // Test Edit Order - Happy Path
-// //
-// // Test will succeed if request sent by client is well formatted, contains all input
-// // all input parameters and if server response is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestEditOrderHappyPath() {
-
-// 	// Test parameters
-// 	pair := "XXBTZUSD"
-// 	userref := new(int64)
-// 	*userref = 123
-// 	originalTxID := "OHYO67-6LP66-HMQ437"
-// 	volume := "0.00030000"
-// 	price := "19500.0"
-// 	price2 := "32500.0"
-// 	oflags := []string{"fcib", "post"}
-// 	deadline := time.Now().UTC()
-// 	cancelResponse := true
-// 	validate := true
-// 	otp := "otp"
-
-// 	// Predefined response
-// 	expectedJSONResponse := `{
-// 			"error": [ ],
-// 			"result": {
-// 				"status": "ok",
-// 				"txid": "OFVXHJ-KPQ3B-VS7ELA",
-// 				"originaltxid": "OHYO67-6LP66-HMQ437",
-// 				"volume": "0.00030000",
-// 				"price": "19500.0",
-// 				"price2": "32500.0",
-// 				"orders_cancelled": 1,
-// 				"descr": {
-// 				"order": "buy 0.00030000 XXBTZGBP @ limit 19500.0"
-// 			}
-// 		}
-// 	}`
-
-// 	// Expected response data
-// 	expResp := &EditOrderResponse{}
-// 	err := json.Unmarshal([]byte(expectedJSONResponse), &expResp)
-// 	require.NoError(suite.T(), err)
-
-// 	// Configure Mock HTTP Server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Perform request
-// 	resp, err := suite.client.EditOrder(
-// 		EditOrderParameters{Pair: pair, Id: originalTxID},
-// 		&EditOrderOptions{
-// 			NewUserReference: strconv.FormatInt(*userref, 10),
-// 			NewVolume:        volume,
-// 			Price:            price,
-// 			Price2:           price2,
-// 			OFlags:           oflags,
-// 			Deadline:         &deadline,
-// 			CancelResponse:   cancelResponse,
-// 			Validate:         validate,
-// 		},
-// 		&SecurityOptions{SecondFactor: otp})
-// 	require.NoError(suite.T(), err)
-
-// 	// Get and log client request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check client error and log response
-// 	require.NoError(suite.T(), err)
-// 	suite.T().Log(resp)
-
-// 	// Check request
-// 	// Check URL, Method and some Headers
-// 	require.Contains(suite.T(), req.URL.Path, postEditOrder)
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Equal(suite.T(), suite.client.agent, req.UserAgent())
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.client.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-
-// 	// Check request body
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), otp, req.Form.Get("otp"))
-// 	require.Equal(suite.T(), pair, req.Form.Get("pair"))
-// 	require.Equal(suite.T(), strconv.FormatInt(*userref, 10), req.Form.Get("userref"))
-// 	require.Equal(suite.T(), originalTxID, req.Form.Get("txid"))
-// 	require.Equal(suite.T(), volume, req.Form.Get("volume"))
-// 	require.Equal(suite.T(), price, req.Form.Get("price"))
-// 	require.Equal(suite.T(), price2, req.Form.Get("price2"))
-// 	require.Equal(suite.T(), strings.Join(oflags, ","), req.Form.Get("oflags"))
-// 	actCancelResponse, err := strconv.ParseBool(req.Form.Get("cancel_response"))
-// 	require.NoError(suite.T(), err)
-// 	require.Equal(suite.T(), cancelResponse, actCancelResponse)
-// 	actValidate, err := strconv.ParseBool(req.Form.Get("validate"))
-// 	require.NoError(suite.T(), err)
-// 	require.Equal(suite.T(), validate, actValidate)
-// 	actDeadline, err := time.Parse(time.RFC3339, req.Form.Get("deadline"))
-// 	require.NoError(suite.T(), err)
-// 	// Nanoseconds are not provided
-// 	require.Equal(suite.T(), deadline.Truncate(time.Second), actDeadline)
-
-// 	// Check response
-// 	require.Equal(suite.T(), expResp, resp)
-// }
-
-// // Test Cancel Order - Happy Path
-// //
-// // Test will succeed if request sent by client is well formatted, contains all input
-// // all input parameters and if server response is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestCancelOrderHappyPath() {
-
-// 	// Test parameters
-// 	txID := "OHYO67-6LP66-HMQ437"
-// 	otp := "otp"
-
-// 	// Predefined response
-// 	expectedJSONResponse := `{
-// 		"result": {
-// 			"count": 0,
-// 			"pending": true
-// 		},
-// 		"error": []
-// 	}`
-
-// 	// Expected response data
-// 	expCount := 0
-// 	expPending := true
-
-// 	// Configure Mock HTTP Server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Perform request
-// 	resp, err := suite.client.CancelOrder(CancelOrderParameters{Id: txID}, &SecurityOptions{SecondFactor: otp})
-// 	require.NoError(suite.T(), err)
-
-// 	// Get and log client request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check client error and log response
-// 	require.NoError(suite.T(), err)
-// 	suite.T().Log(resp)
-
-// 	// Check request
-// 	// Check URL, Method and some Headers
-// 	require.Contains(suite.T(), req.URL.Path, postCancelOrder)
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Equal(suite.T(), suite.client.agent, req.UserAgent())
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.client.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-
-// 	// Check request body
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), otp, req.Form.Get("otp"))
-// 	require.Equal(suite.T(), txID, req.Form.Get("txid"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expCount, resp.Result.Count)
-// 	require.Equal(suite.T(), expPending, resp.Result.Pending)
-// }
-
-// // Test Cancel All Orders - Happy Path
-// //
-// // Test will succeed if request sent by client is well formatted, contains all input
-// // all input parameters and if server response is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestCancelAllOrdersHappyPath() {
-
-// 	// Test parameters
-// 	otp := "otp"
-
-// 	// Predefined response
-// 	expectedJSONResponse := `{
-// 		"result": {
-// 			"count": 4
-// 		},
-// 		"error": []
-// 	}`
-
-// 	// Expected response data
-// 	expCount := 4
-
-// 	// Configure Mock HTTP Server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Perform request
-// 	resp, err := suite.client.CancelAllOrders(&SecurityOptions{SecondFactor: otp})
-// 	require.NoError(suite.T(), err)
-
-// 	// Get and log client request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check client error and log response
-// 	require.NoError(suite.T(), err)
-// 	suite.T().Log(resp)
-
-// 	// Check request
-// 	// Check URL, Method and some Headers
-// 	require.Contains(suite.T(), req.URL.Path, postCancelAllOrders)
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Equal(suite.T(), suite.client.agent, req.UserAgent())
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.client.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-
-// 	// Check request body
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), otp, req.Form.Get("otp"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expCount, resp.Result.Count)
-// }
-
-// // Test Cancel All Orders After X - Happy Path
-// //
-// // Test will succeed if request sent by client is well formatted, contains all input
-// // all input parameters and if server response is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestCancelAllOrdersAfterXHappyPath() {
-
-// 	// Test parameters
-// 	timeout := int64(60)
-// 	otp := "otp"
-
-// 	// Predefined response
-// 	expectedJSONResponse := `{
-// 		"result": {
-// 			"currentTime": "2021-03-24T17:41:56Z",
-// 			"triggerTime": "2021-03-24T17:42:56Z"
-// 		},
-// 		"error": []
-// 	}`
-
-// 	// Expected response data
-// 	expYear := 2021
-// 	expMonth := time.Month(3)
-// 	expDayOfMonth := 24
-// 	expHour := 17
-// 	expSecond := 56
-// 	expNanosec := 0
-// 	expCurrMinute := 41
-// 	expTrigMinute := 42
-
-// 	// Configure Mock HTTP Server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Perform request
-// 	resp, err := suite.client.CancelAllOrdersAfterX(CancelCancelAllOrdersAfterXParameters{Timeout: timeout}, &SecurityOptions{SecondFactor: otp})
-// 	require.NoError(suite.T(), err)
-
-// 	// Get and log client request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check client error and log response
-// 	require.NoError(suite.T(), err)
-// 	suite.T().Log(resp)
-
-// 	// Check request
-// 	// Check URL, Method and some Headers
-// 	require.Contains(suite.T(), req.URL.Path, postCancelAllOrdersAfterX)
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Equal(suite.T(), suite.client.agent, req.UserAgent())
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.client.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-
-// 	// Check request body
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), otp, req.Form.Get("otp"))
-// 	require.Equal(suite.T(), strconv.FormatInt(timeout, 10), req.Form.Get("timeout"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expYear, resp.Result.CurrentTime.Year())
-// 	require.Equal(suite.T(), expYear, resp.Result.TriggerTime.Year())
-// 	require.Equal(suite.T(), expMonth, resp.Result.CurrentTime.Month())
-// 	require.Equal(suite.T(), expMonth, resp.Result.TriggerTime.Month())
-// 	require.Equal(suite.T(), expDayOfMonth, resp.Result.CurrentTime.Day())
-// 	require.Equal(suite.T(), expDayOfMonth, resp.Result.TriggerTime.Day())
-// 	require.Equal(suite.T(), expHour, resp.Result.CurrentTime.Hour())
-// 	require.Equal(suite.T(), expHour, resp.Result.TriggerTime.Hour())
-// 	require.Equal(suite.T(), expCurrMinute, resp.Result.CurrentTime.Minute())
-// 	require.Equal(suite.T(), expTrigMinute, resp.Result.TriggerTime.Minute())
-// 	require.Equal(suite.T(), expSecond, resp.Result.CurrentTime.Second())
-// 	require.Equal(suite.T(), expSecond, resp.Result.TriggerTime.Second())
-// 	require.Equal(suite.T(), expNanosec, resp.Result.CurrentTime.Nanosecond())
-// 	require.Equal(suite.T(), expNanosec, resp.Result.TriggerTime.Nanosecond())
-// }
-
-// // Test Cancel Order Batch - Happy Path
-// //
-// // Test will succeed if request sent by client is well formatted, contains all input
-// // all input parameters and if server response is well processed by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestCancelOrderBatchHappyPath() {
-
-// 	// Test parameters
-// 	orders := []string{"42", "43"}
-// 	otp := "otp"
-
-// 	// Predefined response
-// 	expectedJSONResponse := `{
-// 		"result": {
-// 			"count": 2
-// 		},
-// 		"error": []
-// 	}`
-
-// 	// Expected response data
-// 	expCount := 2
-
-// 	// Configure Mock HTTP Server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Perform request
-// 	resp, err := suite.client.CancelOrderBatch(CancelOrderBatchParameters{OrderIds: orders}, &SecurityOptions{SecondFactor: otp})
-// 	require.NoError(suite.T(), err)
-
-// 	// Get and log client request
-// 	req := suite.srv.PopRecordedRequest()
-// 	require.NotNil(suite.T(), req)
-// 	suite.T().Log(req)
-
-// 	// Check client error and log response
-// 	require.NoError(suite.T(), err)
-// 	suite.T().Log(resp)
-
-// 	// Check request
-// 	// Check URL, Method and some Headers
-// 	require.Contains(suite.T(), req.URL.Path, postCancelOrderBatch)
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Equal(suite.T(), suite.client.agent, req.UserAgent())
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.client.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-
-// 	// Check request body
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), otp, req.Form.Get("otp"))
-// 	reqOrders := []string{
-// 		req.Form.Get("orders[0]"),
-// 		req.Form.Get("orders[1]"),
-// 	}
-// 	require.ElementsMatch(suite.T(), orders, reqOrders)
-
-// 	// Check response
-// 	require.Equal(suite.T(), expCount, resp.Result.Count)
-// }
-
-// // Test Cancel Order Batch - Empty list
-// //
-// // Test will succeed if request is rejected by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestCancelOrderBatchEmptyList() {
-
-// 	// Perform request
-// 	_, err := suite.client.CancelOrderBatch(CancelOrderBatchParameters{}, nil)
-// 	require.Error(suite.T(), err)
-
-// 	// Check no request sent
-// 	require.Nil(suite.T(), suite.srv.PopRecordedRequest())
-// }
+/*************************************************************************************************/
+/* UNIT TESTS - TRADING                                                                          */
+/*************************************************************************************************/
+
+// Test AddOrder when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestAddOrder() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := trading.AddOrderRequestParameters{
+		Pair: "XXBTZUSD",
+		Order: trading.Order{
+			UserReference:      new(int64),
+			OrderType:          string(trading.StopLossLimit),
+			Type:               string(trading.Sell),
+			Volume:             "0.1",
+			DisplayedVolume:    "0.001",
+			Price:              "42500.0",
+			Price2:             "43000.0",
+			Trigger:            string(trading.Index),
+			Leverage:           "5:1",
+			ReduceOnly:         true,
+			StpType:            string(trading.STPCancelBoth),
+			OrderFlags:         strings.Join([]string{string(trading.OFlagFeeInQuote), string(account.OFlagNoMarketPriceProtection)}, ","),
+			TimeInForce:        string(trading.ImmediateOrCancel),
+			ScheduledStartTime: "+2",
+			ExpirationTime:     "+2",
+			Close:              &trading.CloseOrder{OrderType: string(trading.StopLossLimit), Price: "42500.0", Price2: "43000.0"},
+		},
+	}
+
+	// Expected options
+	options := &trading.AddOrderRequestOptions{
+		Validate: true,
+		Deadline: time.Now().UTC().Add(15 * time.Second),
+	}
+
+	// Expected API response from API documentation
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "descr": {
+			"order": "buy 1.25000000 XBTUSD @ limit 27500.0"
+		  },
+		  "txid": [
+			"OU22CG-KLAF2-FWUDD7"
+		  ]
+		}
+	}`
+	expectedOrderDescr := "buy 1.25000000 XBTUSD @ limit 27500.0"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.AddOrder(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.Equal(suite.T(), expectedOrderDescr, resp.Result.Description.Order)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, addOrderPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), strconv.FormatBool(options.Validate), record.Request.Form.Get("validate"))
+	require.Equal(suite.T(), options.Deadline.Format(time.RFC3339), record.Request.Form.Get("deadline"))
+	require.Equal(suite.T(), strconv.FormatInt(*params.Order.UserReference, 10), record.Request.Form.Get("userref"))
+	require.Equal(suite.T(), params.Order.OrderType, record.Request.Form.Get("ordertype"))
+	require.Equal(suite.T(), params.Order.Type, record.Request.Form.Get("type"))
+	require.Equal(suite.T(), params.Order.Volume, record.Request.Form.Get("volume"))
+	require.Equal(suite.T(), params.Order.DisplayedVolume, record.Request.Form.Get("displayvol"))
+	require.Equal(suite.T(), params.Pair, record.Request.Form.Get("pair"))
+	require.Equal(suite.T(), params.Order.Price, record.Request.Form.Get("price"))
+	require.Equal(suite.T(), params.Order.Price2, record.Request.Form.Get("price2"))
+	require.Equal(suite.T(), params.Order.Trigger, record.Request.Form.Get("trigger"))
+	require.Equal(suite.T(), params.Order.Leverage, record.Request.Form.Get("leverage"))
+	require.Equal(suite.T(), strconv.FormatBool(params.Order.ReduceOnly), record.Request.Form.Get("reduce_only"))
+	require.Equal(suite.T(), params.Order.StpType, record.Request.Form.Get("stptype"))
+	require.Equal(suite.T(), params.Order.OrderFlags, record.Request.Form.Get("oflags"))
+	require.Equal(suite.T(), params.Order.TimeInForce, record.Request.Form.Get("timeinforce"))
+	require.Equal(suite.T(), params.Order.ScheduledStartTime, record.Request.Form.Get("starttm"))
+	require.Equal(suite.T(), params.Order.ExpirationTime, record.Request.Form.Get("expiretm"))
+	require.Equal(suite.T(), params.Order.Close.OrderType, record.Request.Form.Get("close[ordertype]"))
+	require.Equal(suite.T(), params.Order.Close.Price, record.Request.Form.Get("close[price]"))
+	require.Equal(suite.T(), params.Order.Close.Price2, record.Request.Form.Get("close[price2]"))
+}
+
+// Test AddOrderBatch when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestAddOrderBatch() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := trading.AddOrderBatchRequestParameters{
+		Pair: "XXBTZUSD",
+		Orders: []trading.Order{
+			{
+				UserReference:      new(int64),
+				OrderType:          string(trading.StopLossLimit),
+				Type:               string(trading.Sell),
+				Volume:             "0.1",
+				DisplayedVolume:    "0.001",
+				Price:              "42500.0",
+				Price2:             "43000.0",
+				Trigger:            string(trading.Index),
+				Leverage:           "5:1",
+				ReduceOnly:         true,
+				StpType:            string(trading.STPCancelBoth),
+				OrderFlags:         strings.Join([]string{string(trading.OFlagFeeInQuote), string(account.OFlagNoMarketPriceProtection)}, ","),
+				TimeInForce:        string(trading.ImmediateOrCancel),
+				ScheduledStartTime: "+2",
+				ExpirationTime:     "+2",
+				Close:              &trading.CloseOrder{OrderType: string(trading.StopLossLimit), Price: "42500.0", Price2: "43000.0"},
+			},
+			{
+				UserReference:      new(int64),
+				OrderType:          string(trading.Limit),
+				Type:               string(trading.Buy),
+				Volume:             "1",
+				DisplayedVolume:    "0.005",
+				Price:              "44500.0",
+				Price2:             "4000.0",
+				Trigger:            string(trading.Last),
+				Leverage:           "3:1",
+				ReduceOnly:         true,
+				StpType:            string(trading.STPCancelNewest),
+				OrderFlags:         strings.Join([]string{string(trading.OFlagFeeInBase), string(account.OFlagNoMarketPriceProtection)}, ","),
+				TimeInForce:        string(trading.GoodTilCanceled),
+				ScheduledStartTime: "+6",
+				ExpirationTime:     "+6",
+				Close:              &trading.CloseOrder{OrderType: string(trading.Market), Price: "40500.0", Price2: "40000.0"},
+			},
+		},
+	}
+
+	// Expected options
+	options := &trading.AddOrderBatchOptions{
+		Validate: true,
+		Deadline: time.Now().UTC().Add(15 * time.Second),
+	}
+
+	// Expected API response from API documentation
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "orders": [
+			{
+			  "txid": "O5OR23-ADFAD-Y2G61C",
+			  "descr": {
+				"order": "buy 0.80300000 XBTUSD @ limit 28300.0"
+			  },
+			  "close": "close position @ stop loss 27000.0 -> limit 26000.0"
+			},
+			{
+			  "txid": "9K6KFS-5H3PL-XBRC7A",
+			  "descr": {
+				"order": "sell 0.10500000 XBTUSD @ limit 36000.0"
+			  }
+			}
+		  ]
+		}
+	}`
+	expectedCount := 2
+	expectedItem1Descr := "sell 0.10500000 XBTUSD @ limit 36000.0"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.AddOrderBatch(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.Len(suite.T(), resp.Result.Orders, expectedCount)
+	require.Equal(suite.T(), expectedItem1Descr, resp.Result.Orders[1].Description.Order)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, addOrderBatchPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), strconv.FormatBool(options.Validate), record.Request.Form.Get("validate"))
+	require.Equal(suite.T(), options.Deadline.Format(time.RFC3339), record.Request.Form.Get("deadline"))
+	require.Equal(suite.T(), params.Pair, record.Request.Form.Get("pair"))
+	for index, iorder := range params.Orders {
+		require.Equal(suite.T(), strconv.FormatInt(*iorder.UserReference, 10), record.Request.Form.Get(fmt.Sprintf("orders[%d][%s]", index, "userref")))
+		require.Equal(suite.T(), iorder.OrderType, record.Request.Form.Get(fmt.Sprintf("orders[%d][%s]", index, "ordertype")))
+		require.Equal(suite.T(), iorder.Type, record.Request.Form.Get(fmt.Sprintf("orders[%d][%s]", index, "type")))
+		require.Equal(suite.T(), iorder.Volume, record.Request.Form.Get(fmt.Sprintf("orders[%d][%s]", index, "volume")))
+		require.Equal(suite.T(), iorder.DisplayedVolume, record.Request.Form.Get(fmt.Sprintf("orders[%d][%s]", index, "displayvol")))
+		require.Equal(suite.T(), iorder.Price, record.Request.Form.Get(fmt.Sprintf("orders[%d][%s]", index, "price")))
+		require.Equal(suite.T(), iorder.Price2, record.Request.Form.Get(fmt.Sprintf("orders[%d][%s]", index, "price2")))
+		require.Equal(suite.T(), iorder.Trigger, record.Request.Form.Get(fmt.Sprintf("orders[%d][%s]", index, "trigger")))
+		require.Equal(suite.T(), iorder.Leverage, record.Request.Form.Get(fmt.Sprintf("orders[%d][%s]", index, "leverage")))
+		require.Equal(suite.T(), strconv.FormatBool(iorder.ReduceOnly), record.Request.Form.Get(fmt.Sprintf("orders[%d][%s]", index, "reduce_only")))
+		require.Equal(suite.T(), iorder.StpType, record.Request.Form.Get(fmt.Sprintf("orders[%d][%s]", index, "stptype")))
+		require.Equal(suite.T(), iorder.OrderFlags, record.Request.Form.Get(fmt.Sprintf("orders[%d][%s]", index, "oflags")))
+		require.Equal(suite.T(), iorder.TimeInForce, record.Request.Form.Get(fmt.Sprintf("orders[%d][%s]", index, "timeinforce")))
+		require.Equal(suite.T(), iorder.ScheduledStartTime, record.Request.Form.Get(fmt.Sprintf("orders[%d][%s]", index, "starttm")))
+		require.Equal(suite.T(), iorder.ExpirationTime, record.Request.Form.Get(fmt.Sprintf("orders[%d][%s]", index, "expiretm")))
+		require.Equal(suite.T(), iorder.Close.OrderType, record.Request.Form.Get(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "ordertype")))
+		require.Equal(suite.T(), iorder.Close.Price, record.Request.Form.Get(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "price")))
+		require.Equal(suite.T(), iorder.Close.Price2, record.Request.Form.Get(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "price2")))
+	}
+}
+
+// Test EditOrder when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestEditOrder() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := trading.EditOrderRequestParameters{
+		Pair: "XXBTZUSD",
+		Id:   "OHYO67-6LP66-HMQ437",
+	}
+
+	// Expected options
+	options := &trading.EditOrderRequestOptions{
+		NewUserReference: "5",
+		NewVolume:        "5",
+		Price:            "42",
+		Price2:           "42",
+		OFlags:           []string{string(account.OFlagFeeInBase)},
+		Validate:         true,
+		CancelResponse:   true,
+		Deadline:         time.Now().UTC().Add(15 * time.Second),
+	}
+
+	// Expected API response from API documentation
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "status": "ok",
+		  "txid": "OFVXHJ-KPQ3B-VS7ELA",
+		  "originaltxid": "OHYO67-6LP66-HMQ437",
+		  "volume": "0.00030000",
+		  "price": "19500.0",
+		  "price2": "32500.0",
+		  "orders_cancelled": 1,
+		  "descr": {
+			"order": "buy 0.00030000 XXBTZGBP @ limit 19500.0"
+		  }
+		}
+	}`
+	expectedOrderDescr := "buy 0.00030000 XXBTZGBP @ limit 19500.0"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.EditOrder(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.Equal(suite.T(), expectedOrderDescr, resp.Result.Description.Order)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, editOrderPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), params.Pair, record.Request.Form.Get("pair"))
+	require.Equal(suite.T(), params.Id, record.Request.Form.Get("txid"))
+	require.Equal(suite.T(), options.NewUserReference, record.Request.Form.Get("userref"))
+	require.Equal(suite.T(), options.NewVolume, record.Request.Form.Get("volume"))
+	require.Equal(suite.T(), options.NewDisplayedVolume, record.Request.Form.Get("displayvol"))
+	require.Equal(suite.T(), options.Price, record.Request.Form.Get("price"))
+	require.Equal(suite.T(), options.Price2, record.Request.Form.Get("price2"))
+	require.Equal(suite.T(), strings.Join(options.OFlags, ","), record.Request.Form.Get("oflags"))
+	require.Equal(suite.T(), strconv.FormatBool(options.CancelResponse), record.Request.Form.Get("cancel_response"))
+	require.Equal(suite.T(), strconv.FormatBool(options.Validate), record.Request.Form.Get("validate"))
+	require.Equal(suite.T(), options.Deadline.Format(time.RFC3339), record.Request.Form.Get("deadline"))
+}
+
+// Test CancelOrder when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestCancelOrder() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := trading.CancelOrderRequestParameters{
+		Id: "OHYO67-6LP66-HMQ437",
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "count": 1
+		}
+	}`
+	expectedCountCount := 1
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.CancelOrder(context.Background(), expectedNonce, params, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.Equal(suite.T(), expectedCountCount, resp.Result.Count)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, cancelOrderPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), params.Id, record.Request.Form.Get("txid"))
+}
+
+// Test CancelAllOrders when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestCancelAllOrders() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "count": 4
+		}
+	}`
+	expectedCountCount := 4
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.CancelAllOrders(context.Background(), expectedNonce, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.Equal(suite.T(), expectedCountCount, resp.Result.Count)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, cancelAllOrdersPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+}
+
+// Test CancelAllOrdersAfterX when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestCancelAllOrdersAfterX() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := trading.CancelAllOrdersAfterXRequestParameters{
+		Timeout: 60,
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "currentTime": "2023-03-24T17:41:56Z",
+		  "triggerTime": "2023-03-24T17:42:56Z"
+		}
+	}`
+	expectedCurrentTime := "2023-03-24T17:41:56Z"
+	expectedTriggerTime := "2023-03-24T17:42:56Z"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.CancelAllOrdersAfterX(context.Background(), expectedNonce, params, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.Equal(suite.T(), expectedCurrentTime, resp.Result.CurrentTime.Format(time.RFC3339))
+	require.Equal(suite.T(), expectedTriggerTime, resp.Result.TriggerTime.Format(time.RFC3339))
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, cancelAllOrdersPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), strconv.FormatInt(params.Timeout, 10), record.Request.Form.Get("timeout"))
+}
+
+// Test CancelOrderBatch when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestCancelOrderBatch() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := trading.CancelOrderBatchRequestParameters{
+		OrderIds: []string{"1", "2", "3"},
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "count": 3
+		}
+	}`
+	expectedCount := 3
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.CancelOrderBatch(context.Background(), expectedNonce, params, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.Equal(suite.T(), expectedCount, resp.Result.Count)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, cancelOrderBatchPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), strings.Join(params.OrderIds, ","), record.Request.Form.Get("orders"))
+}
 
 // /*****************************************************************************/
 // /* UNIT TESTS - USER FUNDING												 */
