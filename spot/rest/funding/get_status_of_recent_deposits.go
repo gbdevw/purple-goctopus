@@ -63,7 +63,7 @@ type GetStatusOfRecentDepositsResult struct {
 	// Provides next input to use for cursor in pagination.
 	NextCursor string `json:"next_cursor,omitempty"`
 	// Listed deposits
-	Deposits []Deposit `json:"deposit"`
+	Deposits []*Deposit `json:"deposit"`
 }
 
 // GetStatusOfRecentDeposits response

@@ -70,5 +70,5 @@ type GetDepositMethodsRequestParameters struct {
 // Response returned by GetDepositMethods
 type GetDepositMethodsResponse struct {
 	common.KrakenSpotRESTResponse
-	Result []DepositMethod `json:"result"`
+	Result []*DepositMethod `json:"result"`
 }

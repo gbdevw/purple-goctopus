@@ -44,5 +44,5 @@ type WithdrawalAddress struct {
 // GetWithdrawalAddresses response
 type GetWithdrawalAddressesResponse struct {
 	common.KrakenSpotRESTResponse
-	Result []WithdrawalAddress `json:"result,omitempty"`
+	Result []*WithdrawalAddress `json:"result,omitempty"`
 }

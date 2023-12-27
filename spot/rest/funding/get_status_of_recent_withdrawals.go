@@ -67,5 +67,5 @@ type Withdrawal struct {
 type GetStatusOfRecentWithdrawalsResponse struct {
 	common.KrakenSpotRESTResponse
 	// Recent withdrawals
-	Result []Withdrawal `json:"result"`
+	Result []*Withdrawal `json:"result"`
 }
