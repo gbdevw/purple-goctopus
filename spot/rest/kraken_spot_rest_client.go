@@ -3065,7 +3065,7 @@ func (client *KrakenSpotRESTClient) GetStatusOfRecentWithdrawals(ctx context.Con
 			form.Set("asset", opts.Asset)
 		}
 		if opts.Method != "" {
-			form.Set("max_fee", opts.Method)
+			form.Set("method", opts.Method)
 		}
 		if opts.Start != "" {
 			form.Set("start", opts.Start)
