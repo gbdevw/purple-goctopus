@@ -15,6 +15,7 @@ import (
 	"github.com/gbdevw/gosette"
 	"github.com/gbdevw/purple-goctopus/spot/rest/account"
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
+	"github.com/gbdevw/purple-goctopus/spot/rest/funding"
 	"github.com/gbdevw/purple-goctopus/spot/rest/market"
 	"github.com/gbdevw/purple-goctopus/spot/rest/trading"
 	"github.com/hashicorp/go-retryablehttp"
@@ -3362,1309 +3363,824 @@ func (suite *KrakenSpotRESTClientTestSuite) TestCancelOrderBatch() {
 	require.Equal(suite.T(), strings.Join(params.OrderIds, ","), record.Request.Form.Get("orders"))
 }
 
-// /*****************************************************************************/
-// /* UNIT TESTS - USER FUNDING												 */
-// /*****************************************************************************/
-
-// // Test Get Deposit Methods - Empty limit
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetDepositMethodsEmptyLimit() {
-
-// 	// Test parameters
-// 	asset := "XXBT"
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": [
-// 			{
-// 				"method": "Bitcoin Lightning",
-// 				"limit": false,
-// 				"fee": "0.000000000"
-// 			}
-// 		]
-// 	}`
-
-// 	expectedMethod := "Bitcoin Lightning"
-// 	expectedFee := "0.000000000"
-// 	expectedAddrSetupFee := ""
-// 	expectedGenAddr := ""
-// 	expectedLimit := "false"
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetDepositMethods(GetDepositMethodsParameters{Asset: asset}, nil)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response decoded by client : %#v", resp)
-
-// 	// Check request body contains asset
-// 	require.Equal(suite.T(), asset, req.Form.Get("asset"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), 1, len(resp.Result))
-// 	require.Equal(suite.T(), expectedMethod, (resp.Result)[0].Method)
-// 	require.Equal(suite.T(), expectedLimit, (resp.Result)[0].Limit)
-// 	require.Equal(suite.T(), expectedFee, (resp.Result)[0].Fee)
-// 	require.Equal(suite.T(), expectedAddrSetupFee, (resp.Result)[0].AddressSetupFee)
-// 	require.Equal(suite.T(), expectedGenAddr, (resp.Result)[0].GenAddress)
-// }
-
-// // Test Get Deposit Methods - Predefined limit
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetDepositMethodsFloatLimit() {
-
-// 	// Test parameters
-// 	asset := "XXBT"
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": [
-// 			{
-// 				"method": "Bitcoin",
-// 				"limit": "342.42",
-// 				"fee": "4",
-// 				"address-setup-fee": "1.2",
-// 				"gen-address": true
-// 			}
-// 		]
-// 	}`
-
-// 	expectedLimit := "342.42"
-// 	expectedMethod := "Bitcoin"
-// 	expectedFee := "4"
-// 	expectedAddrSetupFee := "1.2"
-// 	expectedGenAddr := "true"
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetDepositMethods(GetDepositMethodsParameters{Asset: asset}, nil)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response decoded by client : %#v", resp)
-
-// 	// Check request body contains asset
-// 	require.Equal(suite.T(), asset, req.Form.Get("asset"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), 1, len(resp.Result))
-// 	require.Equal(suite.T(), expectedMethod, (*resp).Result[0].Method)
-// 	require.Equal(suite.T(), expectedLimit, (*resp).Result[0].Limit)
-// 	require.Equal(suite.T(), expectedFee, (*resp).Result[0].Fee)
-// 	require.Equal(suite.T(), expectedAddrSetupFee, (*resp).Result[0].AddressSetupFee)
-// 	require.Equal(suite.T(), expectedGenAddr, (*resp).Result[0].GenAddress)
-// }
-
-// // Test Get Deposit Methods - No limit field
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetDepositMethodsNoLimit() {
-
-// 	// Test parameters
-// 	asset := "XXBT"
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": [
-// 			{
-// 				"method": "Bitcoin",
-// 				"fee": "4",
-// 				"address-setup-fee": "1.2",
-// 				"gen-address": true
-// 			}
-// 		]
-// 	}`
-
-// 	expectedMethod := "Bitcoin"
-// 	expectedFee := "4"
-// 	expectedAddrSetupFee := "1.2"
-// 	expectedGenAddr := "true"
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetDepositMethods(GetDepositMethodsParameters{Asset: asset}, nil)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response decoded by client : %#v", resp)
-
-// 	// Check request body contains asset
-// 	require.Equal(suite.T(), asset, req.Form.Get("asset"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), 1, len(resp.Result))
-// 	require.Equal(suite.T(), expectedMethod, (*resp).Result[0].Method)
-// 	require.Empty(suite.T(), (*resp).Result[0].Limit)
-// 	require.Equal(suite.T(), expectedFee, (*resp).Result[0].Fee)
-// 	require.Equal(suite.T(), expectedAddrSetupFee, (*resp).Result[0].AddressSetupFee)
-// 	require.Equal(suite.T(), expectedGenAddr, (*resp).Result[0].GenAddress)
-// }
-
-// // Test Get Deposit Addresses - Happy path
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetDepositAddressesHappyPath() {
-
-// 	// Test parameters
-// 	asset := "XXBT"
-// 	method := "Bitcoin"
-// 	new := true
-// 	otp := "NOPE"
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": [
-// 			{
-// 				"address": "2N9fRkx5JTWXWHmXzZtvhQsufvoYRMq9ExV",
-// 				"expiretm": "0",
-// 				"new": true
-// 			},
-// 			{
-// 				"address": "2NCpXUCEYr8ur9WXM1tAjZSem2w3aQeTcAo",
-// 				"expiretm": "1658736768",
-// 				"new": false
-// 			},
-// 			{
-// 				"address": "2Myd4eaAW96ojk38A2uDK4FbioCayvkEgVq",
-// 				"expiretm": "0"
-// 			}
-// 		]
-// 	}`
-
-// 	expectedAddressesLen := 3
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetDepositAddresses(
-// 		GetDepositAddressesParameters{Asset: asset, Method: method},
-// 		&GetDepositAddressesOptions{New: new},
-// 		&SecurityOptions{SecondFactor: otp})
-
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response decoded by client : %#v", resp)
-
-// 	// Check request body
-// 	require.Equal(suite.T(), asset, req.Form.Get("asset"))
-// 	require.Equal(suite.T(), method, req.Form.Get("method"))
-// 	require.Equal(suite.T(), strconv.FormatBool(new), req.Form.Get("new"))
-// 	require.Equal(suite.T(), otp, req.Form.Get("otp"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expectedAddressesLen, len(resp.Result))
-// 	for i, v := range resp.Result {
-// 		require.NotEmpty(suite.T(), v.Address)
-// 		require.GreaterOrEqual(suite.T(), v.Expiretm, int64(0))
-// 		if i == 0 {
-// 			require.True(suite.T(), v.New)
-// 		} else {
-// 			require.False(suite.T(), v.New)
-// 		}
-// 	}
-// }
-
-// // Test Get Status of Recent Deposits - Happy path
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetStatusOfRecentDepositsHappyPath() {
-
-// 	// Test parameters
-// 	asset := "XXBT"
-// 	method := "Bitcoin"
-// 	otp := "Nope"
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": [
-// 			{
-// 				"method": "Bitcoin",
-// 				"aclass": "currency",
-// 				"asset": "XXBT",
-// 				"refid": "AGBSO6T-UFMTTQ-I7KGS6",
-// 				"txid": "AGBSO6T-UFMTTQ-I7KGS6",
-// 				"info": "SEPA",
-// 				"amount": "1.42",
-// 				"fee": null,
-// 				"time": 1658736768,
-// 				"status": "Initial",
-// 				"status-prop": "return"
-// 			}
-// 		]
-// 	}`
-
-// 	expectedAClass := "currency"
-// 	expectedRefID := "AGBSO6T-UFMTTQ-I7KGS6"
-// 	expectedTxID := "AGBSO6T-UFMTTQ-I7KGS6"
-// 	expectedInfo := "SEPA"
-// 	expectedAmount := "1.42"
-// 	expectedFee := ""
-// 	expectedTime := int64(1658736768)
-// 	expectedStatus := TxStateInitial
-// 	expectedStatusProp := TxStatusReturn
-// 	expectedAddressesLen := 1
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetStatusOfRecentDeposits(
-// 		GetStatusOfRecentDepositsParameters{Asset: asset},
-// 		&GetStatusOfRecentDepositsOptions{Method: method},
-// 		&SecurityOptions{SecondFactor: otp})
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response decoded by client : %#v", resp)
-
-// 	// Check request body
-// 	require.Equal(suite.T(), asset, req.Form.Get("asset"))
-// 	require.Equal(suite.T(), method, req.Form.Get("method"))
-// 	require.Equal(suite.T(), otp, req.Form.Get("otp"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expectedAddressesLen, len(resp.Result))
-// 	for _, v := range resp.Result {
-// 		require.Equal(suite.T(), method, v.Method)
-// 		require.Equal(suite.T(), expectedAClass, v.AssetClass)
-// 		require.Equal(suite.T(), asset, v.Asset)
-// 		require.Equal(suite.T(), expectedRefID, v.ReferenceID)
-// 		require.Equal(suite.T(), expectedTxID, v.TransactionID)
-// 		require.Equal(suite.T(), expectedInfo, v.Info)
-// 		require.Equal(suite.T(), expectedAmount, v.Amount)
-// 		require.Equal(suite.T(), expectedFee, v.Fee)
-// 		require.Equal(suite.T(), expectedTime, v.Time)
-// 		require.Equal(suite.T(), expectedStatus, v.Status)
-// 		require.Equal(suite.T(), expectedStatusProp, v.StatusProperty)
-// 	}
-// }
-
-// // Test Get Withdrawal Information - Happy path
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetWithdrawalInformationHappyPath() {
-
-// 	// Test parameters
-// 	asset := "XXBT"
-// 	amount := "42.999999"
-// 	key := "withdrawal_address"
-// 	otp := "Nope"
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 			"method": "Bitcoin",
-// 			"limit": "332.00956139",
-// 			"amount": "42.999999",
-// 			"fee": "0.00015000"
-// 		}
-// 	}`
-
-// 	expectedFee := "0.00015000"
-// 	expectedLimit := "332.00956139"
-// 	expectedMethod := "Bitcoin"
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetWithdrawalInformation(
-// 		GetWithdrawalInformationParameters{Asset: asset, Amount: amount, Key: key},
-// 		&SecurityOptions{SecondFactor: otp})
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response decoded by client : %#v", resp)
-
-// 	// Check request body
-// 	require.Equal(suite.T(), asset, req.Form.Get("asset"))
-// 	require.Equal(suite.T(), amount, req.Form.Get("amount"))
-// 	require.Equal(suite.T(), key, req.Form.Get("key"))
-// 	require.Equal(suite.T(), otp, req.Form.Get("otp"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expectedMethod, resp.Result.Method)
-// 	require.Equal(suite.T(), amount, resp.Result.Amount)
-// 	require.Equal(suite.T(), expectedFee, resp.Result.Fee)
-// 	require.Equal(suite.T(), expectedLimit, resp.Result.Limit)
-// }
-
-// // Test Withdraw Funds - Happy path
-// func (suite *KrakenAPIClientUnitTestSuite) TestWithdrawFundsHappyPath() {
-
-// 	// Test parameters
-// 	asset := "XXBT"
-// 	waddrn := "nevermind"
-// 	amount := "42.999999"
-// 	otp := "NOPE"
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 			"refid": "AGBSO6T-UFMTTQ-I7KGS6"
-// 		}
-// 	}`
-
-// 	expectedRefID := "AGBSO6T-UFMTTQ-I7KGS6"
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.WithdrawFunds(
-// 		WithdrawFundsParameters{Asset: asset, Amount: amount, Key: waddrn},
-// 		&SecurityOptions{SecondFactor: otp})
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response decoded by client : %#v", resp)
-
-// 	// Check request body
-// 	require.Equal(suite.T(), asset, req.Form.Get("asset"))
-// 	require.Equal(suite.T(), amount, req.Form.Get("amount"))
-// 	require.Equal(suite.T(), waddrn, req.Form.Get("key"))
-// 	require.Equal(suite.T(), otp, req.Form.Get("otp"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expectedRefID, resp.Result.ReferenceID)
-// }
-
-// // Test Get Status of Recent Withdrawal - Happy path
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetStatusOfRecentWithdrawalsHappyPath() {
-
-// 	// Test parameters
-// 	asset := "XXBT"
-// 	method := "Bitcoin"
-// 	otp := "NOPE"
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": [
-// 			{
-// 				"method": "Bitcoin",
-// 				"aclass": "currency",
-// 				"asset": "XXBT",
-// 				"refid": "AGBZNBO-5P2XSB-RFVF6J",
-// 				"txid": "THVRQM-33VKH-UCI7BS",
-// 				"info": "mzp6yUVMRxfasyfwzTZjjy38dHqMX7Z3GR",
-// 				"amount": "0.72485000",
-// 				"fee": "0.00015000",
-// 				"time": 1617014586,
-// 				"status": "Pending"
-// 			},
-// 			{
-// 				"method": "Bitcoin",
-// 				"aclass": "currency",
-// 				"asset": "XXBT",
-// 				"refid": "AGBSO6T-UFMTTQ-I7KGS6",
-// 				"txid": "KLETXZ-33VKH-UCI7BS",
-// 				"info": "mzp6yUVMRxfasyfwzTZjjy38dHqMX7Z3GR",
-// 				"amount": "0.72485000",
-// 				"fee": "0.00015000",
-// 				"time": 1617015423,
-// 				"status": "Failure",
-// 				"status-prop": "canceled"
-// 			}
-// 		]
-// 	}`
-
-// 	expectedResultLen := 2
-// 	expectedAClass := "currency"
-// 	expectedInfo := "mzp6yUVMRxfasyfwzTZjjy38dHqMX7Z3GR"
-// 	expectedAmount := "0.72485000"
-// 	expectedFee := "0.00015000"
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetStatusOfRecentWithdrawals(
-// 		GetStatusOfRecentWithdrawalsParameters{Asset: asset},
-// 		&GetStatusOfRecentWithdrawalsOptions{Method: method},
-// 		&SecurityOptions{SecondFactor: otp})
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response decoded by client : %#v", resp)
-
-// 	// Check request body
-// 	require.Equal(suite.T(), asset, req.Form.Get("asset"))
-// 	require.Equal(suite.T(), method, req.Form.Get("method"))
-// 	require.Equal(suite.T(), otp, req.Form.Get("otp"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expectedResultLen, len(resp.Result))
-// 	for _, v := range resp.Result {
-// 		require.Equal(suite.T(), method, v.Method)
-// 		require.Equal(suite.T(), expectedAClass, v.AssetClass)
-// 		require.Equal(suite.T(), asset, v.Asset)
-// 		require.NotEmpty(suite.T(), v.ReferenceID)
-// 		require.NotEmpty(suite.T(), v.TransactionID)
-// 		require.Equal(suite.T(), expectedInfo, v.Info)
-// 		require.Equal(suite.T(), expectedAmount, v.Amount)
-// 		require.Equal(suite.T(), expectedFee, v.Fee)
-// 		require.GreaterOrEqual(suite.T(), v.Time, int64(0))
-// 		require.True(suite.T(), v.Status == TxStatePending || v.Status == TxStateFailure)
-// 		require.True(suite.T(), v.StatusProperty == "" || v.StatusProperty == TxCanceled)
-// 	}
-// }
-
-// // Test Request Withdrawal Cancellation - Happy path
-// func (suite *KrakenAPIClientUnitTestSuite) TestRequestWithdrawalCancellationHappyPath() {
-
-// 	// Test parameters
-// 	asset := "XXBT"
-// 	refid := "AGBZNBO-5P2XSB-RFVF6J"
-// 	otp := "NOPE"
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": true
-// 	}`
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.RequestWithdrawalCancellation(
-// 		RequestWithdrawalCancellationParameters{Asset: asset, ReferenceId: refid},
-// 		&SecurityOptions{SecondFactor: otp})
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response decoded by client : %#v", resp)
-
-// 	// Check request body
-// 	require.Equal(suite.T(), asset, req.Form.Get("asset"))
-// 	require.Equal(suite.T(), refid, req.Form.Get("refid"))
-// 	require.Equal(suite.T(), otp, req.Form.Get("otp"))
-
-// 	// Check response
-// 	require.True(suite.T(), resp.Result)
-// }
-
-// // Test Request Wallet Transfer - Happy path
-// func (suite *KrakenAPIClientUnitTestSuite) TestRequestWalletTransferHappyPath() {
-
-// 	// Test parameters
-// 	asset := "XXBT"
-// 	from := "Spot Wallet"
-// 	to := "Future Wallet"
-// 	amount := "42.24"
-// 	otp := "NOPE"
-
-// 	// Expected API response from API documentation
-// 	expectedJSONResponse := `{
-// 		"error": [],
-// 		"result": {
-// 			"refid": "BOG5AE5-KSCNR4-VPNPEV"
-// 		}
-// 	}`
-
-// 	expectedRefID := "BOG5AE5-KSCNR4-VPNPEV"
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.RequestWalletTransfer(
-// 		RequestWalletTransferParameters{Asset: asset, From: from, To: to, Amount: amount},
-// 		&SecurityOptions{SecondFactor: otp})
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response decoded by client : %#v", resp)
-
-// 	// Check request body
-// 	require.Equal(suite.T(), asset, req.Form.Get("asset"))
-// 	require.Equal(suite.T(), from, req.Form.Get("from"))
-// 	require.Equal(suite.T(), to, req.Form.Get("to"))
-// 	require.Equal(suite.T(), amount, req.Form.Get("amount"))
-// 	require.Equal(suite.T(), otp, req.Form.Get("otp"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expectedRefID, resp.Result.ReferenceID)
-// }
-
-// /*****************************************************************************/
-// /* USER STAKING TESTS                                                        */
-// /*****************************************************************************/
-
-// // TestStakeAssetHappyPath is a unit test for Stake Asset. The test will succeed
-// // if client send a valid request and if a valid predefined response from server
-// // is well handled by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestStakeAssetHappyPath() {
-
-// 	// Test params
-// 	params := StakeAssetParameters{
-// 		Asset:  "XXBT",
-// 		Amount: "0.01",
-// 		Method: "offchain",
-// 	}
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "NOPE",
-// 	}
-
-// 	// Server response
-// 	expectedJSONResponse := `
-// 	{
-// 		"error": [ ],
-// 		"result": {
-// 		"refid": "BOG5AE5-KSCNR4-VPNPEV"
-// 		}
-// 	}`
-
-// 	expResp := &StakeAssetResponse{
-// 		KrakenAPIResponse: KrakenAPIResponse{Error: []string{}},
-// 		Result: struct {
-// 			ReferenceID string "json:\"refid\""
-// 		}{ReferenceID: "BOG5AE5-KSCNR4-VPNPEV"},
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.StakeAsset(params, &secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response decoded by client : %#v", resp)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postStakeAsset)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-// 	require.Equal(suite.T(), params.Asset, req.Form.Get("asset"))
-// 	require.Equal(suite.T(), params.Amount, req.Form.Get("amount"))
-// 	require.Equal(suite.T(), params.Method, req.Form.Get("method"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expResp, resp)
-// }
-
-// // TestStakeAssetErrPath is a unit test for Stake Asset. The test will succeed
-// // if an error response from server is well handled by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestStakeAssetErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.StakeAsset(StakeAssetParameters{}, nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Error(suite.T(), err)
-// 	require.Nil(suite.T(), resp)
-// }
-
-// // TestUnstakeAssetHappyPath is a unit test for Unstake Asset. The test will succeed
-// // if client send a valid request and if a valid predefined response from server
-// // is well handled by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestUnstakeAssetHappyPath() {
-
-// 	// Test params
-// 	params := UnstakeAssetParameters{
-// 		Asset:  "XXBT",
-// 		Amount: "0.01",
-// 	}
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "NOPE",
-// 	}
-
-// 	// Server response
-// 	expectedJSONResponse := `
-// 	{
-// 		"error": [ ],
-// 		"result": {
-// 		"refid": "BOG5AE5-KSCNR4-VPNPEV"
-// 		}
-// 	}`
-
-// 	expResp := &UnstakeAssetResponse{
-// 		KrakenAPIResponse: KrakenAPIResponse{Error: []string{}},
-// 		Result: struct {
-// 			ReferenceID string "json:\"refid\""
-// 		}{ReferenceID: "BOG5AE5-KSCNR4-VPNPEV"},
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.UnstakeAsset(params, &secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response decoded by client : %#v", resp)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postUnstakeAsset)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-// 	require.Equal(suite.T(), params.Asset, req.Form.Get("asset"))
-// 	require.Equal(suite.T(), params.Amount, req.Form.Get("amount"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expResp, resp)
-// }
-
-// // TestUnstakeAssetErrPath is a unit test for Unstake Asset. The test will succeed
-// // if an error response from server is well handled by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestUnstakeAssetErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.UnstakeAsset(UnstakeAssetParameters{}, nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Error(suite.T(), err)
-// 	require.Nil(suite.T(), resp)
-// }
-
-// // TestListOfStakeableAssetsHappyPath is a unit test for List Of Stakeable Assets.
-// // Test will succeed if client send a valid request and if a valid predefined
-// // response from server is well handled by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestListOfStakeableAssetsHappyPath() {
-
-// 	// Test params
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "NOPE",
-// 	}
-
-// 	// Server response
-// 	expectedJSONResponse := `
-// 	{
-// 		"result": [
-// 			{
-// 				"method": "fake",
-// 				"asset": "FAKE",
-// 				"staking_asset": "FAKE.S",
-// 				"rewards": {
-// 			  		"reward": "99.95",
-// 			  		"type": "percentage"
-// 				},
-// 				"on_chain": false,
-// 				"can_stake": false,
-// 				"can_unstake": false,
-// 				"minimum_amount": {
-// 				  	"staking": "0.0000000000",
-// 				  	"unstaking": "0.0000000000"
-// 				},
-// 				"lock": {
-// 					"staking": {
-// 						"days": 0.5,
-// 						"percentage": 42.42
-// 					},
-// 					"unstaking": {
-// 						"days": 0.5,
-// 						"percentage": 42.42
-// 					},
-// 					"lockup": {
-// 						"days": 0.5,
-// 						"percentage": 42.42
-// 					}
-// 				},
-// 				"enabled_for_user": false,
-// 				"disabled": true
-// 		  	},
-// 		  	{
-// 				"method": "kusama-staked",
-// 				"asset": "KSM",
-// 				"staking_asset": "KSM.S",
-// 				"rewards": {
-// 				 	"reward": "12.00",
-// 			  		"type": "percentage"
-// 				}
-// 		  	},
-// 			{
-// 				"method": "nope",
-// 				"asset": "NOPE",
-// 				"staking_asset": "NOPE.S",
-// 				"rewards": {
-// 				 	"reward": "12.00",
-// 			  		"type": "percentage"
-// 				},
-// 				"minimum_amount": {},
-// 				"lock": {}
-// 		  	}
-// 		],
-// 		"error": []
-// 	}`
-
-// 	expData := ListOfStakeableAssetsResponse{
-// 		Result: []StakingAssetInformation{
-// 			{
-// 				Asset:        "FAKE",
-// 				StakingAsset: "FAKE.S",
-// 				Method:       "fake",
-// 				OnChain:      false,
-// 				CanStake:     false,
-// 				CanUnstake:   false,
-// 				MinAmount: &StakingAssetMinAmount{
-// 					Unstaking: "0.0000000000",
-// 					Staking:   "0.0000000000",
-// 				},
-// 				Lock: &StakingAssetLockup{
-// 					Unstaking: &StakingAssetLockPeriod{
-// 						Days:       0.5,
-// 						Percentage: 42.42,
-// 					},
-// 					Staking: &StakingAssetLockPeriod{
-// 						Days:       0.5,
-// 						Percentage: 42.42,
-// 					},
-// 					Lockup: &StakingAssetLockPeriod{
-// 						Days:       0.5,
-// 						Percentage: 42.42,
-// 					},
-// 				},
-// 				EnabledForUser: false,
-// 				Disabled:       true,
-// 				Rewards: StakingAssetReward{
-// 					Reward: "99.95",
-// 					Type:   "percentage",
-// 				},
-// 			},
-// 			{
-// 				Asset:          "KSM",
-// 				StakingAsset:   "KSM.S",
-// 				Method:         "kusama-staked",
-// 				OnChain:        true,
-// 				CanStake:       true,
-// 				CanUnstake:     true,
-// 				MinAmount:      nil,
-// 				Lock:           nil,
-// 				EnabledForUser: true,
-// 				Disabled:       false,
-// 				Rewards: StakingAssetReward{
-// 					Reward: "12.00",
-// 					Type:   "percentage",
-// 				},
-// 			},
-// 			{
-// 				Asset:        "NOPE",
-// 				StakingAsset: "NOPE.S",
-// 				Method:       "nope",
-// 				OnChain:      true,
-// 				CanStake:     true,
-// 				CanUnstake:   true,
-// 				MinAmount: &StakingAssetMinAmount{
-// 					Unstaking: "0",
-// 					Staking:   "0",
-// 				},
-// 				Lock:           &StakingAssetLockup{},
-// 				EnabledForUser: true,
-// 				Disabled:       false,
-// 				Rewards: StakingAssetReward{
-// 					Reward: "12.00",
-// 					Type:   "percentage",
-// 				},
-// 			},
-// 		},
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.ListOfStakeableAssets(&secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response decoded by client : %#v", resp)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postListOfStakeableAssets)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expData.Result, resp.Result)
-// }
-
-// // TestListOfStakeableAssetsErrPath is a unit test for List Of Stakeable Assets. Test
-// // will succeed if an error response from server is well handled by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestListOfStakeableAssetsErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.ListOfStakeableAssets(nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Error(suite.T(), err)
-// 	require.Nil(suite.T(), resp)
-// }
-
-// // TestGetPendingStackingTransactionsHappyPath is a unit test for Get Pending Stacking
-// // Transactions. Test will succeed if client sends a valid request and if a valid server
-// // response is well handled by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetPendingStackingTransactionsHappyPath() {
-
-// 	// Test params
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "NOPE",
-// 	}
-
-// 	// Server response
-// 	expectedJSONResponse := `
-// 	{
-// 		"result": [
-// 			{
-// 				"method": "ada-staked",
-// 				"aclass": "currency",
-// 				"asset": "ADA.S",
-// 				"refid": "RUSB7W6-ESIXUX-K6PVTM",
-// 				"amount": "0.34844300",
-// 				"fee": "0.00000000",
-// 				"time": 1622967367,
-// 				"status": "Initial",
-// 				"type": "bonding"
-// 		 	},
-// 		  	{
-// 				"method": "xtz-staked",
-// 				"aclass": "currency",
-// 				"asset": "XTZ.S",
-// 				"refid": "RUCXX7O-6MWQBO-CQPGAX",
-// 				"amount": "0.00746900",
-// 				"fee": "0.00000000",
-// 				"time": 1623074402,
-// 				"status": "Initial",
-// 				"type": "bonding"
-// 		  	}
-// 		],
-// 		"error": []
-// 	  }`
-
-// 	expData := GetPendingStakingTransactionsResponse{
-// 		Result: []StakingTransactionInfo{
-// 			{
-// 				ReferenceId: "RUSB7W6-ESIXUX-K6PVTM",
-// 				Asset:       "ADA.S",
-// 				AssetClass:  "currency",
-// 				Type:        "bonding",
-// 				Method:      "ada-staked",
-// 				Amount:      "0.34844300",
-// 				Fee:         "0.00000000",
-// 				Timestamp:   1622967367,
-// 				Status:      "Initial",
-// 			},
-// 			{
-// 				ReferenceId: "RUCXX7O-6MWQBO-CQPGAX",
-// 				Asset:       "XTZ.S",
-// 				AssetClass:  "currency",
-// 				Type:        "bonding",
-// 				Method:      "xtz-staked",
-// 				Amount:      "0.00746900",
-// 				Fee:         "0.00000000",
-// 				Timestamp:   1623074402,
-// 				Status:      "Initial",
-// 			},
-// 		},
-// 	}
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetPendingStakingTransactions(&secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response decoded by client : %#v", resp)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postGetPendingStakingTransactions)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expData.Result, resp.Result)
-// }
-
-// // TestGetPendingStackingTransactionsErrPath is a unit test for Get Pending Stacking
-// // Transactions. Test will succeed if an error response from server is well handled
-// // by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestGetPendingStackingTransactionsErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.GetPendingStakingTransactions(nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Error(suite.T(), err)
-// 	require.Nil(suite.T(), resp)
-// }
-
-// // TestListOfStackingTransactionsHappyPath is a unit test for List Of Stacking Transactions.
-// // Test will succeed if client sends a valid request and if a valid server response is well
-// // handled by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestListOfStackingTransactionsHappyPath() {
-
-// 	// Test params
-// 	secopts := SecurityOptions{
-// 		SecondFactor: "NOPE",
-// 	}
-
-// 	// Server response
-// 	expectedJSONResponse := `
-// 	{
-// 		"result": [
-// 			{
-// 				"method": "ada-staked",
-// 				"aclass": "currency",
-// 				"asset": "ADA.S",
-// 				"refid": "RUSB7W6-ESIXUX-K6PVTM",
-// 				"amount": "0.34844300",
-// 				"fee": "0.00000000",
-// 				"time": 1622967367,
-// 				"status": "Initial",
-// 				"type": "bonding",
-// 				"bond_start": 1622971496,
-// 				"bond_end": 1622971496
-// 		 	},
-// 		  	{
-// 				"method": "xtz-staked",
-// 				"aclass": "currency",
-// 				"asset": "XTZ.S",
-// 				"refid": "RUCXX7O-6MWQBO-CQPGAX",
-// 				"amount": "0.00746900",
-// 				"fee": "0.00000000",
-// 				"time": 1623074402,
-// 				"status": "Initial",
-// 				"type": "bonding"
-// 		  	}
-// 		],
-// 		"error": []
-// 	  }`
-
-// 	expData := ListOfStakingTransactionsResponse{
-// 		Result: []StakingTransactionInfo{
-// 			{
-// 				ReferenceId: "RUSB7W6-ESIXUX-K6PVTM",
-// 				Asset:       "ADA.S",
-// 				AssetClass:  "currency",
-// 				Type:        "bonding",
-// 				Method:      "ada-staked",
-// 				Amount:      "0.34844300",
-// 				Fee:         "0.00000000",
-// 				Timestamp:   1622967367,
-// 				Status:      "Initial",
-// 				BondStart:   new(int64),
-// 				BondEnd:     new(int64),
-// 			},
-// 			{
-// 				ReferenceId: "RUCXX7O-6MWQBO-CQPGAX",
-// 				Asset:       "XTZ.S",
-// 				AssetClass:  "currency",
-// 				Type:        "bonding",
-// 				Method:      "xtz-staked",
-// 				Amount:      "0.00746900",
-// 				Fee:         "0.00000000",
-// 				Timestamp:   1623074402,
-// 				Status:      "Initial",
-// 				BondStart:   nil,
-// 				BondEnd:     nil,
-// 			},
-// 		},
-// 	}
-// 	*expData.Result[0].BondStart = 1622971496
-// 	*expData.Result[0].BondEnd = 1622971496
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status:  http.StatusOK,
-// 		Headers: http.Header{"Content-Type": []string{"application/json"}},
-// 		Body:    []byte(expectedJSONResponse),
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.ListOfStakingTransactions(&secopts)
-// 	require.NoError(suite.T(), err)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Log response
-// 	suite.T().Logf("Response decoded by client : %#v", resp)
-
-// 	// Check request
-// 	require.Equal(suite.T(), http.MethodPost, req.Method)
-// 	require.Contains(suite.T(), req.URL.Path, postListOfStakingTransactions)
-// 	require.Equal(suite.T(), "application/x-www-form-urlencoded", req.Header.Get(managedHeaderContentType))
-// 	require.Equal(suite.T(), suite.key, req.Header.Get(managedHeaderAPIKey))
-// 	require.NotEmpty(suite.T(), req.Header.Get(managedHeaderAPISign))
-// 	require.NotEmpty(suite.T(), req.Form.Get("nonce"))
-// 	require.Equal(suite.T(), secopts.SecondFactor, req.Form.Get("otp"))
-
-// 	// Check response
-// 	require.Equal(suite.T(), expData.Result, resp.Result)
-// }
-
-// // TestListOfStackingTransactionsErrPath is a unit test for List Of Stacking Transactions.
-// // Test will succeed if an error response from server is well handled by client.
-// func (suite *KrakenAPIClientUnitTestSuite) TestListOfStackingTransactionsErrPath() {
-
-// 	// Configure mock http server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: http.StatusBadRequest,
-// 	})
-
-// 	// Call API endpoint
-// 	resp, err := suite.client.ListOfStakingTransactions(nil)
-
-// 	// Log request
-// 	req := suite.srv.PopRecordedRequest()
-// 	suite.T().Logf("Request received by mock HTTP server from API client. Got %#v", req)
-
-// 	// Check response
-// 	require.Error(suite.T(), err)
-// 	require.Nil(suite.T(), resp)
-// }
-
-// /*****************************************************************************/
-// /* GENERAL API CLIENT TESTS                                                  */
-// /*****************************************************************************/
-
-// // Test if client implents client interface
-// func (suite *KrakenAPIClientUnitTestSuite) TestClientInterfaceImplemented() {
-
-// 	iface := reflect.TypeOf((*KrakenAPIClientIface)(nil)).Elem()
-// 	ok := reflect.TypeOf(suite.client).Implements(iface)
-// 	require.True(suite.T(), ok, "KranAPIClient does not fully implement KrakenAPIClient interface")
-// }
-
-// // Test when the client receives a 503 HTTP Error from server
-// func (suite *KrakenAPIClientUnitTestSuite) TestClientReceivesServiceUnavailableError() {
-
-// 	// Expected error status
-// 	expectedStatus := http.StatusServiceUnavailable
-
-// 	// Configure server
-// 	suite.srv.AddResponse(&mockhttpserver.ServerResponse{
-// 		Status: expectedStatus,
-// 	})
-
-// 	// Call API endpoint
-// 	_, err := suite.client.GetSystemStatus()
-// 	require.Error(suite.T(), err)
-// }
-
-// // Test when the client call a non existing server
-// func (suite *KrakenAPIClientUnitTestSuite) TestClientCallNotExistingServer() {
-
-// 	// Create client to non-existing endpoint
-// 	client := NewPublicWithOptions(&KrakenAPIClientOptions{BaseURL: "http://localhost:42422"})
-
-// 	// Call API endpoint
-// 	_, err := client.GetSystemStatus()
-// 	require.Error(suite.T(), err)
-// }
-
-// // Test when the client experience a request timeout
-// func (suite *KrakenAPIClientUnitTestSuite) TestClientRequestTimeout() {
-
-// 	// Create client with a timeout of 1 nanosecond
-// 	client := NewPublicWithOptions(&KrakenAPIClientOptions{
-// 		BaseURL: suite.srv.GetMockHTTPServerBaseURL(),
-// 		Client:  &http.Client{Timeout: time.Duration(1)},
-// 	})
-
-// 	// Call API endpoint
-// 	_, err := client.GetSystemStatus()
-// 	require.Error(suite.T(), err)
-// }
-
-// /*****************************************************************************/
-// /* UTILITY FUNCTION TESTS													 */
-// /*****************************************************************************/
-
-// // Test the method used to forge a signature for a request
-// func (suite *KrakenAPIClientUnitTestSuite) TestRequestSignature() {
-
-// 	// Signature parameters
-// 	secret, _ := base64.StdEncoding.DecodeString("kQH5HW/8p1uGOVjbgWA7FunAmGO8lsSUXNsu3eow76sz84Q18fWxnyRzBHCd3pd5nE9qa99HAZtuZuj6F1huXg==")
-// 	nonce := "1616492376594"
-// 	resource := "/0/private/AddOrder"
-// 	encodedPayload := make(url.Values)
-// 	encodedPayload.Set("nonce", nonce)
-// 	encodedPayload.Set("ordertype", "limit")
-// 	encodedPayload.Set("pair", "XBTUSD")
-// 	encodedPayload.Set("price", "37500")
-// 	encodedPayload.Set("type", "buy")
-// 	encodedPayload.Set("volume", "1.25")
-
-// 	// Expected signature - from documentation
-// 	// https://docs.kraken.com/rest/#section/Authentication/Headers-and-Signature
-// 	expected := "4/dpxb3iT4tp/ZCVEwSnEsLxx0bqyhLpdfOpc6fn7OR8+UClSV5n9E6aSS8MPtnRfp32bAb0nmbRn6H8ndwLUQ=="
-
-// 	// Forge & compare signature
-// 	require.Equal(suite.T(), expected, GetKrakenSignature(resource, encodedPayload, secret))
-// }
+/*************************************************************************************************/
+/* UNIT TESTS - FUNDING                                                                          */
+/*************************************************************************************************/
+
+// Test GetDepositMethods when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetDepositMethods() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := funding.GetDepositMethodsRequestParameters{
+		Asset: "XXBT",
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": [
+		  {
+			"method": "Bitcoin",
+			"limit": false,
+			"fee": "0.0000000000",
+			"gen-address": true,
+			"minimum": "0.00010000"
+		  },
+		  {
+			"method": "Bitcoin Lightning",
+			"limit": false,
+			"fee": "0.00000000",
+			"minimum": "0.00010000"
+		  }
+		]
+	}`
+	expectedCount := 2
+	expectedItem1Method := "Bitcoin Lightning"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetDepositMethods(context.Background(), expectedNonce, params, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Len(suite.T(), resp.Result, expectedCount)
+	require.NotNil(suite.T(), resp.Result[1].Method)
+	require.Equal(suite.T(), expectedItem1Method, resp.Result[1].Method)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getDepositMethodsPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), params.Asset, record.Request.Form.Get("asset"))
+}
+
+// Test GetDepositAddresses when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetDepositAddresses() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := funding.GetDepositAddressesRequestParameters{
+		Asset:  "XXBT",
+		Method: "Bitcoin Lightning",
+	}
+
+	// Expected options
+	options := &funding.GetDepositAddressesRequestOptions{
+		New:    true,
+		Amount: "0.1",
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": [
+		  {
+			"address": "2N9fRkx5JTWXWHmXzZtvhQsufvoYRMq9ExV",
+			"expiretm": "0",
+			"new": true
+		  },
+		  {
+			"address": "2NCpXUCEYr8ur9WXM1tAjZSem2w3aQeTcAo",
+			"expiretm": "0",
+			"new": true
+		  },
+		  {
+			"address": "2Myd4eaAW96ojk38A2uDK4FbioCayvkEgVq",
+			"expiretm": "0"
+		  },
+		  {
+			"address": "rLHzPsX3oXdzU2qP17kHCH2G4csZv1rAJh",
+			"expiretm": "0",
+			"new": true,
+			"tag": "1361101127"
+		  },
+		  {
+			"address": "krakenkraken",
+			"expiretm": "0",
+			"memo": "4150096490"
+		  }
+		]
+	}`
+	expectedCount := 5
+	expectedItem1Address := "2NCpXUCEYr8ur9WXM1tAjZSem2w3aQeTcAo"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetDepositAddresses(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Len(suite.T(), resp.Result, expectedCount)
+	require.NotNil(suite.T(), resp.Result[1].Address)
+	require.Equal(suite.T(), expectedItem1Address, resp.Result[1].Address)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getDepositAddressesPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), params.Asset, record.Request.Form.Get("asset"))
+	require.Equal(suite.T(), params.Method, record.Request.Form.Get("method"))
+	require.Equal(suite.T(), options.Amount, record.Request.Form.Get("amount"))
+	require.Equal(suite.T(), strconv.FormatBool(options.New), record.Request.Form.Get("new"))
+}
+
+// Test GetStatusOfRecentDeposits when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetStatusOfRecentDeposits() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected options
+	options := &funding.GetStatusOfRecentDepositsRequestOptions{
+		Asset:  "XXBT",
+		Method: "Bitcoin Lightning",
+		Start:  "42",
+		End:    "42",
+		Cursor: "false", // Set to false to ensure it will be forced to true (forced pagination)
+		Limit:  10,
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+			"deposit": [
+				{
+					"method": "Bitcoin",
+					"aclass": "currency",
+					"asset": "XXBT",
+					"refid": "FTQcuak-V6Za8qrWnhzTx67yYHz8Tg",
+					"txid": "6544b41b607d8b2512baf801755a3a87b6890eacdb451be8a94059fb11f0a8d9",
+					"info": "2Myd4eaAW96ojk38A2uDK4FbioCayvkEgVq",
+					"amount": "0.78125000",
+					"fee": "0.0000000000",
+					"time": 1688992722,
+					"status": "Success",
+					"status-prop": "return"
+				},
+				{
+					"method": "Ether (Hex)",
+					"aclass": "currency",
+					"asset": "XETH",
+					"refid": "FTQcuak-V6Za8qrPnhsTx47yYLz8Tg",
+					"txid": "0x339c505eba389bf2c6bebb982cc30c6d82d0bd6a37521fa292890b6b180affc0",
+					"info": "0xca210f4121dc891c9154026c3ae3d1832a005048",
+					"amount": "0.1383862742",
+					"time": 1688992722,
+					"status": "Settled",
+					"status-prop": "onhold",
+					"originators": [
+						"0x70b6343b104785574db2c1474b3acb3937ab5de7346a5b857a78ee26954e0e2d",
+						"0x5b32f6f792904a446226b17f607850d0f2f7533cdc35845bfe432b5b99f55b66"
+					]
+				}
+			]
+		}
+	}`
+	expectedCount := 2
+	expectedItem0TxId := "6544b41b607d8b2512baf801755a3a87b6890eacdb451be8a94059fb11f0a8d9"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetStatusOfRecentDeposits(context.Background(), expectedNonce, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Len(suite.T(), resp.Result.Deposits, expectedCount)
+	require.NotNil(suite.T(), resp.Result.Deposits[0])
+	require.Equal(suite.T(), expectedItem0TxId, resp.Result.Deposits[0].TransactionID)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getStatusOfRecentDepositsPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), options.Asset, record.Request.Form.Get("asset"))
+	require.Equal(suite.T(), options.Method, record.Request.Form.Get("method"))
+	require.Equal(suite.T(), options.Start, record.Request.Form.Get("start"))
+	require.Equal(suite.T(), options.End, record.Request.Form.Get("end"))
+	require.Equal(suite.T(), strconv.FormatBool(true), record.Request.Form.Get("cursor"))
+	require.Equal(suite.T(), strconv.FormatInt(options.Limit, 10), record.Request.Form.Get("limit"))
+}
+
+// Test GetWithdrawalMethods when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetWithdrawalMethods() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected options
+	options := &funding.GetWithdrawalMethodsRequestOptions{
+		Asset:   "XXBT",
+		Network: "Bitcoin",
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": [
+		  {
+			"asset": "XXBT",
+			"method": "Bitcoin",
+			"network": "Bitcoin",
+			"minimum": "0.0004"
+		  },
+		  {
+			"asset": "XXBT",
+			"method": "Bitcoin Lightning",
+			"network": "Lightning",
+			"minimum": "0.00001"
+		  }
+		]
+	}`
+	expectedCount := 2
+	expectedItem0Asset := "XXBT"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetWithdrawalMethods(context.Background(), expectedNonce, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Len(suite.T(), resp.Result, expectedCount)
+	require.NotNil(suite.T(), resp.Result[0])
+	require.Equal(suite.T(), expectedItem0Asset, resp.Result[0].Asset)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getWithdrawalMethodsPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), options.Asset, record.Request.Form.Get("asset"))
+	require.Equal(suite.T(), options.Network, record.Request.Form.Get("network"))
+}
+
+// Test GetWithdrawalAddresses when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetWithdrawalAddresses() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected options
+	options := &funding.GetWithdrawalAddressesRequestOptions{
+		Asset:    "XXBT",
+		Method:   "Bitcoin",
+		Key:      "btc-wallet-1",
+		Verified: true,
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": [
+		  {
+			"address": "bc1qxdsh4sdd29h6ldehz0se5c61asq8cgwyjf2y3z",
+			"asset": "XBT",
+			"method": "Bitcoin",
+			"key": "btc-wallet-1",
+			"verified": true
+		  }
+		]
+	}`
+	expectedCount := 1
+	expectedItem0Address := "bc1qxdsh4sdd29h6ldehz0se5c61asq8cgwyjf2y3z"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetWithdrawalAddresses(context.Background(), expectedNonce, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Len(suite.T(), resp.Result, expectedCount)
+	require.NotNil(suite.T(), resp.Result[0])
+	require.Equal(suite.T(), expectedItem0Address, resp.Result[0].Address)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getWithdrawalAddressesPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), options.Asset, record.Request.Form.Get("asset"))
+	require.Equal(suite.T(), options.Method, record.Request.Form.Get("method"))
+	require.Equal(suite.T(), options.Key, record.Request.Form.Get("key"))
+	require.Equal(suite.T(), strconv.FormatBool(options.Verified), record.Request.Form.Get("verified"))
+}
+
+// Test GetWithdrawalInformation when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetWithdrawalInformation() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := funding.GetWithdrawalInformationRequestParameters{
+		Asset:  "XXBT",
+		Key:    "btc-wallet-1",
+		Amount: "0.1",
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "method": "Bitcoin",
+		  "limit": "332.00956139",
+		  "amount": "0.72480000",
+		  "fee": "0.00020000"
+		}
+	}`
+	expectedLimit := "332.00956139"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetWithdrawalInformation(context.Background(), expectedNonce, params, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.Equal(suite.T(), expectedLimit, resp.Result.Limit)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getWithdrawalInformationPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), params.Asset, record.Request.Form.Get("asset"))
+	require.Equal(suite.T(), params.Key, record.Request.Form.Get("key"))
+	require.Equal(suite.T(), params.Amount, record.Request.Form.Get("amount"))
+}
+
+// Test WithdrawFunds when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestWithdrawFunds() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := funding.WithdrawFundsRequestParameters{
+		Asset:  "XXBT",
+		Key:    "btc-wallet-1",
+		Amount: "0.1",
+	}
+
+	// Expected options
+	options := &funding.WithdrawFundsRequestOptions{
+		Address: "test",
+		MaxFee:  "0.005",
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "refid": "FTQcuak-V6Za8qrWnhzTx67yYHz8Tg"
+		}
+	  }`
+	expectedRefId := "FTQcuak-V6Za8qrWnhzTx67yYHz8Tg"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.WithdrawFunds(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.Equal(suite.T(), expectedRefId, resp.Result.ReferenceID)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, withdrawFundsPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), params.Asset, record.Request.Form.Get("asset"))
+	require.Equal(suite.T(), params.Key, record.Request.Form.Get("key"))
+	require.Equal(suite.T(), params.Amount, record.Request.Form.Get("amount"))
+	require.Equal(suite.T(), options.Address, record.Request.Form.Get("address"))
+	require.Equal(suite.T(), options.MaxFee, record.Request.Form.Get("max_fee"))
+}
+
+// Test GetStatusOfRecentWithdrawals when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestGetStatusOfRecentWithdrawals() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected options
+	options := &funding.GetStatusOfRecentWithdrawalsRequestOptions{
+		Method: "Bitcoin",
+		Asset:  "XXBT",
+		Start:  "42",
+		End:    "42",
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": [
+		  {
+			"method": "Bitcoin",
+			"aclass": "currency",
+			"asset": "XXBT",
+			"refid": "FTQcuak-V6Za8qrWnhzTx67yYHz8Tg",
+			"txid": "THVRQM-33VKH-UCI7BS",
+			"info": "mzp6yUVMRxfasyfwzTZjjy38dHqMX7Z3GR",
+			"amount": "0.72485000",
+			"fee": "0.00020000",
+			"time": 1688014586,
+			"status": "Pending",
+			"key": "btc-wallet-1"
+		  },
+		  {
+			"method": "Bitcoin",
+			"aclass": "currency",
+			"asset": "XXBT",
+			"refid": "FTQcuak-V6Za8qrPnhsTx47yYLz8Tg",
+			"txid": "KLETXZ-33VKH-UCI7BS",
+			"info": "mzp6yUVMRxfasyfwzTZjjy38dHqMX7Z3GR",
+			"amount": "0.72485000",
+			"fee": "0.00020000",
+			"time": 1688015423,
+			"status": "Failure",
+			"status-prop": "canceled",
+			"key": "btc-wallet-2"
+		  }
+		]
+	}`
+	expectedCount := 2
+	expectedItem0RefId := "FTQcuak-V6Za8qrWnhzTx67yYHz8Tg"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.GetStatusOfRecentWithdrawals(context.Background(), expectedNonce, options, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.Len(suite.T(), resp.Result, expectedCount)
+	require.NotNil(suite.T(), resp.Result[0])
+	require.Equal(suite.T(), expectedItem0RefId, resp.Result[0].ReferenceID)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, getStatusOfRecentWithdrawalsPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), options.Asset, record.Request.Form.Get("asset"))
+	require.Equal(suite.T(), options.Method, record.Request.Form.Get("method"))
+	require.Equal(suite.T(), options.Start, record.Request.Form.Get("start"))
+	require.Equal(suite.T(), options.End, record.Request.Form.Get("end"))
+}
+
+// Test RequestWithdrawalCancelation when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestRequestWithdrawalCancelation() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := funding.RequestWithdrawalCancellationRequestParameters{
+		Asset:       "XXBT",
+		ReferenceId: "FTQcuak-V6Za8qrWnhzTx67yYHz8Tg",
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": true
+	}`
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.RequestWithdrawalCancellation(context.Background(), expectedNonce, params, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.True(suite.T(), resp.Result)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, requestWithdrawalCancellationPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), params.Asset, record.Request.Form.Get("asset"))
+	require.Equal(suite.T(), params.ReferenceId, record.Request.Form.Get("refid"))
+}
+
+// Test RequestWalletTransfer when a valid response is received from the test server.
+//
+// Test will ensure:
+//   - The request is well formatted and contains all inputs.
+//   - The returned values contain the expected parsed response data.
+func (suite *KrakenSpotRESTClientTestSuite) TestRequestWalletTransfer() {
+
+	// Expected nonce and secopts
+	expectedNonce := int64(42)
+	expectedSecOpts := &common.SecurityOptions{
+		SecondFactor: "42",
+	}
+
+	// Expected params
+	params := funding.RequestWalletTransferRequestParameters{
+		Asset:  "XXBT",
+		From:   string(funding.Spot),
+		To:     string(funding.Futures),
+		Amount: "1.2",
+	}
+
+	// Predefined response
+	expectedJSONResponse := `
+	{
+		"error": [],
+		"result": {
+		  "refid": "FTQcuak-V6Za8qrWnhzTx67yYHz8Tg"
+		}
+	}`
+	expectedRefId := "FTQcuak-V6Za8qrWnhzTx67yYHz8Tg"
+
+	// Configure test server
+	suite.srv.PushPredefinedServerResponse(&gosette.PredefinedServerResponse{
+		Status:  http.StatusOK,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    []byte(expectedJSONResponse),
+	})
+
+	// Make request
+	resp, httpresp, err := suite.client.RequestWalletTransfer(context.Background(), expectedNonce, params, expectedSecOpts)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	require.NotNil(suite.T(), resp)
+
+	// Check parsed response
+	require.NotNil(suite.T(), resp.Result)
+	require.Equal(suite.T(), expectedRefId, resp.Result.ReferenceID)
+
+	// Get the recorded request
+	record := suite.srv.PopServerRecord()
+	require.NotNil(suite.T(), record)
+
+	// Check the request settings
+	require.Contains(suite.T(), record.Request.URL.Path, requestWalletTransferPath)
+	require.Equal(suite.T(), http.MethodPost, record.Request.Method)
+	require.Equal(suite.T(), suite.client.agent, record.Request.UserAgent())
+	require.Equal(suite.T(), "application/x-www-form-urlencoded", record.Request.Header.Get("Content-Type"))
+	require.NotEmpty(suite.T(), record.Request.Header.Get("Api-Sign"))     // Headers are in canonical form in recorded request
+	require.Equal(suite.T(), apiKey, record.Request.Header.Get("Api-Key")) // Headers are in canonical form in recorded request
+
+	// Check request form body
+	require.NoError(suite.T(), record.Request.ParseForm())
+	require.Equal(suite.T(), strconv.FormatInt(expectedNonce, 10), record.Request.Form.Get("nonce"))
+	require.Equal(suite.T(), expectedSecOpts.SecondFactor, record.Request.Form.Get("otp"))
+	require.Equal(suite.T(), params.Asset, record.Request.Form.Get("asset"))
+	require.Equal(suite.T(), params.From, record.Request.Form.Get("from"))
+	require.Equal(suite.T(), params.To, record.Request.Form.Get("to"))
+	require.Equal(suite.T(), params.Amount, record.Request.Form.Get("amount"))
+}
