@@ -1982,6 +1982,10 @@ func (client *KrakenSpotRESTClient) AddOrder(ctx context.Context, nonce int64, p
 	form.Set("type", params.Order.Type)
 	// Set volume
 	form.Set("volume", params.Order.Volume)
+	// Set displayed volume if not empty
+	if params.Order.DisplayedVolume != "" {
+		form.Set("displayvol", params.Order.DisplayedVolume)
+	}
 	// Set price if not empty
 	if params.Order.Price != "" {
 		form.Set("price", params.Order.Price)
@@ -2000,7 +2004,7 @@ func (client *KrakenSpotRESTClient) AddOrder(ctx context.Context, nonce int64, p
 	}
 	// Set STP flag if not empty
 	if params.Order.StpType != "" {
-		form.Set("stp_type", params.Order.StpType)
+		form.Set("stptype", params.Order.StpType)
 	}
 	// Set Reduce only if set
 	if params.Order.ReduceOnly {
