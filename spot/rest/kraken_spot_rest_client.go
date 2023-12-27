@@ -3533,7 +3533,9 @@ func (client *KrakenSpotRESTClient) ListEarnStrategies(ctx context.Context, nonc
 		if opts.Asset != "" {
 			form.Set("asset", opts.Asset)
 		}
-		if opts.Cursor != "" {
+		// Force pagination use
+		form.Set("cursor", strconv.FormatBool(true))
+		if opts.Cursor != "" && opts.Cursor != "false" {
 			form.Set("cursor", opts.Cursor)
 		}
 		if opts.Limit != 0 {
