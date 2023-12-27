@@ -2654,6 +2654,9 @@ func (client *KrakenSpotRESTClient) GetDepositAddresses(ctx context.Context, non
 		if opts.New {
 			form.Set("new", strconv.FormatBool(opts.New))
 		}
+		if opts.Amount != "" {
+			form.Set("amount", opts.Amount)
+		}
 	}
 	// Forge and authorize the request
 	req, err := client.forgeAndAuthorizeKrakenAPIRequest(ctx, getDepositAddressesPath, http.MethodPost, "application/x-www-form-urlencoded", nil, strings.NewReader(form.Encode()))
