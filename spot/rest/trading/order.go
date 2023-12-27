@@ -101,6 +101,13 @@ type Order struct {
 	//
 	// "0" can be provided for closing margin orders to automatically fill the requisite quantity.
 	Volume string `json:"volume"`
+	// Used to create an iceberg order, this is the visible order quantity in terms of the base asset.
+	// The rest of the order will be hidden, although the full volume can be filled at any time by any
+	// order of that size or larger that matches in the order book. displayvol can only be used with the
+	// limit order type, must be greater than 0, and less than volume.
+	//
+	// An empty stirng means features will not be used
+	DisplayedVolume string `json:"displayvol,omitempty"`
 	// # Description
 	//
 	// Price:
