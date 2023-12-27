@@ -92,6 +92,13 @@ func (suite *KrakenSpotRESTClientTestSuite) BeforeTest(suiteName, testName strin
 /* UNIT TESTS - UTILITIES                                                                        */
 /*************************************************************************************************/
 
+// Test interface compliance with KrakenSpotRESTClientIface
+func (suite *KrakenSpotRESTClientTestSuite) TestInterfaceCompliance() {
+	var instance interface{} = NewKrakenSpotRESTClient(nil, nil)
+	_, ok := instance.(KrakenSpotRESTClientIface)
+	require.True(suite.T(), ok)
+}
+
 // Test EncodeNonceAndSecurityOptions helper function.
 //
 // Test will verify provided nonce and security options are encoded as expected in the provided
