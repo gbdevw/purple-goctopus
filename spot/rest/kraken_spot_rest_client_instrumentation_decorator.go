@@ -2,7 +2,9 @@ package rest
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gbdevw/purple-goctopus/spot/rest/account"
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
@@ -898,261 +900,389 @@ func (dec *KrakenSpotRESTClientInstrumentationDecorator) DeleteExportReport(ctx 
 	return resp, httpresp, err
 }
 
-// Trace AddOrder - Place a new order.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - params: AddOrder request parameters.
-//   - opts: AddOrder request options. A nil value triggers all default behaviors.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - AddOrderResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) AddOrder(ctx context.Context, nonce int64, params trading.AddOrderRequestParameters, opts *trading.AddOrderRequestOptions, secopts *common.SecurityOptions) (*trading.AddOrderResponse, *http.Response, error)
+// Trace AddOrder execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) AddOrder(ctx context.Context, nonce int64, params trading.AddOrderRequestParameters, opts *trading.AddOrderRequestOptions, secopts *common.SecurityOptions) (*trading.AddOrderResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{
+		attribute.Int64("nonce", nonce),
+		attribute.String("pair", params.Pair),
+		attribute.String("ordertype", params.Order.OrderType),
+		attribute.String("type", params.Order.Type),
+		attribute.String("volume", params.Order.Volume),
+		attribute.Bool("reduce_only", params.Order.ReduceOnly),
+	}
+	if params.Order.DisplayedVolume != "" {
+		reqAttributes = append(reqAttributes, attribute.String("displayvol", params.Order.DisplayedVolume))
+	}
+	if params.Order.Price != "" {
+		reqAttributes = append(reqAttributes, attribute.String("price", params.Order.Price))
+	}
+	if params.Order.Price2 != "" {
+		reqAttributes = append(reqAttributes, attribute.String("price2", params.Order.Price2))
+	}
+	if params.Order.Trigger != "" {
+		reqAttributes = append(reqAttributes, attribute.String("trigger", params.Order.Trigger))
+	}
+	if params.Order.Leverage != "" {
+		reqAttributes = append(reqAttributes, attribute.String("leverage", params.Order.Leverage))
+	}
+	if params.Order.StpType != "" {
+		reqAttributes = append(reqAttributes, attribute.String("stptype", params.Order.StpType))
+	}
+	if params.Order.OrderFlags != "" {
+		reqAttributes = append(reqAttributes, attribute.String("oflags", params.Order.OrderFlags))
+	}
+	if params.Order.TimeInForce != "" {
+		reqAttributes = append(reqAttributes, attribute.String("timeinforce", params.Order.TimeInForce))
+	}
+	if params.Order.ScheduledStartTime != "" {
+		reqAttributes = append(reqAttributes, attribute.String("starttm", params.Order.ScheduledStartTime))
+	}
+	if params.Order.ExpirationTime != "" {
+		reqAttributes = append(reqAttributes, attribute.String("expiretm", params.Order.ExpirationTime))
+	}
+	if params.Order.Close.OrderType != "" {
+		reqAttributes = append(reqAttributes, attribute.String("close[ordertype]", params.Order.Close.OrderType))
+	}
+	if params.Order.Close.Price != "" {
+		reqAttributes = append(reqAttributes, attribute.String("close[price]", params.Order.Close.Price))
+	}
+	if params.Order.Close.Price2 != "" {
+		reqAttributes = append(reqAttributes, attribute.String("close[price2]", params.Order.Close.Price2))
+	}
+	if opts != nil {
+		reqAttributes = append(reqAttributes, attribute.Bool("validate", opts.Validate))
+		if !opts.Deadline.IsZero() {
+			reqAttributes = append(reqAttributes, attribute.String("deadline", opts.Deadline.Format(time.RFC3339)))
+		}
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".add_order",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.AddOrder(ctx, nonce, params, opts, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		if resp.Result != nil {
+			respAttributes = append(
+				respAttributes,
+				attribute.StringSlice("txid", resp.Result.TransactionIDs),
+				attribute.String("description", resp.Result.Description.Order),
+				attribute.String("close", resp.Result.Description.Close))
+		}
+		span.AddEvent(tracing.TracesNamespace+".add_order.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace AddOrderBatch - Get the current system status or trading mode.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - params: AddOrderBatch request parameters.
-//   - opts: AddOrderBatch request options. A nil value triggers all default behaviors.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//   - AddOrderBatchResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) AddOrderBatch(ctx context.Context, nonce int64, params trading.AddOrderBatchRequestParameters, opts *trading.AddOrderBatchOptions, secopts *common.SecurityOptions) (*trading.AddOrderBatchResponse, *http.Response, error)
+// Trace AddOrderBatch execution
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) AddOrderBatch(ctx context.Context, nonce int64, params trading.AddOrderBatchRequestParameters, opts *trading.AddOrderBatchOptions, secopts *common.SecurityOptions) (*trading.AddOrderBatchResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{
+		attribute.Int64("nonce", nonce),
+		attribute.String("pair", params.Pair),
+	}
+	for index, order := range params.Orders {
+		reqAttributes = append(reqAttributes,
+			attribute.String(fmt.Sprintf("orders[%d][%s]", index, "ordertype"), order.OrderType),
+			attribute.String(fmt.Sprintf("orders[%d][%s]", index, "type"), order.Type),
+			attribute.String(fmt.Sprintf("orders[%d][%s]", index, "volume"), order.Volume),
+			attribute.Bool(fmt.Sprintf("orders[%d][%s]", index, "reduce_only"), order.ReduceOnly))
+		if order.DisplayedVolume != "" {
+			reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s]", index, "displayvol"), order.DisplayedVolume))
+		}
+		if order.Price != "" {
+			reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s]", index, "price"), order.Price))
+		}
+		if order.Price2 != "" {
+			reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s]", index, "price2"), order.Price2))
+		}
+		if order.Trigger != "" {
+			reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s]", index, "trigger"), order.Trigger))
+		}
+		if order.Leverage != "" {
+			reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s]", index, "leverage"), order.Leverage))
+		}
+		if order.StpType != "" {
+			reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s]", index, "stptype"), order.StpType))
+		}
+		if order.OrderFlags != "" {
+			reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s]", index, "oflags"), order.OrderFlags))
+		}
+		if order.TimeInForce != "" {
+			reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s]", index, "timeinforce"), order.TimeInForce))
+		}
+		if order.ScheduledStartTime != "" {
+			reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s]", index, "starttm"), order.ScheduledStartTime))
+		}
+		if order.ExpirationTime != "" {
+			reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s]", index, "expiretm"), order.ExpirationTime))
+		}
+		if order.Close.OrderType != "" {
+			reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "ordertype"), order.Close.OrderType))
+		}
+		if order.Close.Price != "" {
+			reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "price"), order.Close.Price))
+		}
+		if order.Close.Price2 != "" {
+			reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "price2"), order.Close.Price2))
+		}
+	}
+	if opts != nil {
+		reqAttributes = append(reqAttributes, attribute.Bool("validate", opts.Validate))
+		if !opts.Deadline.IsZero() {
+			reqAttributes = append(reqAttributes, attribute.String("deadline", opts.Deadline.Format(time.RFC3339)))
+		}
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".add_order_batch",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.AddOrderBatch(ctx, nonce, params, opts, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		if resp.Result != nil {
+			respAttributes = append(respAttributes, attribute.Int("count", len(resp.Result.Orders)))
+			for index, order := range resp.Result.Orders {
+				respAttributes = append(
+					respAttributes,
+					attribute.String(fmt.Sprintf("orders[%d][%s]", index, "txid"), order.Id),
+					attribute.String(fmt.Sprintf("orders[%d][%s]", index, "description"), order.Description.Order),
+					attribute.String(fmt.Sprintf("orders[%d][%s]", index, "close"), order.Description.Close),
+				)
+			}
+		}
+		span.AddEvent(tracing.TracesNamespace+".add_order_batch.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace EditOrder - Edit volume and price on open orders. Uneditable orders include triggered
-// stop/profit orders, orders with conditional close terms attached, those already cancelled
-// or filled, and those where the executed volume is greater than the newly supplied volume.
-// post-only flag is not retained from original order after successful edit. post-only needs
-// to be explicitly set on edit request.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - params: EditOrder request parameters.
-//   - opts: EditOrder request options. A nil value triggers all default behaviors.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - EditOrderResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) EditOrder(ctx context.Context, nonce int64, params trading.EditOrderRequestParameters, opts *trading.EditOrderRequestOptions, secopts *common.SecurityOptions) (*trading.EditOrderResponse, *http.Response, error)
+// Trace EditOrder execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) EditOrder(ctx context.Context, nonce int64, params trading.EditOrderRequestParameters, opts *trading.EditOrderRequestOptions, secopts *common.SecurityOptions) (*trading.EditOrderResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{
+		attribute.Int64("nonce", nonce),
+		attribute.String("pair", params.Pair),
+		attribute.String("txid", params.Id),
+	}
+	if opts != nil {
+		if opts.NewUserReference != "" {
+			reqAttributes = append(reqAttributes, attribute.String("userref", opts.NewUserReference))
+		}
+		if opts.NewVolume != "" {
+			reqAttributes = append(reqAttributes, attribute.String("volume", opts.NewVolume))
+		}
+		if opts.NewDisplayedVolume != "" {
+			reqAttributes = append(reqAttributes, attribute.String("displayvol", opts.NewDisplayedVolume))
+		}
+		if opts.Price != "" {
+			reqAttributes = append(reqAttributes, attribute.String("price", opts.Price))
+		}
+		if opts.Price2 != "" {
+			reqAttributes = append(reqAttributes, attribute.String("price2", opts.Price2))
+		}
+		if len(opts.OFlags) > 0 {
+			reqAttributes = append(reqAttributes, attribute.StringSlice("oflags", opts.OFlags))
+		}
+		reqAttributes = append(reqAttributes, attribute.Bool("validate", opts.Validate))
+		reqAttributes = append(reqAttributes, attribute.Bool("cancel_response", opts.CancelResponse))
+		if !opts.Deadline.IsZero() {
+			reqAttributes = append(reqAttributes, attribute.String("deadline", opts.Deadline.Format(time.RFC3339)))
+		}
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".edit_order",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.EditOrder(ctx, nonce, params, opts, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		if resp.Result != nil {
+			if resp.Result.Description != nil {
+				respAttributes = append(
+					respAttributes,
+					attribute.String("description", resp.Result.Description.Order),
+					attribute.String("close", resp.Result.Description.Close))
+			}
+			if resp.Result.TransactionID != "" {
+				respAttributes = append(respAttributes, attribute.String("txid", resp.Result.TransactionID))
+			}
+			if resp.Result.NewUserReference != nil {
+				respAttributes = append(respAttributes, attribute.Int64("newuserref", *resp.Result.NewUserReference))
+			}
+			if resp.Result.OldUserReference != nil {
+				respAttributes = append(respAttributes, attribute.Int64("txid", *resp.Result.OldUserReference))
+			}
+			if resp.Result.OrdersCancelled != 0 {
+				respAttributes = append(respAttributes, attribute.Int("orders_cancelled", resp.Result.OrdersCancelled))
+			}
+			if resp.Result.OriginalTransactionID != "" {
+				respAttributes = append(respAttributes, attribute.String("originaltxid", resp.Result.OriginalTransactionID))
+			}
+			if resp.Result.Status != "" {
+				respAttributes = append(respAttributes, attribute.String("status", resp.Result.Status))
+			}
+			if resp.Result.Volume != "" {
+				respAttributes = append(respAttributes, attribute.String("volume", resp.Result.Volume))
+			}
+			if resp.Result.Price != "" {
+				respAttributes = append(respAttributes, attribute.String("price", resp.Result.Price))
+			}
+			if resp.Result.Price2 != "" {
+				respAttributes = append(respAttributes, attribute.String("price2", resp.Result.Price2))
+			}
+			if resp.Result.ErrorMsg != "" {
+				respAttributes = append(respAttributes, attribute.String("error_message", resp.Result.ErrorMsg))
+			}
+		}
+		span.AddEvent(tracing.TracesNamespace+".edit_order.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace CancelOrder - Cancel a particular open order (or set of open orders) by txid or userref.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - params: CancelOrder request parameters.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - CancelOrderResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) CancelOrder(ctx context.Context, nonce int64, params trading.CancelOrderRequestParameters, secopts *common.SecurityOptions) (*trading.CancelOrderResponse, *http.Response, error)
+// Trace CancelOrder execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) CancelOrder(ctx context.Context, nonce int64, params trading.CancelOrderRequestParameters, secopts *common.SecurityOptions) (*trading.CancelOrderResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{
+		attribute.Int64("nonce", nonce),
+		attribute.String("txid", params.Id),
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".cancel_order",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.CancelOrder(ctx, nonce, params, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		if resp.Result != nil {
+			respAttributes = append(respAttributes, attribute.Int("count", resp.Result.Count))
+		}
+		span.AddEvent(tracing.TracesNamespace+".cancel_order.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace CancelAllOrders - Cancel all open orders.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - CancelAllOrdersResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) CancelAllOrders(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (*trading.CancelAllOrdersResponse, *http.Response, error)
+// Trace CancelAllOrders execution
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) CancelAllOrders(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (*trading.CancelAllOrdersResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{attribute.Int64("nonce", nonce)}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".cancel_all_orders",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.CancelAllOrders(ctx, nonce, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		if resp.Result != nil {
+			respAttributes = append(respAttributes, attribute.Int("count", resp.Result.Count))
+		}
+		span.AddEvent(tracing.TracesNamespace+".cancel_all_orders.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace CancelAllOrdersAfterX - CancelAllOrdersAfter provides a "Dead Man's Switch" mechanism to
-// protect the client from network malfunction, extreme latency or unexpected matching engine
-// downtime. The client can send a request with a timeout (in seconds), that will start a
-// countdown timer which will cancel all client orders when the timer expires. The client has
-// to keep sending new requests to push back the trigger time, or deactivate the mechanism by
-// specifying a timeout of 0. If the timer expires, all orders are cancelled and then the timer
-// remains disabled until the client provides a new (non-zero) timeout.
-//
-// The recommended use is to make a call every 15 to 30 seconds, providing a timeout of 60
-// seconds. This allows the client to keep the orders in place in case of a brief disconnection
-// or transient delay, while keeping them safe in case of a network breakdown. It is also
-// recommended to disable the timer ahead of regularly scheduled trading engine maintenance (if
-// the timer is enabled, all orders will be cancelled when the trading engine comes back from
-// downtime - planned or otherwise).
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - params: CancelAllOrdersAfterX request parameters.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - CancelAllOrdersAfterXResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) CancelAllOrdersAfterX(ctx context.Context, nonce int64, params trading.CancelAllOrdersAfterXRequestParameters, secopts *common.SecurityOptions) (*trading.CancelAllOrdersAfterXResponse, *http.Response, error)
+// Trace CancelAllOrdersAfterX execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) CancelAllOrdersAfterX(ctx context.Context, nonce int64, params trading.CancelAllOrdersAfterXRequestParameters, secopts *common.SecurityOptions) (*trading.CancelAllOrdersAfterXResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{
+		attribute.Int64("nonce", nonce),
+		attribute.Int64("timeout", params.Timeout),
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".cancel_all_orders_after_x",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.CancelAllOrdersAfterX(ctx, nonce, params, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		if resp.Result != nil {
+			respAttributes = append(
+				respAttributes,
+				attribute.String("currentTime", resp.Result.CurrentTime.Format(time.RFC3339)),
+				attribute.String("triggerTime", resp.Result.TriggerTime.Format(time.RFC3339)))
+		}
+		span.AddEvent(tracing.TracesNamespace+".cancel_all_orders_after_x.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace CancelOrderBatch - Cancel multiple open orders by txid or userref (maximum 50 total unique IDs/references)
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - params: CancelOrderBatch request parameters.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - CancelOrderBatchResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) CancelOrderBatch(ctx context.Context, nonce int64, params trading.CancelOrderBatchRequestParameters, secopts *common.SecurityOptions) (*trading.CancelOrderBatchResponse, *http.Response, error)
+// Trace CancelOrderBatch execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) CancelOrderBatch(ctx context.Context, nonce int64, params trading.CancelOrderBatchRequestParameters, secopts *common.SecurityOptions) (*trading.CancelOrderBatchResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{
+		attribute.Int64("nonce", nonce),
+		attribute.StringSlice("orders", params.OrderIds),
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".cancel_order_batch",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.CancelOrderBatch(ctx, nonce, params, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		if resp.Result != nil {
+			respAttributes = append(respAttributes, attribute.Int("count", resp.Result.Count))
+		}
+		span.AddEvent(tracing.TracesNamespace+".cancel_order_batch.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
 // Trace GetDepositMethods - Retrieve methods available for depositing a particular asset.
 //
