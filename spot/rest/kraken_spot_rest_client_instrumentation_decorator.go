@@ -344,556 +344,559 @@ func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetRecentSpreads(ctx co
 	return resp, httpresp, err
 }
 
-// Trace GetAccountBalance - Retrieve all cash balances, net of pending withdrawals.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - GetAccountBalanceResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetAccountBalance(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (*account.GetAccountBalanceResponse, *http.Response, error)
+// Trace GetAccountBalance execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetAccountBalance(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (*account.GetAccountBalanceResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{attribute.Int64("nonce", nonce)}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".get_account_balance",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.GetAccountBalance(ctx, nonce, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{
+			attribute.StringSlice("error", resp.Error),
+			attribute.Int("count", len(resp.Result)),
+		}
+		span.AddEvent(tracing.TracesNamespace+".get_account_balance.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace GetExtendedBalance - Retrieve all extended account balances, including credits and held amounts. Balance available
-// for trading is calculated as: available balance = balance + credit - credit_used - hold_trade
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - GetExtendedBalanceResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetExtendedBalance(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (*account.GetExtendedBalanceResponse, *http.Response, error)
+// Trace GetExtendedBalance execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetExtendedBalance(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (*account.GetExtendedBalanceResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{attribute.Int64("nonce", nonce)}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".get_extended_balance",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.GetExtendedBalance(ctx, nonce, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{
+			attribute.StringSlice("error", resp.Error),
+			attribute.Int("count", len(resp.Result)),
+		}
+		span.AddEvent(tracing.TracesNamespace+".get_extended_balance.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace GetTradeBalance - Retrieve a summary of collateral balances, margin position valuations, equity and margin level.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - opts: GetTradeBalance request options. A nil value triggers all default behaviors.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - GetTradeBalanceResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetTradeBalance(ctx context.Context, nonce int64, opts *account.GetTradeBalanceRequestOptions, secopts *common.SecurityOptions) (*account.GetTradeBalanceResponse, *http.Response, error)
+// Trace GetTradeBalance execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetTradeBalance(ctx context.Context, nonce int64, opts *account.GetTradeBalanceRequestOptions, secopts *common.SecurityOptions) (*account.GetTradeBalanceResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{attribute.Int64("nonce", nonce)}
+	if opts != nil {
+		if opts.Asset != "" {
+			reqAttributes = append(reqAttributes, attribute.String("asset", opts.Asset))
+		}
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".get_trade_balance",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.GetTradeBalance(ctx, nonce, opts, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{
+			attribute.StringSlice("error", resp.Error),
+		}
+		span.AddEvent(tracing.TracesNamespace+".get_trade_balance.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace GetOpenOrders - Retrieve information about currently open orders.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - opts: GetOpenOrders request options. A nil value triggers all default behaviors.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - GetOpenOrdersResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetOpenOrders(ctx context.Context, nonce int64, opts *account.GetOpenOrdersRequestOptions, secopts *common.SecurityOptions) (*account.GetOpenOrdersResponse, *http.Response, error)
+// Trace GetOpenOrders execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetOpenOrders(ctx context.Context, nonce int64, opts *account.GetOpenOrdersRequestOptions, secopts *common.SecurityOptions) (*account.GetOpenOrdersResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{attribute.Int64("nonce", nonce)}
+	if opts != nil {
+		reqAttributes = append(reqAttributes, attribute.Bool("trades", opts.Trades))
+		if opts.UserReference != nil {
+			reqAttributes = append(reqAttributes, attribute.Int64("userref", *opts.UserReference))
+		}
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".get_open_orders",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.GetOpenOrders(ctx, nonce, opts, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		if resp.Result != nil {
+			respAttributes = append(respAttributes, attribute.Int("count", len(resp.Result.Open)))
+		}
+		span.AddEvent(tracing.TracesNamespace+".get_open_orders.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace GetClosedOrders - Retrieve information about orders that have been closed (filled or cancelled). 50 results are returned at a time, the most recent by default.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - opts: GetClosedOrders request options. A nil value triggers all default behaviors.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - GetClosedOrdersResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetClosedOrders(ctx context.Context, nonce int64, opts *account.GetClosedOrdersRequestOptions, secopts *common.SecurityOptions) (*account.GetClosedOrdersResponse, *http.Response, error)
+// Trace GetClosedOrders execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetClosedOrders(ctx context.Context, nonce int64, opts *account.GetClosedOrdersRequestOptions, secopts *common.SecurityOptions) (*account.GetClosedOrdersResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{attribute.Int64("nonce", nonce)}
+	if opts != nil {
+		reqAttributes = append(reqAttributes, attribute.Bool("trades", opts.Trades))
+		reqAttributes = append(reqAttributes, attribute.Bool("consolidate_taker", opts.ConsolidateTaker))
+		if opts.UserReference != nil {
+			reqAttributes = append(reqAttributes, attribute.Int64("userref", *opts.UserReference))
+		}
+		if opts.Closetime != "" {
+			reqAttributes = append(reqAttributes, attribute.String("closetime", opts.Closetime))
+		}
+		if opts.Start != "" {
+			reqAttributes = append(reqAttributes, attribute.String("start", opts.Start))
+		}
+		if opts.End != "" {
+			reqAttributes = append(reqAttributes, attribute.String("end", opts.End))
+		}
+		if opts.Offset != 0 {
+			reqAttributes = append(reqAttributes, attribute.Int64("ofs", opts.Offset))
+		}
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".get_closed_orders",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.GetClosedOrders(ctx, nonce, opts, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		if resp.Result != nil {
+			respAttributes = append(respAttributes, attribute.Int("count", len(resp.Result.Closed)))
+		}
+		span.AddEvent(tracing.TracesNamespace+".get_closed_orders.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace QueryOrdersInfo - Retrieve information about specific orders.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - params: QueryOrdersInfo request parameters.
-//   - opts: QueryOrdersInfo request options. A nil value triggers all default behaviors.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - QueryOrdersInfoResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) QueryOrdersInfo(ctx context.Context, nonce int64, params account.QueryOrdersInfoParameters, opts *account.QueryOrdersInfoRequestOptions, secopts *common.SecurityOptions) (*account.QueryOrdersInfoResponse, *http.Response, error)
+// Trace QueryOrdersInfo execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) QueryOrdersInfo(ctx context.Context, nonce int64, params account.QueryOrdersInfoParameters, opts *account.QueryOrdersInfoRequestOptions, secopts *common.SecurityOptions) (*account.QueryOrdersInfoResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{
+		attribute.Int64("nonce", nonce),
+		attribute.StringSlice("txid", params.TxId),
+	}
+	if opts != nil {
+		reqAttributes = append(reqAttributes, attribute.Bool("trades", opts.Trades))
 
-// Trace GetTradesHistory - Retrieve information about trades/fills. 50 results are returned at a time, the most recent by default.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - opts: GetTradesHistory request options. A nil value triggers all default behaviors.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - GetTradesHistoryResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetTradesHistory(ctx context.Context, nonce int64, opts *account.GetTradesHistoryRequestOptions, secopts *common.SecurityOptions) (*account.GetTradesHistoryResponse, *http.Response, error)
+		if opts.UserReference != nil {
+			reqAttributes = append(reqAttributes, attribute.Int64("userref", *opts.UserReference))
+		}
+		if opts.ConsolidateTaker != nil {
+			reqAttributes = append(reqAttributes, attribute.Bool("consolidate_taker", *opts.ConsolidateTaker))
+		}
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".query_orders_info",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.QueryOrdersInfo(ctx, nonce, params, opts, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{
+			attribute.StringSlice("error", resp.Error),
+			attribute.Int("count", len(resp.Result)),
+		}
+		span.AddEvent(tracing.TracesNamespace+".query_orders_info.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace QueryTradesInfo - Retrieve information about specific trades/fills.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - params: QueryTradesInfo request parameters.
-//   - opts: QueryTradesInfo request options. A nil value triggers all default behaviors.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - QueryTradesInfoResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) QueryTradesInfo(ctx context.Context, nonce int64, params account.QueryTradesRequestParameters, opts *account.QueryTradesRequestOptions, secopts *common.SecurityOptions) (*account.QueryTradesInfoResponse, *http.Response, error)
+// Trace GetTradesHistory execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetTradesHistory(ctx context.Context, nonce int64, opts *account.GetTradesHistoryRequestOptions, secopts *common.SecurityOptions) (*account.GetTradesHistoryResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{attribute.Int64("nonce", nonce)}
+	if opts != nil {
+		reqAttributes = append(reqAttributes, attribute.Bool("trades", opts.Trades))
+		reqAttributes = append(reqAttributes, attribute.Bool("consolidate_taker", opts.ConsolidateTaker))
+		if opts.Start != "" {
+			reqAttributes = append(reqAttributes, attribute.String("start", opts.Start))
+		}
+		if opts.End != "" {
+			reqAttributes = append(reqAttributes, attribute.String("end", opts.End))
+		}
+		if opts.Offset != 0 {
+			reqAttributes = append(reqAttributes, attribute.Int64("ofs", opts.Offset))
+		}
+		if opts.Type != "" {
+			reqAttributes = append(reqAttributes, attribute.String("type", opts.Type))
+		}
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".get_trades_history",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.GetTradesHistory(ctx, nonce, opts, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		if resp.Result != nil {
+			respAttributes = append(respAttributes, attribute.Int("count", len(resp.Result.Trades)))
+		}
+		span.AddEvent(tracing.TracesNamespace+".get_trades_history.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace GetOpenPositions - Get information about open margin positions.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - opts: GetOpenPositions request options. A nil value triggers all default behaviors.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - GetOpenPositionsResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetOpenPositions(ctx context.Context, nonce int64, opts *account.GetOpenPositionsRequestOptions, secopts *common.SecurityOptions) (*account.GetOpenPositionsResponse, *http.Response, error)
+// Trace QueryTradesInfo execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) QueryTradesInfo(ctx context.Context, nonce int64, params account.QueryTradesRequestParameters, opts *account.QueryTradesRequestOptions, secopts *common.SecurityOptions) (*account.QueryTradesInfoResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{
+		attribute.Int64("nonce", nonce),
+		attribute.StringSlice("txid", params.TransactionIds),
+	}
+	if opts != nil {
+		reqAttributes = append(reqAttributes, attribute.Bool("trades", opts.Trades))
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".query_trades_info",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.QueryTradesInfo(ctx, nonce, params, opts, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{
+			attribute.StringSlice("error", resp.Error),
+			attribute.Int("count", len(resp.Result)),
+		}
+		span.AddEvent(tracing.TracesNamespace+".query_trades_info.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace GetLedgersInfo - Retrieve information about ledger entries. 50 results are returned at a time, the most recent by default.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - opts: GetLedgersInfo request options. A nil value triggers all default behaviors.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - GetLedgersInfoResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetLedgersInfo(ctx context.Context, nonce int64, opts *account.GetLedgersInfoRequestOptions, secopts *common.SecurityOptions) (*account.GetLedgersInfoResponse, *http.Response, error)
+// Trace GetOpenPositions execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetOpenPositions(ctx context.Context, nonce int64, opts *account.GetOpenPositionsRequestOptions, secopts *common.SecurityOptions) (*account.GetOpenPositionsResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{attribute.Int64("nonce", nonce)}
+	if opts != nil {
+		reqAttributes = append(reqAttributes, attribute.Bool("docalcs", opts.DoCalcs))
+		if len(opts.TransactionIds) > 0 {
+			reqAttributes = append(reqAttributes, attribute.StringSlice("txid", opts.TransactionIds))
+		}
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".get_open_positions",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.GetOpenPositions(ctx, nonce, opts, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{
+			attribute.StringSlice("error", resp.Error),
+			attribute.Int("count", len(resp.Result)),
+		}
+		span.AddEvent(tracing.TracesNamespace+".get_open_positions.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace QueryLedgers - Get the current system status or trading mode.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - params: QueryLedgers request parameters.
-//   - opts: QueryLedgers request options. A nil value triggers all default behaviors.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - QueryLedgersResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) QueryLedgers(ctx context.Context, nonce int64, params account.QueryLedgersRequestParameters, opts *account.QueryLedgersRequestOptions, secopts *common.SecurityOptions) (*account.QueryLedgersResponse, *http.Response, error)
+// Trace GetLedgersInfo execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetLedgersInfo(ctx context.Context, nonce int64, opts *account.GetLedgersInfoRequestOptions, secopts *common.SecurityOptions) (*account.GetLedgersInfoResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{attribute.Int64("nonce", nonce)}
+	if opts != nil {
+		reqAttributes = append(reqAttributes, attribute.Bool("without_count", opts.WithoutCount))
+		if len(opts.Assets) > 0 {
+			reqAttributes = append(reqAttributes, attribute.StringSlice("asset", opts.Assets))
+		}
+		if opts.AssetClass != "" {
+			reqAttributes = append(reqAttributes, attribute.String("aclass", opts.AssetClass))
+		}
+		if opts.End != "" {
+			reqAttributes = append(reqAttributes, attribute.String("end", opts.End))
+		}
+		if opts.Start != "" {
+			reqAttributes = append(reqAttributes, attribute.String("start", opts.Start))
+		}
+		if opts.Type != "" {
+			reqAttributes = append(reqAttributes, attribute.String("type", opts.Type))
+		}
+		if opts.Offset != 0 {
+			reqAttributes = append(reqAttributes, attribute.Int64("ofs", opts.Offset))
+		}
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".get_ledgers_info",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.GetLedgersInfo(ctx, nonce, opts, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		if resp.Result != nil {
+			respAttributes = append(respAttributes, attribute.Int("count", len(resp.Result.Ledgers)))
+		}
+		span.AddEvent(tracing.TracesNamespace+".get_ledgers_info.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace GetTradeVolume - Returns 30 day USD trading volume and resulting fee schedule for any asset pair(s) provided.
-//
-// Note: If an asset pair is on a maker/taker fee schedule, the taker side is given in fees and maker side in
-// fees_maker. For pairs not on maker/taker, they will only be given in fees.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - opts: GetTradeVolume request options. A nil value triggers all default behaviors.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - GetTradeVolumeResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetTradeVolume(ctx context.Context, nonce int64, opts *account.GetTradeVolumeRequestOptions, secopts *common.SecurityOptions) (*account.GetTradeVolumeResponse, *http.Response, error)
+// Trace QueryLedgers execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) QueryLedgers(ctx context.Context, nonce int64, params account.QueryLedgersRequestParameters, opts *account.QueryLedgersRequestOptions, secopts *common.SecurityOptions) (*account.QueryLedgersResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{
+		attribute.Int64("nonce", nonce),
+		attribute.StringSlice("id", params.Id),
+	}
+	if opts != nil {
+		reqAttributes = append(reqAttributes, attribute.Bool("trades", opts.Trades))
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".query_ledgers",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.QueryLedgers(ctx, nonce, params, opts, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{
+			attribute.StringSlice("error", resp.Error),
+			attribute.Int("count", len(resp.Result)),
+		}
+		span.AddEvent(tracing.TracesNamespace+".query_ledgers.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace RequestExportReport - Request export of trades or ledgers.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - params: RequestExportReport request parameters.
-//   - opts: RequestExportReport request options. A nil value triggers all default behaviors.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - RequestExportReportResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response.
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) RequestExportReport(ctx context.Context, nonce int64, params account.RequestExportReportRequestParameters, opts *account.RequestExportReportRequestOptions, secopts *common.SecurityOptions) (*account.RequestExportReportResponse, *http.Response, error)
+// Trace GetTradeVolume execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetTradeVolume(ctx context.Context, nonce int64, opts *account.GetTradeVolumeRequestOptions, secopts *common.SecurityOptions) (*account.GetTradeVolumeResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{attribute.Int64("nonce", nonce)}
+	if opts != nil {
+		reqAttributes = append(reqAttributes, attribute.StringSlice("pair", opts.Pairs))
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".get_trade_volume",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.GetTradeVolume(ctx, nonce, opts, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{
+			attribute.StringSlice("error", resp.Error),
+		}
+		span.AddEvent(tracing.TracesNamespace+".get_trade_volume.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace GetExportReportStatus - Get status of requested data exports.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - params: GetExportReportStatus request parameters.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - GetExportReportStatusResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetExportReportStatus(ctx context.Context, nonce int64, params account.GetExportReportStatusRequestParameters, secopts *common.SecurityOptions) (*account.GetExportReportStatusResponse, *http.Response, error)
+// Trace RequestExportReport execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) RequestExportReport(ctx context.Context, nonce int64, params account.RequestExportReportRequestParameters, opts *account.RequestExportReportRequestOptions, secopts *common.SecurityOptions) (*account.RequestExportReportResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{
+		attribute.Int64("nonce", nonce),
+		attribute.String("report", params.Report),
+		attribute.String("description", params.Description),
+	}
+	if opts != nil {
+		if len(opts.Fields) > 0 {
+			reqAttributes = append(reqAttributes, attribute.StringSlice("fields", opts.Fields))
+		}
+		if opts.Format != "" {
+			reqAttributes = append(reqAttributes, attribute.String("format", opts.Format))
+		}
+		if opts.EndTm != 0 {
+			reqAttributes = append(reqAttributes, attribute.Int64("endtm", opts.EndTm))
+		}
+		if opts.StartTm != 0 {
+			reqAttributes = append(reqAttributes, attribute.Int64("starttm", opts.StartTm))
+		}
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".request_export_report",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.RequestExportReport(ctx, nonce, params, opts, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		if resp.Result != nil {
+			respAttributes = append(respAttributes, attribute.String("id", resp.Result.Id))
+		}
+		span.AddEvent(tracing.TracesNamespace+".request_export_report.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace RetrieveDataExport - Retrieve a processed data export.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - params: RetrieveDataExport request parameters.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - RetrieveDataExportResponse: The response contains an io.Reader that is tied to the http.Response body in order to let users download data in a streamed fashion.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will not be closed in order to allow users to download the exported data in a streamed fashion.
-// The io.Reader in the response is tied to the http.Response.Body.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) RetrieveDataExport(ctx context.Context, nonce int64, params account.RetrieveDataExportParameters, secopts *common.SecurityOptions) (*account.RetrieveDataExportResponse, *http.Response, error)
+// Trace GetExportReportStatus execution
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetExportReportStatus(ctx context.Context, nonce int64, params account.GetExportReportStatusRequestParameters, secopts *common.SecurityOptions) (*account.GetExportReportStatusResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{
+		attribute.Int64("nonce", nonce),
+		attribute.String("report", params.Report),
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".get_export_report_status",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.GetExportReportStatus(ctx, nonce, params, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{
+			attribute.StringSlice("error", resp.Error),
+			attribute.Int("count", len(resp.Result)),
+		}
+		span.AddEvent(tracing.TracesNamespace+".get_export_report_status.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace DeleteExportReport - Delete exported trades/ledgers report.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - params: DeleteExportReport request parameters.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - DeleteExportReportResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) DeleteExportReport(ctx context.Context, nonce int64, params account.DeleteExportReportRequestParameters, secopts *common.SecurityOptions) (*account.DeleteExportReportResponse, *http.Response, error)
+// Trace RetrieveDataExport execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) RetrieveDataExport(ctx context.Context, nonce int64, params account.RetrieveDataExportParameters, secopts *common.SecurityOptions) (*account.RetrieveDataExportResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{
+		attribute.Int64("nonce", nonce),
+		attribute.String("id", params.Id),
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".retrieve_data_export",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.RetrieveDataExport(ctx, nonce, params, secopts)
+	// Trace error and set span status
+	tracing.TraceErrorAndSetStatus(span, err)
+	// Return results
+	return resp, httpresp, err
+}
+
+// Trace DeleteExportReport execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) DeleteExportReport(ctx context.Context, nonce int64, params account.DeleteExportReportRequestParameters, secopts *common.SecurityOptions) (*account.DeleteExportReportResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{
+		attribute.Int64("nonce", nonce),
+		attribute.String("id", params.Id),
+		attribute.String("type", params.Type),
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".delete_export_report",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.DeleteExportReport(ctx, nonce, params, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		if resp.Result != nil {
+			respAttributes = append(
+				respAttributes,
+				attribute.Bool("cancel", resp.Result.Cancel),
+				attribute.Bool("cancel", resp.Result.Delete))
+		}
+		span.AddEvent(tracing.TracesNamespace+".delete_export_report.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
 // Trace AddOrder - Place a new order.
 //
