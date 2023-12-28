@@ -56,7 +56,7 @@ func (dec *KrakenSpotRESTClientAuthorizerInstrumentationDecorator) Authorize(ctx
 		panic("provided request must not be nil.")
 	}
 	// Start a span
-	ctx, span := dec.tracer.Start(ctx, "authorize", trace.WithSpanKind(trace.SpanKindClient),
+	ctx, span := dec.tracer.Start(ctx, tracing.TracesNamespace+".authorize", trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithAttributes(
 			// Do not trace otp nor the form body value nor the headers
 			// risk of sensitive informations leak
