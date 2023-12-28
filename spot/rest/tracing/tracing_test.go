@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -46,6 +47,8 @@ func (suite *TracingUnitTestSuite) TestTraceErrorAndSetStatus() {
 	TraceErrorAndSetStatus(span, nil)
 	// Test function with an error
 	TraceErrorAndSetStatus(span, fmt.Errorf("fail"))
+	// Test panic when span is nil
+	require.Panics(suite.T(), func() { TraceErrorAndSetStatus(nil, nil) })
 }
 
 // Test TraceApiOperationAndSetStatus.
@@ -63,4 +66,6 @@ func (suite *TracingUnitTestSuite) TestTraceApiOperationAndSetStatus() {
 	TraceApiOperationAndSetStatus(span, nil, nil, fmt.Errorf("fail"))
 	// Test all nil case
 	TraceApiOperationAndSetStatus(span, nil, nil, nil)
+	// Test panic when span is nil
+	require.Panics(suite.T(), func() { TraceApiOperationAndSetStatus(nil, nil, nil, nil) })
 }

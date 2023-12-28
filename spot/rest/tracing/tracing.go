@@ -37,6 +37,10 @@ const (
 //
 // TraceErrorAndSetStatus(span, err)
 func TraceErrorAndSetStatus(span trace.Span, err error) {
+	// Panic if provided span is nil
+	if span == nil {
+		panic("provided span must not be nil.")
+	}
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, codes.Error.String())
@@ -57,6 +61,10 @@ func TraceErrorAndSetStatus(span trace.Span, err error) {
 //   - apiresp: Received HTTP response. Can be nil and might not be nil in case of error.
 //   - error: Error returned by the API operation. Can be nil in case of success.
 func TraceApiOperationAndSetStatus(span trace.Span, apiresp *common.KrakenSpotRESTResponse, httpresp *http.Response, err error) {
+	// Panic if provided span is nil
+	if span == nil {
+		panic("provided span must not be nil.")
+	}
 	if httpresp != nil {
 		// Add synthetic tracing data about the received http response if any -> status code and tracing header
 		// This must not overlap too much with what an instrumented http.Client would report
