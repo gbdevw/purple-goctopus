@@ -18,7 +18,7 @@ const (
 	// Span & events namespace
 	TracesNamespace = "goctopus.spot.rest"
 	// Kraken Sport REST API tracing header
-	ResponseTracingHeader = "x-trace-id"
+	ResponseTracingHeader = "X-Trace-Id"
 )
 
 // A helper function to trace an error (if any) and set the provided span status
