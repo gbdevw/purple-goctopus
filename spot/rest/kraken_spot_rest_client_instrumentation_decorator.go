@@ -941,14 +941,16 @@ func (dec *KrakenSpotRESTClientInstrumentationDecorator) AddOrder(ctx context.Co
 	if params.Order.ExpirationTime != "" {
 		reqAttributes = append(reqAttributes, attribute.String("expiretm", params.Order.ExpirationTime))
 	}
-	if params.Order.Close.OrderType != "" {
-		reqAttributes = append(reqAttributes, attribute.String("close[ordertype]", params.Order.Close.OrderType))
-	}
-	if params.Order.Close.Price != "" {
-		reqAttributes = append(reqAttributes, attribute.String("close[price]", params.Order.Close.Price))
-	}
-	if params.Order.Close.Price2 != "" {
-		reqAttributes = append(reqAttributes, attribute.String("close[price2]", params.Order.Close.Price2))
+	if params.Order.Close != nil {
+		if params.Order.Close.OrderType != "" {
+			reqAttributes = append(reqAttributes, attribute.String("close[ordertype]", params.Order.Close.OrderType))
+		}
+		if params.Order.Close.Price != "" {
+			reqAttributes = append(reqAttributes, attribute.String("close[price]", params.Order.Close.Price))
+		}
+		if params.Order.Close.Price2 != "" {
+			reqAttributes = append(reqAttributes, attribute.String("close[price2]", params.Order.Close.Price2))
+		}
 	}
 	if opts != nil {
 		reqAttributes = append(reqAttributes, attribute.Bool("validate", opts.Validate))
@@ -1026,14 +1028,16 @@ func (dec *KrakenSpotRESTClientInstrumentationDecorator) AddOrderBatch(ctx conte
 		if order.ExpirationTime != "" {
 			reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s]", index, "expiretm"), order.ExpirationTime))
 		}
-		if order.Close.OrderType != "" {
-			reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "ordertype"), order.Close.OrderType))
-		}
-		if order.Close.Price != "" {
-			reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "price"), order.Close.Price))
-		}
-		if order.Close.Price2 != "" {
-			reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "price2"), order.Close.Price2))
+		if order.Close != nil {
+			if order.Close.OrderType != "" {
+				reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "ordertype"), order.Close.OrderType))
+			}
+			if order.Close.Price != "" {
+				reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "price"), order.Close.Price))
+			}
+			if order.Close.Price2 != "" {
+				reqAttributes = append(reqAttributes, attribute.String(fmt.Sprintf("orders[%d][%s][%s]", index, "close", "price2"), order.Close.Price2))
+			}
 		}
 	}
 	if opts != nil {
