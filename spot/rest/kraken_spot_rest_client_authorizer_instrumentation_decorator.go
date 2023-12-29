@@ -32,7 +32,7 @@ type KrakenSpotRESTClientAuthorizerInstrumentationDecorator struct {
 // # Returns
 //
 // The decorator which decorates the provided KrakenSpotRESTClientAuthorizerIface implementation.
-func DecorateKrakenSpotRESTClientAuthorizer(decorated KrakenSpotRESTClientAuthorizerIface, tracerProvider trace.TracerProvider) KrakenSpotRESTClientAuthorizerIface {
+func InstrumentKrakenSpotRESTClientAuthorizer(decorated KrakenSpotRESTClientAuthorizerIface, tracerProvider trace.TracerProvider) KrakenSpotRESTClientAuthorizerIface {
 	if decorated == nil {
 		// Panic if decorated is nil
 		panic("decorated cannot be nil")
