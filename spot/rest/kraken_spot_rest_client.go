@@ -19,7 +19,6 @@ import (
 	"github.com/gbdevw/purple-goctopus/spot/rest/market"
 	"github.com/gbdevw/purple-goctopus/spot/rest/trading"
 	"github.com/gbdevw/purple-goctopus/spot/rest/websocket"
-	"go.opentelemetry.io/otel/trace"
 )
 
 /*****************************************************************************/
@@ -150,31 +149,6 @@ func NewDefaultKrakenSpotRESTClientConfiguration() *KrakenSpotRESTClientConfigur
 		Agent:   DefaultUserAgent,
 		Client:  http.DefaultClient,
 	}
-}
-
-// # Description
-//
-// A helper function which configures a KrakenSpotRESTClientAuthorizer to sign outgoing requests
-// with the provide key and secret and decorate it with an instrumentation decorator that will
-// use the provided tracerProvider to instrument code.
-//
-// # Inputs
-//
-//   - key: The API key used to sign requests
-//   - secret: The base64 encoded API key secret provided by Kraken and used to sign requests.
-//   - tracerProvider: TracerProvider to use to instrument code. If nil, global tracer provider will be used.
-//
-// # Returns
-//
-// The decorated authorizer or an error in case the provided secret cannot be base64 decoded.
-func WithInstrumentedAuthorizer(key string, secret string, tracerProvider trace.TracerProvider) (KrakenSpotRESTClientAuthorizerIface, error) {
-	// Create authorizer
-	auth, err := NewKrakenSpotRESTClientAuthorizer(key, secret)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create authorizer: %w", err)
-	}
-	// Decorate authorizer with an instrumentation decorator and return the decorator
-	return DecorateKrakenSpotRESTClientAuthorizer(auth, tracerProvider), nil
 }
 
 // # Description
@@ -689,13 +663,13 @@ func (client *KrakenSpotRESTClient) GetTickerInformation(ctx context.Context, op
 func (client *KrakenSpotRESTClient) GetOHLCData(ctx context.Context, params market.GetOHLCDataRequestParameters, opts *market.GetOHLCDataRequestOptions) (*market.GetOHLCDataResponse, *http.Response, error) {
 	// Prepare query string params.
 	query := url.Values{}
-	query.Add("pair", params.Pair)
+	query.Set("pair", params.Pair)
 	if opts != nil {
 		if opts.Interval != 0 {
-			query.Add("interval", strconv.FormatInt(int64(opts.Interval), 10))
+			query.Set("interval", strconv.FormatInt(int64(opts.Interval), 10))
 		}
 		if opts.Since != 0 {
-			query.Add("since", strconv.FormatInt(opts.Since, 10))
+			query.Set("since", strconv.FormatInt(opts.Since, 10))
 		}
 	}
 	// Forge and authorize the request
