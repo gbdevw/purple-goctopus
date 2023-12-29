@@ -45,6 +45,8 @@ type KrakenSpotRESTClientTestSuite struct {
 	srv *gosette.HTTPTestServer
 	// Kraken API client configured to use mock HTTP server
 	client *KrakenSpotRESTClient
+	// Decorated kraken API client
+	instrumentedClient KrakenSpotRESTClientIface
 }
 
 // Configure and run unit test suite
@@ -76,9 +78,10 @@ func TestKrakenSpotRESTClientTestSuite(t *testing.T) {
 	})
 	// Run unit test suite
 	suite.Run(t, &KrakenSpotRESTClientTestSuite{
-		Suite:  suite.Suite{},
-		srv:    tstsrv,
-		client: client,
+		Suite:              suite.Suite{},
+		srv:                tstsrv,
+		client:             client,
+		instrumentedClient: DecorateKrakenSpotRESTClient(client, nil),
 	})
 }
 
@@ -541,7 +544,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetServerTime() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetServerTime(context.Background())
+	resp, httpresp, err := suite.instrumentedClient.GetServerTime(context.Background())
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -589,7 +592,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetSystemStatus() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetSystemStatus(context.Background())
+	resp, httpresp, err := suite.instrumentedClient.GetSystemStatus(context.Background())
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -651,7 +654,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetAssetInfo() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetAssetInfo(context.Background(), options)
+	resp, httpresp, err := suite.instrumentedClient.GetAssetInfo(context.Background(), options)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -743,7 +746,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetTradableAssetPairs() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetTradableAssetPairs(context.Background(), options)
+	resp, httpresp, err := suite.instrumentedClient.GetTradableAssetPairs(context.Background(), options)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -818,7 +821,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetTickerInformation() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetTickerInformation(context.Background(), opts)
+	resp, httpresp, err := suite.instrumentedClient.GetTickerInformation(context.Background(), opts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -917,7 +920,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetOHLCData() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetOHLCData(context.Background(), params, options)
+	resp, httpresp, err := suite.instrumentedClient.GetOHLCData(context.Background(), params, options)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -1009,7 +1012,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetOrderBook() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetOrderBook(context.Background(), params, options)
+	resp, httpresp, err := suite.instrumentedClient.GetOrderBook(context.Background(), params, options)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -1097,7 +1100,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetRecentTrades() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetRecentTrades(context.Background(), params, options)
+	resp, httpresp, err := suite.instrumentedClient.GetRecentTrades(context.Background(), params, options)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -1172,7 +1175,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetRecentSpreadsHappyPath() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetRecentSpreads(context.Background(), params, options)
+	resp, httpresp, err := suite.instrumentedClient.GetRecentSpreads(context.Background(), params, options)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -1241,7 +1244,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetAccountBalance() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetAccountBalance(context.Background(), expectedNonce, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetAccountBalance(context.Background(), expectedNonce, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -1307,7 +1310,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetExtendedBalance() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetExtendedBalance(context.Background(), expectedNonce, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetExtendedBalance(context.Background(), expectedNonce, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -1377,7 +1380,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetTradeBalance() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetTradeBalance(context.Background(), expectedNonce, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetTradeBalance(context.Background(), expectedNonce, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -1500,7 +1503,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetOpenOrders() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetOpenOrders(context.Background(), expectedNonce, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetOpenOrders(context.Background(), expectedNonce, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -1635,7 +1638,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetClosedOrders() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetClosedOrders(context.Background(), expectedNonce, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetClosedOrders(context.Background(), expectedNonce, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -1781,7 +1784,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestQueryOrdersInfo() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.QueryOrdersInfo(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.QueryOrdersInfo(context.Background(), expectedNonce, params, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -1885,7 +1888,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetTradesHistory() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetTradesHistory(context.Background(), expectedNonce, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetTradesHistory(context.Background(), expectedNonce, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -1989,7 +1992,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestQueryTradesInfo() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.QueryTradesInfo(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.QueryTradesInfo(context.Background(), expectedNonce, params, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -2152,7 +2155,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetOpenPositions() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetOpenPositions(context.Background(), expectedNonce, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetOpenPositions(context.Background(), expectedNonce, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -2250,7 +2253,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetLedgersInfo() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetLedgersInfo(context.Background(), expectedNonce, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetLedgersInfo(context.Background(), expectedNonce, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -2339,7 +2342,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestQueryLedgers() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.QueryLedgers(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.QueryLedgers(context.Background(), expectedNonce, params, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -2427,7 +2430,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetTradeVolume() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetTradeVolume(context.Background(), expectedNonce, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetTradeVolume(context.Background(), expectedNonce, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -2501,7 +2504,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestRequestExportReport() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.RequestExportReport(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.RequestExportReport(context.Background(), expectedNonce, params, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -2606,7 +2609,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetExportReportStatus() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetExportReportStatus(context.Background(), expectedNonce, params, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetExportReportStatus(context.Background(), expectedNonce, params, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -2664,7 +2667,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestRetrieveDataExport() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.RetrieveDataExport(context.Background(), expectedNonce, params, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.RetrieveDataExport(context.Background(), expectedNonce, params, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -2730,7 +2733,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestDeleteExportReport() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.DeleteExportReport(context.Background(), expectedNonce, params, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.DeleteExportReport(context.Background(), expectedNonce, params, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -2828,7 +2831,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestAddOrder() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.AddOrder(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.AddOrder(context.Background(), expectedNonce, params, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -2971,7 +2974,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestAddOrderBatch() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.AddOrderBatch(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.AddOrderBatch(context.Background(), expectedNonce, params, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -3080,7 +3083,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestEditOrder() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.EditOrder(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.EditOrder(context.Background(), expectedNonce, params, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -3154,7 +3157,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestCancelOrder() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.CancelOrder(context.Background(), expectedNonce, params, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.CancelOrder(context.Background(), expectedNonce, params, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -3213,7 +3216,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestCancelAllOrders() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.CancelAllOrders(context.Background(), expectedNonce, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.CancelAllOrders(context.Background(), expectedNonce, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -3278,7 +3281,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestCancelAllOrdersAfterX() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.CancelAllOrdersAfterX(context.Background(), expectedNonce, params, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.CancelAllOrdersAfterX(context.Background(), expectedNonce, params, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -3343,7 +3346,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestCancelOrderBatch() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.CancelOrderBatch(context.Background(), expectedNonce, params, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.CancelOrderBatch(context.Background(), expectedNonce, params, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -3424,7 +3427,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetDepositMethods() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetDepositMethods(context.Background(), expectedNonce, params, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetDepositMethods(context.Background(), expectedNonce, params, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -3521,7 +3524,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetDepositAddresses() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetDepositAddresses(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetDepositAddresses(context.Background(), expectedNonce, params, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -3625,7 +3628,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetStatusOfRecentDeposits() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetStatusOfRecentDeposits(context.Background(), expectedNonce, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetStatusOfRecentDeposits(context.Background(), expectedNonce, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -3708,7 +3711,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetWithdrawalMethods() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetWithdrawalMethods(context.Background(), expectedNonce, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetWithdrawalMethods(context.Background(), expectedNonce, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -3784,7 +3787,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetWithdrawalAddresses() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetWithdrawalAddresses(context.Background(), expectedNonce, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetWithdrawalAddresses(context.Background(), expectedNonce, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -3857,7 +3860,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetWithdrawalInformation() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetWithdrawalInformation(context.Background(), expectedNonce, params, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetWithdrawalInformation(context.Background(), expectedNonce, params, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -3931,7 +3934,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestWithdrawFunds() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.WithdrawFunds(context.Background(), expectedNonce, params, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.WithdrawFunds(context.Background(), expectedNonce, params, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -4029,7 +4032,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetStatusOfRecentWithdrawals() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetStatusOfRecentWithdrawals(context.Background(), expectedNonce, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetStatusOfRecentWithdrawals(context.Background(), expectedNonce, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -4095,7 +4098,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestRequestWithdrawalCancelation() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.RequestWithdrawalCancellation(context.Background(), expectedNonce, params, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.RequestWithdrawalCancellation(context.Background(), expectedNonce, params, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -4162,7 +4165,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestRequestWalletTransfer() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.RequestWalletTransfer(context.Background(), expectedNonce, params, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.RequestWalletTransfer(context.Background(), expectedNonce, params, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -4231,7 +4234,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestAllocateEarnFunds() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.AllocateEarnFunds(context.Background(), expectedNonce, params, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.AllocateEarnFunds(context.Background(), expectedNonce, params, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -4294,7 +4297,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestDeallocateEarnFunds() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.DeallocateEarnFunds(context.Background(), expectedNonce, params, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.DeallocateEarnFunds(context.Background(), expectedNonce, params, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -4358,7 +4361,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetAllocationStatus() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetAllocationStatus(context.Background(), expectedNonce, params, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetAllocationStatus(context.Background(), expectedNonce, params, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -4421,7 +4424,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetDeallocationStatus() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetDeallocationStatus(context.Background(), expectedNonce, params, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetDeallocationStatus(context.Background(), expectedNonce, params, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -4517,7 +4520,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestListEarnStrategies() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.ListEarnStrategies(context.Background(), expectedNonce, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.ListEarnStrategies(context.Background(), expectedNonce, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -4629,7 +4632,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestListEarnAllocations() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.ListEarnAllocations(context.Background(), expectedNonce, options, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.ListEarnAllocations(context.Background(), expectedNonce, options, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
@@ -4698,7 +4701,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestGetWebsocketsToken() {
 	})
 
 	// Make request
-	resp, httpresp, err := suite.client.GetWebsocketToken(context.Background(), expectedNonce, expectedSecOpts)
+	resp, httpresp, err := suite.instrumentedClient.GetWebsocketToken(context.Background(), expectedNonce, expectedSecOpts)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
 	require.NotNil(suite.T(), resp)
