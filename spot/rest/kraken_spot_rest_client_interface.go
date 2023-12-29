@@ -960,7 +960,7 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	AddOrderBatch(ctx context.Context, nonce int64, params trading.AddOrderBatchRequestParameters, opts *trading.AddOrderBatchOptions, secopts *common.SecurityOptions) (*trading.AddOrderBatchResponse, *http.Response, error)
+	AddOrderBatch(ctx context.Context, nonce int64, params trading.AddOrderBatchRequestParameters, opts *trading.AddOrderBatchRequestOptions, secopts *common.SecurityOptions) (*trading.AddOrderBatchResponse, *http.Response, error)
 	// # Description
 	//
 	// EditOrder - Edit volume and price on open orders. Uneditable orders include triggered

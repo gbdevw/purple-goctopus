@@ -2069,7 +2069,7 @@ func (client *KrakenSpotRESTClient) AddOrder(ctx context.Context, nonce int64, p
 // to extract the metadata (or any other kind of data that are not used by the API client directly).
 //
 // Please note response body will always be closed except for RetrieveDataExport.
-func (client *KrakenSpotRESTClient) AddOrderBatch(ctx context.Context, nonce int64, params trading.AddOrderBatchRequestParameters, opts *trading.AddOrderBatchOptions, secopts *common.SecurityOptions) (*trading.AddOrderBatchResponse, *http.Response, error) {
+func (client *KrakenSpotRESTClient) AddOrderBatch(ctx context.Context, nonce int64, params trading.AddOrderBatchRequestParameters, opts *trading.AddOrderBatchRequestOptions, secopts *common.SecurityOptions) (*trading.AddOrderBatchResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
 	// Encode nonce and optional common security options

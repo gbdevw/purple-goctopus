@@ -2937,7 +2937,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestAddOrderBatch() {
 	}
 
 	// Expected options
-	options := &trading.AddOrderBatchOptions{
+	options := &trading.AddOrderBatchRequestOptions{
 		Validate: true,
 		Deadline: time.Now().UTC().Add(15 * time.Second),
 	}

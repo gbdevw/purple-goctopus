@@ -984,7 +984,7 @@ func (dec *KrakenSpotRESTClientInstrumentationDecorator) AddOrder(ctx context.Co
 }
 
 // Trace AddOrderBatch execution
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) AddOrderBatch(ctx context.Context, nonce int64, params trading.AddOrderBatchRequestParameters, opts *trading.AddOrderBatchOptions, secopts *common.SecurityOptions) (*trading.AddOrderBatchResponse, *http.Response, error) {
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) AddOrderBatch(ctx context.Context, nonce int64, params trading.AddOrderBatchRequestParameters, opts *trading.AddOrderBatchRequestOptions, secopts *common.SecurityOptions) (*trading.AddOrderBatchResponse, *http.Response, error) {
 	// Build attributes that will be added to span and that will record request settings
 	reqAttributes := []attribute.KeyValue{
 		attribute.Int64("nonce", nonce),

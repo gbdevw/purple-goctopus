@@ -15,7 +15,7 @@ type AddOrderBatchRequestParameters struct {
 }
 
 // AddOrderBatch optional parameters
-type AddOrderBatchOptions struct {
+type AddOrderBatchRequestOptions struct {
 	// Validate inputs only. Do not submit order.
 	Validate bool `json:"validate"`
 	// RFC3339 timestamp (e.g. 2021-04-01T00:18:45Z) after which the matching
