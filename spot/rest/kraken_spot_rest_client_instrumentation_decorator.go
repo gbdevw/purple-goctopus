@@ -1856,38 +1856,26 @@ func (dec *KrakenSpotRESTClientInstrumentationDecorator) ListEarnAllocations(ctx
 	return resp, httpresp, err
 }
 
-// Trace GetWebsocketToken - An authentication token must be requested via this REST API endpoint in
-// order to connect to and authenticate with our Websockets API. The token should be used
-// within 15 minutes of creation, but it does not expire once a successful Websockets
-// connection and private subscription has been made and is maintained.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - GetWebsocketTokenResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetWebsocketToken(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (*websocket.GetWebsocketTokenResponse, *http.Response, error)
+// Trace GetWebsocketToken execution
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetWebsocketToken(ctx context.Context, nonce int64, secopts *common.SecurityOptions) (*websocket.GetWebsocketTokenResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{attribute.Int64("nonce", nonce)}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".get_websocket_token",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.GetWebsocketToken(ctx, nonce, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		span.AddEvent(tracing.TracesNamespace+".list_earn_allocations.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
