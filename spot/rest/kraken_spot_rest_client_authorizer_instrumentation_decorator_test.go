@@ -32,7 +32,7 @@ func TestKrakenSpotRESTClientAuthorizerInstrumentationDecoratorTestSuite(t *test
 // Test interface compliance.
 func (suite *KrakenSpotRESTClientAuthorizerInstrumentationDecoratorTestSuite) TestIFaceCompliance() {
 	// Configure decorate and assign it to interface{}
-	var instance interface{} = DecorateKrakenSpotRESTClientAuthorizer(NewMockKrakenSpotRESTClientAuthorizer(), nil)
+	var instance interface{} = InstrumentKrakenSpotRESTClientAuthorizer(NewMockKrakenSpotRESTClientAuthorizer(), nil)
 	// Cast interface{} to the interface type and ensure it is OK
 	_, ok := instance.(KrakenSpotRESTClientAuthorizerIface)
 	require.True(suite.T(), ok)
@@ -41,7 +41,7 @@ func (suite *KrakenSpotRESTClientAuthorizerInstrumentationDecoratorTestSuite) Te
 // Test panic when no decorated is provided.
 func (suite *KrakenSpotRESTClientAuthorizerInstrumentationDecoratorTestSuite) TestFactoryValidation() {
 	require.Panics(suite.T(), func() {
-		DecorateKrakenSpotRESTClientAuthorizer(nil, nil)
+		InstrumentKrakenSpotRESTClientAuthorizer(nil, nil)
 	})
 }
 
@@ -56,7 +56,7 @@ func (suite *KrakenSpotRESTClientAuthorizerInstrumentationDecoratorTestSuite) Te
 	require.NoError(suite.T(), err)
 	m.On("Authorize", mock.Anything, mock.Anything).Return(ireq, err)
 	// Decorate mock
-	dec := DecorateKrakenSpotRESTClientAuthorizer(m, nil)
+	dec := InstrumentKrakenSpotRESTClientAuthorizer(m, nil)
 	// Call decorator method and check results
 	req, err := dec.Authorize(context.Background(), ireq)
 	require.NotNil(suite.T(), req)
@@ -77,7 +77,7 @@ func (suite *KrakenSpotRESTClientAuthorizerInstrumentationDecoratorTestSuite) Te
 	require.NoError(suite.T(), err)
 	m.On("Authorize", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("fail"))
 	// Decorate mock
-	dec := DecorateKrakenSpotRESTClientAuthorizer(m, nil)
+	dec := InstrumentKrakenSpotRESTClientAuthorizer(m, nil)
 	// Call decorator method and check results
 	req, err := dec.Authorize(context.Background(), ireq)
 	require.Nil(suite.T(), req)
