@@ -38,7 +38,7 @@ const (
 	usrAgent = "TST"
 )
 
-// Unit test suite for NewKrakenSpotRESTClient
+// Unit test suite for KrakenSpotRESTClient
 type KrakenSpotRESTClientTestSuite struct {
 	suite.Suite
 	// Mock HTTP server
@@ -58,10 +58,11 @@ func TestKrakenSpotRESTClientTestSuite(t *testing.T) {
 	tstsrv.Start()
 	defer tstsrv.Close()
 	// Build authorizer with secret from the API documentation and tracing disabled
-	authorizer, err := WithInstrumentedAuthorizer(apiKey, secretB64, nil)
+	auth, err := NewKrakenSpotRESTClientAuthorizer(apiKey, secretB64)
 	if err != nil {
 		panic(err)
 	}
+	authorizer := InstrumentKrakenSpotRESTClientAuthorizer(auth, nil)
 	// Build Kraken client with :
 	//	- The test server base url as base url
 	//	- A used defined value for the USer-Agent header (TST)
@@ -81,7 +82,7 @@ func TestKrakenSpotRESTClientTestSuite(t *testing.T) {
 		Suite:              suite.Suite{},
 		srv:                tstsrv,
 		client:             client,
-		instrumentedClient: DecorateKrakenSpotRESTClient(client, nil),
+		instrumentedClient: InstrumentKrakenSpotRESTClient(client, nil),
 	})
 }
 
