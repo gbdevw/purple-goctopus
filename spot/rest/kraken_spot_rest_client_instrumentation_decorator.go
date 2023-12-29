@@ -41,7 +41,7 @@ type KrakenSpotRESTClientInstrumentationDecorator struct {
 // # Returns
 //
 // The decorator which decorates the provided KrakenSpotRESTClientIface implementation.
-func DecorateKrakenSpotRESTClient(decorated KrakenSpotRESTClientIface, tracerProvider trace.TracerProvider) KrakenSpotRESTClientIface {
+func InstrumentKrakenSpotRESTClient(decorated KrakenSpotRESTClientIface, tracerProvider trace.TracerProvider) KrakenSpotRESTClientIface {
 	if decorated == nil {
 		// Panic if decorated is nil
 		panic("decorated cannot be nil")
