@@ -1650,288 +1650,211 @@ func (dec *KrakenSpotRESTClientInstrumentationDecorator) RequestWalletTransfer(c
 	return resp, httpresp, err
 }
 
-// Trace AllocateEarnFunds - Allocate funds to the Strategy.
-//
-// # Usage tips
-//
-// This method is asynchronous. A couple of preflight checks are performed synchronously on
-// behalf of the method before it is dispatched further. The client is required to poll the
-// result using GetAllocationStatus.
-//
-// There can be only one (de)allocation request in progress for given user and strategy at any
-// time. While the operation is in progress:
-//
-//   - pending attribute in /Earn/Allocations response for the strategy indicates that funds are being allocated.
-//   - pending attribute in /Earn/AllocateStatus response will be true.
-//
-// Following specific errors within Earnings class can be returned by this method:
-//
-//   - Minimum allocation: EEarnings:Below min:(De)allocation operation amount less than minimum
-//   - Allocation in progress: EEarnings:Busy:Another (de)allocation for the same strategy is in progress
-//   - Service temporarily unavailable: EEarnings:Busy. Try again in a few minutes.
-//   - User tier verification: EEarnings:Permission denied:The user's tier is not high enough
-//   - Strategy not found: EGeneral:Invalid arguments:Invalid strategy ID
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - params: AllocateEarnFunds request parameters.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - AllocateEarnFundsResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) AllocateEarnFunds(ctx context.Context, nonce int64, params earn.AllocateFundsRequestParameters, secopts *common.SecurityOptions) (*earn.AllocateFundsResponse, *http.Response, error)
+// Trace AllocateEarnFunds execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) AllocateEarnFunds(ctx context.Context, nonce int64, params earn.AllocateFundsRequestParameters, secopts *common.SecurityOptions) (*earn.AllocateFundsResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{
+		attribute.Int64("nonce", nonce),
+		attribute.String("amount", params.Amount),
+		attribute.String("strategy_id", params.StrategyId),
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".allocate_earn_funds",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.AllocateEarnFunds(ctx, nonce, params, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{
+			attribute.StringSlice("error", resp.Error),
+			attribute.Bool("result", resp.Result),
+		}
+		span.AddEvent(tracing.TracesNamespace+".allocate_earn_funds.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace DeallocateEarnFunds - Deallocate funds to the Strategy.
-//
-// # Usage tips
-//
-// This method is asynchronous. A couple of preflight checks are performed synchronously on
-// behalf of the method before it is dispatched further. The client is required to poll the
-// result using GetDeallocationStatus.
-//
-// There can be only one (de)allocation request in progress for given user and strategy at any
-// time. While the operation is in progress:
-//
-//   - pending attribute in Allocations response for the strategy will hold the amount that is being deallocated (negative amount).
-//   - pending attribute in DeallocateStatus response will be true.
-//
-// Following specific errors within Earnings class can be returned by this method:
-//
-//   - Minimum allocation: EEarnings:Below min:(De)allocation operation amount less than minimum
-//   - Allocation in progress: EEarnings:Busy:Another (de)allocation for the same strategy is in progress
-//   - Service temporarily unavailable: EEarnings:Busy. Try again in a few minutes.
-//   - Strategy not found: EGeneral:Invalid arguments:Invalid strategy ID
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - params: DeallocateEarnFunds request parameters.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - DeallocateEarnFundsResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) DeallocateEarnFunds(ctx context.Context, nonce int64, params earn.DeallocateFundsRequestParameters, secopts *common.SecurityOptions) (*earn.DeallocateFundsResponse, *http.Response, error)
+// Trace DeallocateEarnFunds execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) DeallocateEarnFunds(ctx context.Context, nonce int64, params earn.DeallocateFundsRequestParameters, secopts *common.SecurityOptions) (*earn.DeallocateFundsResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{
+		attribute.Int64("nonce", nonce),
+		attribute.String("amount", params.Amount),
+		attribute.String("strategy_id", params.StrategyId),
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".deallocate_earn_funds",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.DeallocateEarnFunds(ctx, nonce, params, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{
+			attribute.StringSlice("error", resp.Error),
+			attribute.Bool("result", resp.Result),
+		}
+		span.AddEvent(tracing.TracesNamespace+".deallocate_earn_funds.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace GetAllocationStatus - Get the status of the last allocation request.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - params: GetAllocationStatus request parameters.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - GetAllocationStatusResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetAllocationStatus(ctx context.Context, nonce int64, params earn.GetAllocationStatusRequestParameters, secopts *common.SecurityOptions) (*earn.GetAllocationStatusResponse, *http.Response, error)
+// Trace GetAllocationStatus execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetAllocationStatus(ctx context.Context, nonce int64, params earn.GetAllocationStatusRequestParameters, secopts *common.SecurityOptions) (*earn.GetAllocationStatusResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{
+		attribute.Int64("nonce", nonce),
+		attribute.String("strategy_id", params.StrategyId),
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".get_allocation_status",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.GetAllocationStatus(ctx, nonce, params, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		if resp.Result != nil {
+			respAttributes = append(respAttributes, attribute.Bool("pending", resp.Result.Pending))
+		}
+		span.AddEvent(tracing.TracesNamespace+".get_allocation_status.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace GetDeallocationStatus - Get the status of the last deallocation request.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - params: GetDeallocationStatus request parameters.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - GetDeallocationStatusResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetDeallocationStatus(ctx context.Context, nonce int64, params earn.GetDeallocationStatusRequestParameters, secopts *common.SecurityOptions) (*earn.GetDeallocationStatusResponse, *http.Response, error)
+// Trace GetDeallocationStatus execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) GetDeallocationStatus(ctx context.Context, nonce int64, params earn.GetDeallocationStatusRequestParameters, secopts *common.SecurityOptions) (*earn.GetDeallocationStatusResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{
+		attribute.Int64("nonce", nonce),
+		attribute.String("strategy_id", params.StrategyId),
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".get_deallocation_status",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.GetDeallocationStatus(ctx, nonce, params, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		if resp.Result != nil {
+			respAttributes = append(respAttributes, attribute.Bool("pending", resp.Result.Pending))
+		}
+		span.AddEvent(tracing.TracesNamespace+".get_deallocation_status.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace ListEarnStrategies - List earn strategies along with their parameters.
-//
-// # Usage tips
-//
-// Returns only strategies that are available to the user based on geographic region.
-//
-// When the user does not meet the tier restriction, can_allocate will be false and
-// allocation_restriction_info indicates Tier as the restriction reason. Earn products
-// generally require Intermediate tier. Get your account verified to access earn.
-//
-// Paging isn't yet implemented, so it the endpoint always returns all data in the first page.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - opts: ListEarnStrategies request options. A nil value triggers all default behaviors.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// # Returns
-//
-//   - ListEarnStrategiesResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) ListEarnStrategies(ctx context.Context, nonce int64, opts *earn.ListEarnStrategiesRequestOptions, secopts *common.SecurityOptions) (*earn.ListEarnStrategiesResponse, *http.Response, error)
+// Trace ListEarnStrategies execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) ListEarnStrategies(ctx context.Context, nonce int64, opts *earn.ListEarnStrategiesRequestOptions, secopts *common.SecurityOptions) (*earn.ListEarnStrategiesResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{attribute.Int64("nonce", nonce)}
+	if opts != nil {
+		reqAttributes = append(reqAttributes, attribute.Bool("ascending", opts.Ascending))
+		if opts.Asset != "" {
+			reqAttributes = append(reqAttributes, attribute.String("asset", opts.Asset))
+		}
+		if opts.Cursor != "" && opts.Cursor != "false" {
+			reqAttributes = append(reqAttributes, attribute.String("cursor", opts.Cursor))
+		}
+		if opts.Limit != 0 {
+			reqAttributes = append(reqAttributes, attribute.Int("limit", opts.Limit))
+		}
+		if opts.LockType != "" {
+			reqAttributes = append(reqAttributes, attribute.String("lock_type", opts.LockType))
+		}
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".list_earn_strategies",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.ListEarnStrategies(ctx, nonce, opts, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		if resp.Result != nil {
+			respAttributes = append(
+				respAttributes,
+				attribute.String("next_cursor", resp.Result.NextCursor),
+				attribute.Int("count", len(resp.Result.Items)))
+		}
+		span.AddEvent(tracing.TracesNamespace+".list_earn_strategies.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
-// Trace ListEarnAllocations - List all allocations for the user.
-//
-// # Usage tips
-//
-// By default all allocations are returned, even for strategies that have been used in the past
-// and have zero balance now. That is so that the user can see how much was earned with given
-// strategy in the past. hide_zero_allocations parameter can be used to remove zero balance
-// entries from the output. Paging hasn't been implemented for this method as we don't expect
-// the result for a particular user to be overwhelmingly large.
-//
-// All amounts in the output can be denominated in a currency of user's choice (the converted_asset parameter).
-//
-// Information about when the next reward will be paid to the client is also provided in the output.
-//
-// Allocated funds can be in up to 4 states:
-//
-//   - bonding
-//   - allocated
-//   - exit_queue (ETH only)
-//   - unbonding
-//
-// Any funds in total not in bonding/unbonding are simply allocated and earning rewards.
-// Depending on the strategy funds in the other 3 states can also be earning rewards. Consult
-// the output of /Earn/Strategies to know whether bonding/unbonding earn rewards. ETH in
-// exit_queue still earns rewards.
-//
-// # Inputs
-//
-//   - ctx: Context used for tracing and coordination purpose.
-//   - nonce: Nonce used to sign request.
-//   - opts: ListEarnAllocations request options. A nil value triggers all default behaviors.
-//   - secopts: Security options to use for the API call (2FA, ...)
-//
-// Note that for ETH, when the funds are in the exit_queue state, the expires time given is the
-// time when the funds will have finished unbonding, not when they go from exit queue to unbonding.
-//
-// (Un)bonding time estimate can be inaccurate right after having (de)allocated the funds. Wait
-// 1-2 minutes after (de)allocating to get an accurate result.
-//
-// # Returns
-//
-//   - ListEarnAllocationsResponse: The parsed response from Kraken API.
-//   - http.Response: A reference to the raw HTTP response received from Kraken API.
-//   - error: An error in case the HTTP request failed, response JSON payload could not be parsed or context has expired.
-//
-// # Note on error
-//
-// The error is set only when something wrong has happened either at the HTTP level (while building the request,
-// when the server is unreachable, when the API replies with a status code different from 200, ...) , when
-// an error happens while parsing the response JSON payload (in that case, error is json.UnmarshalTypeError) or
-// when context has expired.
-//
-// An nil error does not mean everything is OK: You also have to check the response error field for specific
-// errors from Kraken API.
-//
-// # Note on the http.Response
-//
-// A reference to the received http.Response is always returned but it may be nil if no response was received.
-// Some endpoints of the Kraken API include tracing metadata in the response headers. The reference can be used
-// to extract the metadata (or any other kind of data that are not used by the API client directly).
-//
-// Please note response body will always be closed except for RetrieveDataExport.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) ListEarnAllocations(ctx context.Context, nonce int64, opts *earn.ListEarnAllocationsRequestOptions, secopts *common.SecurityOptions) (*earn.ListEarnAllocationsResponse, *http.Response, error)
+// Trace ListEarnAllocations execution.
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) ListEarnAllocations(ctx context.Context, nonce int64, opts *earn.ListEarnAllocationsRequestOptions, secopts *common.SecurityOptions) (*earn.ListEarnAllocationsResponse, *http.Response, error) {
+	// Build attributes that will be added to span and that will record request settings
+	reqAttributes := []attribute.KeyValue{attribute.Int64("nonce", nonce)}
+	if opts != nil {
+		reqAttributes = append(reqAttributes,
+			attribute.Bool("ascending", opts.Ascending),
+			attribute.Bool("hide_zero_allocations", opts.HideZeroAllocations),
+		)
+		if opts.ConvertedAsset != "" {
+			reqAttributes = append(reqAttributes, attribute.String("converted_asset", opts.ConvertedAsset))
+		}
+	}
+	// Start a span
+	ctx, span := dec.tracer.Start(
+		ctx,
+		tracing.TracesNamespace+".list_earn_allocations",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttributes...))
+	defer span.End()
+	// Call decorated
+	resp, httpresp, err := dec.decorated.ListEarnAllocations(ctx, nonce, opts, secopts)
+	// Add custom event and interesting values for received API response if any
+	if resp != nil {
+		respAttributes := []attribute.KeyValue{attribute.StringSlice("error", resp.Error)}
+		if resp.Result != nil {
+			respAttributes = append(
+				respAttributes,
+				attribute.String("converted_asset", resp.Result.ConvertedAsset),
+				attribute.Int("count", len(resp.Result.Items)))
+		}
+		span.AddEvent(tracing.TracesNamespace+".list_earn_allocations.response", trace.WithAttributes(respAttributes...))
+	}
+	// Trace error and set span status
+	tracing.TraceApiOperationAndSetStatus(span, &resp.KrakenSpotRESTResponse, httpresp, err)
+	// Return results
+	return resp, httpresp, err
+}
 
 // Trace GetWebsocketToken - An authentication token must be requested via this REST API endpoint in
 // order to connect to and authenticate with our Websockets API. The token should be used
