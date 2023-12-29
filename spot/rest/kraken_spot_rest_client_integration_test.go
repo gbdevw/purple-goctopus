@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/gbdevw/purple-goctopus/spot/rest/account"
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
 	"github.com/gbdevw/purple-goctopus/spot/rest/market"
+	"github.com/gbdevw/purple-goctopus/spot/rest/trading"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -650,7 +652,7 @@ func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestDataExportIntegration
 	retrieveExportParams := account.RetrieveDataExportParameters{
 		Id: exportId,
 	}
-	// Download data
+	// Retrieve data export
 	retrieveExportResp, httpresp, err := suite.client.RetrieveDataExport(context.Background(), suite.noncegen.GenerateNonce(), retrieveExportParams, suite.fa2)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), httpresp)
@@ -670,6 +672,7 @@ func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestDataExportIntegration
 	zipped, err := zip.OpenReader("ledgers.zip")
 	require.NoError(suite.T(), err)
 	require.NotEmpty(suite.T(), zipped.File)
+	// Remove the archive
 	os.Remove("ledgers.zip")
 
 	// 4. Delete data export
@@ -691,4 +694,248 @@ func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestDataExportIntegration
 	require.Empty(suite.T(), deleteExportResp.Error)
 	require.NotNil(suite.T(), deleteExportResp.Result)
 	require.True(suite.T(), deleteExportResp.Result.Delete)
+}
+
+/*************************************************************************************************/
+/* INTEGRATION TESTS - TRADING                                                                   */
+/*************************************************************************************************/
+
+// Integration test for AddOrder.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestAddOrderIntegration() {
+	// Call API
+	params := trading.AddOrderRequestParameters{
+		Pair: "XXBTZUSD",
+		Order: trading.Order{
+			UserReference:      new(int64),
+			OrderType:          string(trading.StopLossLimit),
+			Type:               string(trading.Buy),
+			Volume:             "0.0002",
+			DisplayedVolume:    "",
+			Price:              "#5%",
+			Price2:             "#.5%",
+			Trigger:            string(trading.Last),
+			Leverage:           "5:1",
+			ReduceOnly:         true,
+			StpType:            string(trading.STPCancelBoth),
+			OrderFlags:         strings.Join([]string{string(trading.OFlagFeeInQuote)}, ","),
+			TimeInForce:        string(trading.GoodTilDate),
+			ScheduledStartTime: "+2",
+			ExpirationTime:     "+30",
+			Close: &trading.CloseOrder{
+				OrderType: string(trading.StopLossLimit),
+				Price:     "#1000",
+				Price2:    "#0.5%",
+			},
+		},
+	}
+	options := &trading.AddOrderRequestOptions{
+		Validate: true,
+		Deadline: time.Now().Add(15 * time.Second),
+	}
+	// Ensure validate is set to true -> purpose is not to post a real order
+	require.NotNil(suite.T(), options)
+	require.True(suite.T(), options.Validate)
+	resp, httpresp, err := suite.client.AddOrder(context.Background(), suite.noncegen.GenerateNonce(), params, options, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Empty(suite.T(), resp.Error)
+	require.NotNil(suite.T(), resp.Result)
+	require.Empty(suite.T(), resp.Result.TransactionIDs)
+	require.NotEmpty(suite.T(), resp.Result.Description.Order)
+	require.NotEmpty(suite.T(), resp.Result.Description.Close)
+}
+
+// Integration test for AddOrderBatch.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestAddOrderBatchIntegration() {
+	// Call API
+	params := trading.AddOrderBatchRequestParameters{
+		Pair: "XXBTZUSD",
+		Orders: []trading.Order{
+			{
+				UserReference:      new(int64),
+				OrderType:          string(trading.StopLossLimit),
+				Type:               string(trading.Buy),
+				Volume:             "0.0002",
+				DisplayedVolume:    "",
+				Price:              "#5%",
+				Price2:             "#.5%",
+				Trigger:            string(trading.Last),
+				Leverage:           "5:1",
+				ReduceOnly:         true,
+				StpType:            string(trading.STPCancelBoth),
+				OrderFlags:         strings.Join([]string{string(trading.OFlagFeeInQuote)}, ","),
+				TimeInForce:        string(trading.GoodTilDate),
+				ScheduledStartTime: "+2",
+				ExpirationTime:     "+30",
+				Close: &trading.CloseOrder{
+					OrderType: string(trading.StopLossLimit),
+					Price:     "#1000",
+					Price2:    "#0.5%",
+				},
+			},
+			{
+				UserReference: new(int64),
+				OrderType:     string(trading.Market),
+				Type:          string(trading.Buy),
+				Volume:        "0.0002",
+				OrderFlags:    strings.Join([]string{string(trading.OFlagFeeInQuote)}, ","),
+			},
+		},
+	}
+	options := &trading.AddOrderBatchRequestOptions{
+		Validate: true,
+		Deadline: time.Now().Add(15 * time.Second),
+	}
+	// Ensure validate is set to true -> purpose is not to post a real order
+	require.NotNil(suite.T(), options)
+	require.True(suite.T(), options.Validate)
+	resp, httpresp, err := suite.client.AddOrderBatch(context.Background(), suite.noncegen.GenerateNonce(), params, options, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Empty(suite.T(), resp.Error)
+	require.NotNil(suite.T(), resp.Result)
+	require.Len(suite.T(), resp.Result.Orders, len(params.Orders))
+	for _, order := range resp.Result.Orders {
+		require.NotEmpty(suite.T(), order.Description.Order)
+	}
+}
+
+// Integration test for EditOrder.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestEditOrderIntegration() {
+	// Call API
+	params := trading.EditOrderRequestParameters{
+		Id:   "OYVGEW-VYV5B-UUEXSK",
+		Pair: "XXBTZUSD",
+	}
+	options := &trading.EditOrderRequestOptions{
+		NewUserReference: "10",
+		NewVolume:        "0.003",
+		Price:            "+1000",
+		Price2:           "-1000",
+		OFlags:           []string{string(account.OFlagNoMarketPriceProtection)},
+		Validate:         true,
+		CancelResponse:   false,
+		Deadline:         time.Now().Add(30 * time.Second),
+	}
+	// Ensure validate is set to true -> purpose is not to post a real order
+	require.NotNil(suite.T(), options)
+	require.True(suite.T(), options.Validate)
+	resp, httpresp, err := suite.client.EditOrder(context.Background(), suite.noncegen.GenerateNonce(), params, options, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Empty(suite.T(), resp.Error)
+	require.NotNil(suite.T(), resp.Result)
+	require.NotEmpty(suite.T(), resp.Result.Description)
+}
+
+// Integration test for CancelOrder.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestCancelOrderIntegration() {
+	// Call API
+	params := trading.CancelOrderRequestParameters{
+		Id: "OYVGEW-VYV5B-UUEXSK",
+	}
+	resp, httpresp, err := suite.client.CancelOrder(context.Background(), suite.noncegen.GenerateNonce(), params, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Contains(suite.T(), resp.Error, "EOrder:Unknown order")
+}
+
+// Integration test for CancelAllOrders.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestCancelAllOrdersIntegration() {
+	// Call API
+	resp, httpresp, err := suite.client.CancelAllOrders(context.Background(), suite.noncegen.GenerateNonce(), suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Empty(suite.T(), resp.Error)
+	require.NotNil(suite.T(), resp.Result)
+}
+
+// Integration test for CancelAllOrdersAfterX.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestCancelAllOrdersAfterXIntegration() {
+	// Call API
+	params := trading.CancelAllOrdersAfterXRequestParameters{
+		Timeout: 60,
+	}
+	resp, httpresp, err := suite.client.CancelAllOrdersAfterX(context.Background(), suite.noncegen.GenerateNonce(), params, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Empty(suite.T(), resp.Error)
+	require.NotNil(suite.T(), resp.Result)
+	require.NotEmpty(suite.T(), resp.Result.CurrentTime)
+	require.NotEmpty(suite.T(), resp.Result.TriggerTime)
+}
+
+// Integration test for CancelOrderBatch.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestCancelOrderBatchIntegration() {
+	// Call API
+	params := trading.CancelOrderBatchRequestParameters{
+		OrderIds: []string{"OYVGEW-VYV5B-UUEXSK", "OYVGEW-VYV5B-UUEXSA"},
+	}
+	resp, httpresp, err := suite.client.CancelOrderBatch(context.Background(), suite.noncegen.GenerateNonce(), params, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Contains(suite.T(), resp.Error, "EGeneral:Invalid arguments:orders")
 }
