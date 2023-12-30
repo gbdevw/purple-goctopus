@@ -12,6 +12,7 @@ const (
 	EventTypeHeartbeat    EventTypeEnum = "heartbeat"
 	EventTypeSystemStatus EventTypeEnum = "systemStatus"
 	EventTypeSubscribe    EventTypeEnum = "subscribe"
+	EventTypeUnsubscribe  EventTypeEnum = "unsubscribe"
 )
 
 // Enum for the API statuses
