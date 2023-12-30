@@ -164,7 +164,7 @@ type ListEarnStrategiesRequestOptions struct {
 	// Filter strategies by lock type.
 	//
 	// An empty value means no filter.
-	LockType string `json:"lock_type"`
+	LockType []string `json:"lock_type"`
 }
 
 // Result for ListEarnStrategies
