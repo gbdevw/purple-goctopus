@@ -3515,8 +3515,8 @@ func (client *KrakenSpotRESTClient) ListEarnStrategies(ctx context.Context, nonc
 		if opts.Limit != 0 {
 			form.Set("limit", strconv.FormatInt(int64(opts.Limit), 10))
 		}
-		if opts.LockType != "" {
-			form.Set("lock_type", opts.LockType)
+		for index, locktype := range opts.LockType {
+			form.Set(fmt.Sprintf("lock_type[%d]", index), locktype)
 		}
 	}
 	// Forge and authorize the request
