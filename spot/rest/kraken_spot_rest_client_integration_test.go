@@ -46,13 +46,9 @@ func TestKrakenSpotRESTClientIntegrationTestSuite(t *testing.T) {
 	}
 
 	// Load credentials for Kraken spot REST API
-	// key := os.Getenv("KRAKEN_API_KEY")
-	// b64Secret := os.Getenv("KRAKEN_API_SECRET")
-	// otp := os.Getenv("KRAKEN_API_OTP")
-
-	key := `ocIEujBuivw2YfBNSYGaDIaHoZlR2p3/Obn4MUgvIaZy0iPRcAYOrLji`
-	b64Secret := `szTSP19f5oC463Pt6jWD4zc3D2BzPvG+lleUN3Pfi/v1TSC6KBxtpkP661ZZ3Kb2H5bfEndAvMKH+s33FvnEuw==`
-	otp := `ApxP2td2!gbwHmYUt-PaWy*qgvb3VH8W2ag2Mj@ZFoh.omg3W9ECsE@kqLVc7XFsAwHN3426.dnoFLCxAsX8feujNYBCJx@HLg!E`
+	key := os.Getenv("KRAKEN_API_KEY")
+	b64Secret := os.Getenv("KRAKEN_API_SECRET")
+	otp := os.Getenv("KRAKEN_API_OTP")
 
 	// If an OTP is provided, set 2FA
 	var fa2 *common.SecurityOptions = nil
