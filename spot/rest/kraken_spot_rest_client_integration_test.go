@@ -14,6 +14,7 @@ import (
 	"github.com/gbdevw/purple-goctopus/noncegen"
 	"github.com/gbdevw/purple-goctopus/spot/rest/account"
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
+	"github.com/gbdevw/purple-goctopus/spot/rest/funding"
 	"github.com/gbdevw/purple-goctopus/spot/rest/market"
 	"github.com/gbdevw/purple-goctopus/spot/rest/trading"
 	"github.com/hashicorp/go-retryablehttp"
@@ -938,4 +939,235 @@ func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestCancelOrderBatchInteg
 	// Check results
 	require.NotNil(suite.T(), resp)
 	require.Contains(suite.T(), resp.Error, "EGeneral:Invalid arguments:orders")
+}
+
+/*************************************************************************************************/
+/* INTEGRATION TESTS - FUNDING                                                                   */
+/*************************************************************************************************/
+
+// Integration test for GetDepositMethods.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestGetDepositMethodsIntegration() {
+	// Call API
+	params := funding.GetDepositMethodsRequestParameters{
+		Asset: "XXBT",
+	}
+	resp, httpresp, err := suite.client.GetDepositMethods(context.Background(), suite.noncegen.GenerateNonce(), params, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Empty(suite.T(), resp.Error)
+	require.NotNil(suite.T(), resp.Result)
+}
+
+// Integration test for GetDepositAddresses.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestGetDepositAddressesIntegration() {
+	// Call API
+	params := funding.GetDepositAddressesRequestParameters{
+		Asset:  "XXBT",
+		Method: "Bitcoin Lightning",
+	}
+	options := &funding.GetDepositAddressesRequestOptions{
+		New:    true,
+		Amount: "0.1",
+	}
+	resp, httpresp, err := suite.client.GetDepositAddresses(context.Background(), suite.noncegen.GenerateNonce(), params, options, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Empty(suite.T(), resp.Error)
+	require.NotEmpty(suite.T(), resp.Result)
+}
+
+// Integration test for GetStatusOfRecentDeposits.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestGetStatusOfRecentDepositsIntegration() {
+	// Call API
+	options := &funding.GetStatusOfRecentDepositsRequestOptions{
+		Asset:  "XBT",
+		Method: "Bitcoin",
+		Start:  strconv.FormatInt(time.Now().Add(-1*3*time.Hour).Unix(), 10),
+		End:    strconv.FormatInt(time.Now().Add(-1*time.Hour).Unix(), 10),
+	}
+	resp, httpresp, err := suite.client.GetStatusOfRecentDeposits(context.Background(), suite.noncegen.GenerateNonce(), options, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Empty(suite.T(), resp.Error)
+	require.NotNil(suite.T(), resp.Result)
+}
+
+// Integration test for GetWithdrawalMethods.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestGetWithdrawalMethodsIntegration() {
+	// Call API
+	options := &funding.GetWithdrawalMethodsRequestOptions{
+		Asset:   "XXBT",
+		Network: "Bitcoin",
+	}
+	resp, httpresp, err := suite.client.GetWithdrawalMethods(context.Background(), suite.noncegen.GenerateNonce(), options, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Empty(suite.T(), resp.Error)
+	require.NotNil(suite.T(), resp.Result)
+}
+
+// Integration test for GetWithdrawalInformation.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestGetWithdrawalInformationIntegration() {
+	// Call API
+	params := funding.GetWithdrawalInformationRequestParameters{
+		Asset:  "XBT",
+		Key:    "TEST",
+		Amount: "0.01",
+	}
+	resp, httpresp, err := suite.client.GetWithdrawalInformation(context.Background(), suite.noncegen.GenerateNonce(), params, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	// A withdrawal address must be configured or an error will be returned.
+	// Test will not check the API response in order to not block tests.
+	//require.Empty(suite.T(), resp.Error)
+	//require.NotNil(suite.T(), resp.Result)
+}
+
+// Integration test for WithdrawFunds.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestWithdrawFundsIntegration() {
+	// Call API
+	params := funding.WithdrawFundsRequestParameters{
+		Asset:  "XBT",
+		Key:    "TEST",
+		Amount: "21000000",
+	}
+	options := &funding.WithdrawFundsRequestOptions{
+		Address: "XXXXXXX",
+		MaxFee:  "1",
+	}
+	resp, httpresp, err := suite.client.WithdrawFunds(context.Background(), suite.noncegen.GenerateNonce(), params, options, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.NotEmpty(suite.T(), resp.Error)
+	// You must configure a withdrawal address in order to really test the operation.
+	// Test is set in a way we expect the API to return an "insufficient funds" error.
+	//require.Contains(suite.T(), resp.Error, "EFunding:Insufficient funds")
+	require.Nil(suite.T(), resp.Result)
+}
+
+// Integration test for GetStatusOfRecentWithdrawals.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestGetStatusOfRecentWithdrawalsIntegration() {
+	// Call API
+	options := &funding.GetStatusOfRecentWithdrawalsRequestOptions{
+		Method: "Bitcoin",
+		Asset:  "XBT",
+		Start:  strconv.FormatInt(time.Now().Add(-1*3*time.Hour).Unix(), 10),
+		End:    strconv.FormatInt(time.Now().Add(-1*time.Hour).Unix(), 10),
+	}
+	resp, httpresp, err := suite.client.GetStatusOfRecentWithdrawals(context.Background(), suite.noncegen.GenerateNonce(), options, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Empty(suite.T(), resp.Error)
+	require.NotNil(suite.T(), resp.Result)
+}
+
+// Integration test for RequestWithdrawalCancellation.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestRequestWithdrawalCancellationIntegration() {
+	// Call API
+	params := funding.RequestWithdrawalCancellationRequestParameters{
+		Asset:       "XBT",
+		ReferenceId: "TEST",
+	}
+	resp, httpresp, err := suite.client.RequestWithdrawalCancellation(context.Background(), suite.noncegen.GenerateNonce(), params, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Contains(suite.T(), resp.Error, "EFunding:Unknown reference id")
+	require.False(suite.T(), resp.Result)
+}
+
+// Integration test for RequestWalletTransfer.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestRequestWalletTransferIntegration() {
+	// Call API
+	params := funding.RequestWalletTransferRequestParameters{
+		Asset:  "XBT",
+		From:   string(funding.Spot),
+		To:     string(funding.Futures),
+		Amount: "2100000",
+	}
+	resp, httpresp, err := suite.client.RequestWalletTransfer(context.Background(), suite.noncegen.GenerateNonce(), params, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.NotEmpty(suite.T(), resp.Error)
+	require.Nil(suite.T(), resp.Result)
 }
