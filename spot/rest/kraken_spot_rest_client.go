@@ -90,8 +90,8 @@ const (
 	deallocateEarnFundsPath   = "/private/Earn/Deallocate"
 	getAllocationStatusPath   = "/private/Earn/AllocateStatus"
 	getDeallocationStatusPath = "/private/Earn/DeallocateStatus"
-	listEarnStartegiesPath    = "/private/Earn/DeallocateStatus"
-	listEarnAllocationsPath   = "/private/Earn/DeallocateStatus"
+	listEarnStartegiesPath    = "/private/Earn/Strategies"
+	listEarnAllocationsPath   = "/private/Earn/Allocations"
 
 	// Websocket
 
