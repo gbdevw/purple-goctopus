@@ -4553,7 +4553,9 @@ func (suite *KrakenSpotRESTClientTestSuite) TestListEarnStrategies() {
 	require.Equal(suite.T(), options.Asset, record.Request.Form.Get("asset"))
 	require.Equal(suite.T(), strconv.FormatBool(true), record.Request.Form.Get("cursor"))
 	require.Equal(suite.T(), strconv.FormatInt(int64(options.Limit), 10), record.Request.Form.Get("limit"))
-	require.Equal(suite.T(), options.LockType, record.Request.Form.Get("lock_type"))
+	for index, lt := range options.LockType {
+		require.Equal(suite.T(), record.Request.Form.Get(fmt.Sprintf("lock_type[%d]", index)), lt)
+	}
 }
 
 // Test ListEarnAllocations when a valid response is received from the test server.
