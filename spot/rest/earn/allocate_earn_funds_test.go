@@ -40,7 +40,7 @@ func (suite *AllocateFundsTestSuite) TestAllocateFundsResponseUnmarshalJSON() {
 		"result": true
 	}`
 	// Unmarshal payload into struct
-	response := new(AllocateFundsResponse)
+	response := new(AllocateEarnFundsResponse)
 	err := json.Unmarshal([]byte(payload), response)
 	require.NoError(suite.T(), err)
 	// Check data

@@ -40,7 +40,7 @@ func (suite *DeallocateFundsTestSuite) TestDeallocateFundsResponseUnmarshalJSON(
 		"result": true
 	}`
 	// Unmarshal payload into struct
-	response := new(DeallocateFundsResponse)
+	response := new(DeallocateEarnFundsResponse)
 	err := json.Unmarshal([]byte(payload), response)
 	require.NoError(suite.T(), err)
 	// Check data
