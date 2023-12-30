@@ -1317,3 +1317,27 @@ func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestListEarnAllocationsIn
 	require.Empty(suite.T(), resp.Error)
 	require.NotNil(suite.T(), resp.Result)
 }
+
+/*************************************************************************************************/
+/* INTEGRATION TESTS - WEBSOCKET                                                                 */
+/*************************************************************************************************/
+
+// Integration test for GetWebsocketToken.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestGetWebsocketTokenIntegration() {
+	// Call API
+	resp, httpresp, err := suite.client.GetWebsocketToken(context.Background(), suite.noncegen.GenerateNonce(), suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Empty(suite.T(), resp.Error)
+	require.NotNil(suite.T(), resp.Result)
+	require.NotEmpty(suite.T(), resp.Result.Token)
+}
