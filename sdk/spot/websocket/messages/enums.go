@@ -7,6 +7,7 @@ type EventTypeEnum string
 
 // Values for EventTypeEnum
 const (
-	EventTypePing EventTypeEnum = "ping"
-	EventTypePong EventTypeEnum = "pong"
+	EventTypePing      EventTypeEnum = "ping"
+	EventTypePong      EventTypeEnum = "pong"
+	EventTypeHeartbeat EventTypeEnum = "heartbeat"
 )
