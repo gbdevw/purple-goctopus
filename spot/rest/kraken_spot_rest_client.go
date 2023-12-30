@@ -3239,7 +3239,7 @@ func (client *KrakenSpotRESTClient) RequestWalletTransfer(ctx context.Context, n
 // to extract the metadata (or any other kind of data that are not used by the API client directly).
 //
 // Please note response body will always be closed except for RetrieveDataExport.
-func (client *KrakenSpotRESTClient) AllocateEarnFunds(ctx context.Context, nonce int64, params earn.AllocateFundsRequestParameters, secopts *common.SecurityOptions) (*earn.AllocateFundsResponse, *http.Response, error) {
+func (client *KrakenSpotRESTClient) AllocateEarnFunds(ctx context.Context, nonce int64, params earn.AllocateEarnFundsRequestParameters, secopts *common.SecurityOptions) (*earn.AllocateEarnFundsResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
 	// Encode nonce and optional common security options
@@ -3253,7 +3253,7 @@ func (client *KrakenSpotRESTClient) AllocateEarnFunds(ctx context.Context, nonce
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for AllocateEarnFunds: %w", err)
 	}
 	// Send the request
-	receiver := new(earn.AllocateFundsResponse)
+	receiver := new(earn.AllocateEarnFundsResponse)
 	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
 	if err != nil {
 		return nil, resp, fmt.Errorf("request for AllocateEarnFunds failed: %w", err)
@@ -3315,7 +3315,7 @@ func (client *KrakenSpotRESTClient) AllocateEarnFunds(ctx context.Context, nonce
 // to extract the metadata (or any other kind of data that are not used by the API client directly).
 //
 // Please note response body will always be closed except for RetrieveDataExport.
-func (client *KrakenSpotRESTClient) DeallocateEarnFunds(ctx context.Context, nonce int64, params earn.DeallocateFundsRequestParameters, secopts *common.SecurityOptions) (*earn.DeallocateFundsResponse, *http.Response, error) {
+func (client *KrakenSpotRESTClient) DeallocateEarnFunds(ctx context.Context, nonce int64, params earn.DeallocateEarnFundsRequestParameters, secopts *common.SecurityOptions) (*earn.DeallocateEarnFundsResponse, *http.Response, error) {
 	// Prepare form body.
 	form := url.Values{}
 	// Encode nonce and optional common security options
@@ -3329,7 +3329,7 @@ func (client *KrakenSpotRESTClient) DeallocateEarnFunds(ctx context.Context, non
 		return nil, nil, fmt.Errorf("failed to forge and authorize request for DeallocateEarnFunds: %w", err)
 	}
 	// Send the request
-	receiver := new(earn.DeallocateFundsResponse)
+	receiver := new(earn.DeallocateEarnFundsResponse)
 	resp, err := client.doKrakenAPIRequest(ctx, req, receiver)
 	if err != nil {
 		return nil, resp, fmt.Errorf("request for DeallocateEarnFunds failed: %w", err)

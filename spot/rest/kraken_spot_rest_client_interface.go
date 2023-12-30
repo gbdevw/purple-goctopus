@@ -1570,7 +1570,7 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	AllocateEarnFunds(ctx context.Context, nonce int64, params earn.AllocateFundsRequestParameters, secopts *common.SecurityOptions) (*earn.AllocateFundsResponse, *http.Response, error)
+	AllocateEarnFunds(ctx context.Context, nonce int64, params earn.AllocateEarnFundsRequestParameters, secopts *common.SecurityOptions) (*earn.AllocateEarnFundsResponse, *http.Response, error)
 	// # Description
 	//
 	// DeallocateEarnFunds - Deallocate funds to the Strategy.
@@ -1624,7 +1624,7 @@ type KrakenSpotRESTClientIface interface {
 	// to extract the metadata (or any other kind of data that are not used by the API client directly).
 	//
 	// Please note response body will always be closed except for RetrieveDataExport.
-	DeallocateEarnFunds(ctx context.Context, nonce int64, params earn.DeallocateFundsRequestParameters, secopts *common.SecurityOptions) (*earn.DeallocateFundsResponse, *http.Response, error)
+	DeallocateEarnFunds(ctx context.Context, nonce int64, params earn.DeallocateEarnFundsRequestParameters, secopts *common.SecurityOptions) (*earn.DeallocateEarnFundsResponse, *http.Response, error)
 	// # Description
 	//
 	// GetAllocationStatus - Get the status of the last allocation request.

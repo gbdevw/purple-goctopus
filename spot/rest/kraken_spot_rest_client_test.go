@@ -4215,7 +4215,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestAllocateEarnFunds() {
 	}
 
 	// Expected params
-	params := earn.AllocateFundsRequestParameters{
+	params := earn.AllocateEarnFundsRequestParameters{
 		Amount:     "1.2",
 		StrategyId: "ESRFUO3-Q62XD-WIOIL7",
 	}
@@ -4278,7 +4278,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestDeallocateEarnFunds() {
 	}
 
 	// Expected params
-	params := earn.DeallocateFundsRequestParameters{
+	params := earn.DeallocateEarnFundsRequestParameters{
 		Amount:     "1.2",
 		StrategyId: "ESRFUO3-Q62XD-WIOIL7",
 	}

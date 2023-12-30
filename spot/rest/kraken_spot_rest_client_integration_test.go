@@ -1176,7 +1176,7 @@ func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestRequestWalletTransfer
 // Integration test for AllocateEarnFunds.
 func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestAllocateEarnFundsIntegration() {
 	// Call API
-	params := earn.AllocateFundsRequestParameters{
+	params := earn.AllocateEarnFundsRequestParameters{
 		Amount:     "100000",
 		StrategyId: "ESRFUO3-Q62XD-WIOIL7",
 	}
@@ -1199,7 +1199,7 @@ func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestAllocateEarnFundsInte
 // Integration test for DeallocateEarnFunds.
 func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestDeallocateEarnFundsIntegration() {
 	// Call API
-	params := earn.DeallocateFundsRequestParameters{
+	params := earn.DeallocateEarnFundsRequestParameters{
 		Amount:     "100000",
 		StrategyId: "ESRFUO3-Q62XD-WIOIL7",
 	}

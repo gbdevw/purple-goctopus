@@ -1655,7 +1655,7 @@ func (dec *KrakenSpotRESTClientInstrumentationDecorator) RequestWalletTransfer(c
 }
 
 // Trace AllocateEarnFunds execution.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) AllocateEarnFunds(ctx context.Context, nonce int64, params earn.AllocateFundsRequestParameters, secopts *common.SecurityOptions) (*earn.AllocateFundsResponse, *http.Response, error) {
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) AllocateEarnFunds(ctx context.Context, nonce int64, params earn.AllocateEarnFundsRequestParameters, secopts *common.SecurityOptions) (*earn.AllocateEarnFundsResponse, *http.Response, error) {
 	// Build attributes that will be added to span and that will record request settings
 	reqAttributes := []attribute.KeyValue{
 		attribute.Int64("nonce", nonce),
@@ -1686,7 +1686,7 @@ func (dec *KrakenSpotRESTClientInstrumentationDecorator) AllocateEarnFunds(ctx c
 }
 
 // Trace DeallocateEarnFunds execution.
-func (dec *KrakenSpotRESTClientInstrumentationDecorator) DeallocateEarnFunds(ctx context.Context, nonce int64, params earn.DeallocateFundsRequestParameters, secopts *common.SecurityOptions) (*earn.DeallocateFundsResponse, *http.Response, error) {
+func (dec *KrakenSpotRESTClientInstrumentationDecorator) DeallocateEarnFunds(ctx context.Context, nonce int64, params earn.DeallocateEarnFundsRequestParameters, secopts *common.SecurityOptions) (*earn.DeallocateEarnFundsResponse, *http.Response, error) {
 	// Build attributes that will be added to span and that will record request settings
 	reqAttributes := []attribute.KeyValue{
 		attribute.Int64("nonce", nonce),
