@@ -14,6 +14,7 @@ import (
 	"github.com/gbdevw/purple-goctopus/noncegen"
 	"github.com/gbdevw/purple-goctopus/spot/rest/account"
 	"github.com/gbdevw/purple-goctopus/spot/rest/common"
+	"github.com/gbdevw/purple-goctopus/spot/rest/earn"
 	"github.com/gbdevw/purple-goctopus/spot/rest/funding"
 	"github.com/gbdevw/purple-goctopus/spot/rest/market"
 	"github.com/gbdevw/purple-goctopus/spot/rest/trading"
@@ -1170,4 +1171,149 @@ func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestRequestWalletTransfer
 	require.NotNil(suite.T(), resp)
 	require.NotEmpty(suite.T(), resp.Error)
 	require.Nil(suite.T(), resp.Result)
+}
+
+/*************************************************************************************************/
+/* INTEGRATION TESTS - EARN                                                                      */
+/*************************************************************************************************/
+
+// Integration test for AllocateEarnFunds.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestAllocateEarnFundsIntegration() {
+	// Call API
+	params := earn.AllocateFundsRequestParameters{
+		Amount:     "100000",
+		StrategyId: "ESRFUO3-Q62XD-WIOIL7",
+	}
+	resp, httpresp, err := suite.client.AllocateEarnFunds(context.Background(), suite.noncegen.GenerateNonce(), params, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Contains(suite.T(), resp.Error, "EFunding:Insufficient funds")
+	require.False(suite.T(), resp.Result)
+}
+
+// Integration test for DeallocateEarnFunds.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestDeallocateEarnFundsIntegration() {
+	// Call API
+	params := earn.DeallocateFundsRequestParameters{
+		Amount:     "100000",
+		StrategyId: "ESRFUO3-Q62XD-WIOIL7",
+	}
+	resp, httpresp, err := suite.client.DeallocateEarnFunds(context.Background(), suite.noncegen.GenerateNonce(), params, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Contains(suite.T(), resp.Error, "EFunding:Insufficient funds")
+	require.False(suite.T(), resp.Result)
+}
+
+// Integration test for GetAllocationStatus.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestGetAllocationStatusIntegration() {
+	// Call API
+	params := earn.GetAllocationStatusRequestParameters{
+		StrategyId: "ESRFUO3-Q62XD-WIOIL7",
+	}
+	resp, httpresp, err := suite.client.GetAllocationStatus(context.Background(), suite.noncegen.GenerateNonce(), params, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Empty(suite.T(), resp.Error)
+	require.NotNil(suite.T(), resp.Result)
+	require.False(suite.T(), resp.Result.Pending)
+}
+
+// Integration test for GetDeallocationStatus.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestGetDeallocationStatusIntegration() {
+	// Call API
+	params := earn.GetDeallocationStatusRequestParameters{
+		StrategyId: "ESRFUO3-Q62XD-WIOIL7",
+	}
+	resp, httpresp, err := suite.client.GetDeallocationStatus(context.Background(), suite.noncegen.GenerateNonce(), params, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Empty(suite.T(), resp.Error)
+	require.NotNil(suite.T(), resp.Result)
+	require.False(suite.T(), resp.Result.Pending)
+}
+
+// Integration test for ListEarnStrategies.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestListEarnStrategiesIntegration() {
+	// Call API
+	options := &earn.ListEarnStrategiesRequestOptions{
+		Ascending: true,
+		Asset:     "DOT",
+		LockType:  []string{string(earn.Flex), string(earn.Instant)},
+	}
+	resp, httpresp, err := suite.client.ListEarnStrategies(context.Background(), suite.noncegen.GenerateNonce(), options, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Empty(suite.T(), resp.Error)
+	require.NotNil(suite.T(), resp.Result)
+	require.NotEmpty(suite.T(), resp.Result.Items)
+}
+
+// Integration test for ListEarnAllocations.
+func (suite *KrakenSpotRESTClientIntegrationTestSuite) TestListEarnAllocationsIntegration() {
+	// Call API
+	options := &earn.ListEarnAllocationsRequestOptions{
+		Ascending:           true,
+		ConvertedAsset:      "EUR",
+		HideZeroAllocations: true,
+	}
+	resp, httpresp, err := suite.client.ListEarnAllocations(context.Background(), suite.noncegen.GenerateNonce(), options, suite.fa2)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), httpresp)
+	// Override sensitive data in request to prevent credentials leak in logs
+	httpresp.Request.Header["API-Key"][0] = "SECRET"
+	httpresp.Request.Header["API-Sign"][0] = "SECRET"
+	httpresp.Request.Form.Set("otp", "SECRET")
+	httpresp.Request.PostForm.Set("otp", "SECRET")
+	suite.T().Logf("sent HTTP request: %v", httpresp.Request)
+	suite.T().Logf("received HTTP response: %v", httpresp)
+	// Check results
+	require.NotNil(suite.T(), resp)
+	require.Empty(suite.T(), resp.Error)
+	require.NotNil(suite.T(), resp.Result)
 }
