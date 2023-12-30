@@ -1791,8 +1791,8 @@ func (dec *KrakenSpotRESTClientInstrumentationDecorator) ListEarnStrategies(ctx 
 		if opts.Limit != 0 {
 			reqAttributes = append(reqAttributes, attribute.Int("limit", opts.Limit))
 		}
-		if opts.LockType != "" {
-			reqAttributes = append(reqAttributes, attribute.String("lock_type", opts.LockType))
+		if len(opts.LockType) > 0 {
+			reqAttributes = append(reqAttributes, attribute.StringSlice("lock_type", opts.LockType))
 		}
 	}
 	// Start a span

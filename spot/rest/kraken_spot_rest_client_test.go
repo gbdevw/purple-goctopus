@@ -4472,7 +4472,7 @@ func (suite *KrakenSpotRESTClientTestSuite) TestListEarnStrategies() {
 		Asset:     "XXBT",
 		Cursor:    "false", // Set to false and verify if true -> pagination use is forced
 		Limit:     10,
-		LockType:  string(earn.Bonded),
+		LockType:  []string{string(earn.Bonded), string(earn.Instant)},
 	}
 
 	// Predefined response
