@@ -57,11 +57,11 @@ func (trade *Trade) MarshalJSON() ([]byte, error) {
 // Unmarshal trade data from an array of data from the API.
 //
 // [<price>, <volume>, <time>, <buy/sell>, <market/limit>, <miscellaneous>, <trade_id>]
-func unmarshalTradeFromArray(input []interface{}) (*Trade, error) {
+func unmarshalTradeFromArray(input []interface{}) (Trade, error) {
 	// Convert timestamp to float64
 	tsflo, ok := input[2].(float64)
 	if !ok {
-		return &Trade{}, fmt.Errorf("could not parse timestamp as float64. Got %v", input[3])
+		return Trade{}, fmt.Errorf("could not parse timestamp as float64. Got %v", input[3])
 	}
 	// Split decimal and integrer parts of the timestamp
 	splits := strings.Split(strconv.FormatFloat(tsflo, 'f', 9, 64), ".")
@@ -71,31 +71,31 @@ func unmarshalTradeFromArray(input []interface{}) (*Trade, error) {
 	// Convert Id to int64
 	id, ok := input[6].(float64)
 	if !ok {
-		return &Trade{}, fmt.Errorf("could not parse trade id as float64. Got %v", input[6])
+		return Trade{}, fmt.Errorf("could not parse trade id as float64. Got %v", input[6])
 	}
 	// Convert other items to string
 	price, ok := input[0].(string)
 	if !ok {
-		return &Trade{}, fmt.Errorf("could not parse trade price as text. Got %v", input[0])
+		return Trade{}, fmt.Errorf("could not parse trade price as text. Got %v", input[0])
 	}
 	volume, ok := input[1].(string)
 	if !ok {
-		return &Trade{}, fmt.Errorf("could not parse trade volume as text. Got %v", input[1])
+		return Trade{}, fmt.Errorf("could not parse trade volume as text. Got %v", input[1])
 	}
 	side, ok := input[3].(string)
 	if !ok {
-		return &Trade{}, fmt.Errorf("could not parse trade side as text. Got %v", input[3])
+		return Trade{}, fmt.Errorf("could not parse trade side as text. Got %v", input[3])
 	}
 	typ, ok := input[4].(string)
 	if !ok {
-		return &Trade{}, fmt.Errorf("could not parse trade type as text. Got %v", input[4])
+		return Trade{}, fmt.Errorf("could not parse trade type as text. Got %v", input[4])
 	}
 	misc, ok := input[5].(string)
 	if !ok {
-		return &Trade{}, fmt.Errorf("could not parse trade miscellaneous as text. Got %v", input[5])
+		return Trade{}, fmt.Errorf("could not parse trade miscellaneous as text. Got %v", input[5])
 	}
 	// Build and return trade data
-	return &Trade{
+	return Trade{
 		Price:         price,
 		Volume:        volume,
 		Timestamp:     time.Unix(sec, nsec),
@@ -113,7 +113,7 @@ type RecentTrades struct {
 	// Timestamp (Unix - nanoseconds) to be used as since to fetch next trades data
 	Last int64
 	// Trades
-	Trades []*Trade
+	Trades []Trade
 }
 
 // Marshal trades data to produce the same raw data as the API.
@@ -176,7 +176,7 @@ func (trades *RecentTrades) UnmarshalJSON(data []byte) error {
 	}
 	trades.Last = ts
 	// Convert OHLC data as an array of objects
-	trades.Trades = []*Trade{}
+	trades.Trades = []Trade{}
 	tdata, ok := tmp[trades.PairId].([]interface{})
 	if !ok {
 		return &json.UnmarshalTypeError{

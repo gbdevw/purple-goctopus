@@ -72,43 +72,43 @@ func (ohlc *OHLC) MarshalJSON() ([]byte, error) {
 // Parse a single OHLC indicator from the API raw JSON data as an array of any.
 //
 // [int <unixsec>, string <open>, string <high>, string <low>, string <close>, string <vwap>, string <volume>, int <count>]
-func parseOHLCFromArray(input []interface{}) (*OHLC, error) {
+func parseOHLCFromArray(input []interface{}) (OHLC, error) {
 	// Cast timestamp as float64
 	ts, ok := input[0].(float64)
 	if !ok {
-		return &OHLC{}, fmt.Errorf("could not parse timestamp as int64. Got %v", input[0])
+		return OHLC{}, fmt.Errorf("could not parse timestamp as int64. Got %v", input[0])
 	}
 	// Parse count as float64
 	count, ok := input[7].(float64)
 	if !ok {
-		return &OHLC{}, fmt.Errorf("could not parse trades count as int64. Got %v", input[7])
+		return OHLC{}, fmt.Errorf("could not parse trades count as int64. Got %v", input[7])
 	}
 	// Convert other entries as strings
 	open, ok := input[1].(string)
 	if !ok {
-		return &OHLC{}, fmt.Errorf("could not parse open as string. Got %v", input[1])
+		return OHLC{}, fmt.Errorf("could not parse open as string. Got %v", input[1])
 	}
 	high, ok := input[2].(string)
 	if !ok {
-		return &OHLC{}, fmt.Errorf("could not parse high as string. Got %v", input[2])
+		return OHLC{}, fmt.Errorf("could not parse high as string. Got %v", input[2])
 	}
 	low, ok := input[3].(string)
 	if !ok {
-		return &OHLC{}, fmt.Errorf("could not parse low as string. Got %v", input[3])
+		return OHLC{}, fmt.Errorf("could not parse low as string. Got %v", input[3])
 	}
 	close, ok := input[4].(string)
 	if !ok {
-		return &OHLC{}, fmt.Errorf("could not parse close as string. Got %v", input[4])
+		return OHLC{}, fmt.Errorf("could not parse close as string. Got %v", input[4])
 	}
 	vap, ok := input[5].(string)
 	if !ok {
-		return &OHLC{}, fmt.Errorf("could not parse volume average price as string. Got %v", input[5])
+		return OHLC{}, fmt.Errorf("could not parse volume average price as string. Got %v", input[5])
 	}
 	volume, ok := input[6].(string)
 	if !ok {
-		return &OHLC{}, fmt.Errorf("could not parse volume as string. Got %v", input[6])
+		return OHLC{}, fmt.Errorf("could not parse volume as string. Got %v", input[6])
 	}
-	return &OHLC{
+	return OHLC{
 		Timestamp:          int64(ts),
 		Open:               open,
 		High:               high,
@@ -171,7 +171,7 @@ type OHLCData struct {
 	// Asset pair ID
 	PairId string
 	// OHLC data
-	Data []*OHLC
+	Data []OHLC
 }
 
 // Marshal OHLC data to produce the same raw data as the API.
@@ -224,7 +224,7 @@ func (ohlc *OHLCData) UnmarshalJSON(data []byte) error {
 	}
 	ohlc.Last = int64(ts)
 	// Convert OHLC data as array of arrays
-	ohlc.Data = []*OHLC{}
+	ohlc.Data = []OHLC{}
 	ohlcs := tmp[ohlc.PairId].([]interface{})
 	for _, raw := range ohlcs {
 		// Cast raw to array of interface

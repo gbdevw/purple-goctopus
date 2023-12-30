@@ -47,5 +47,5 @@ type ExportReportStatusItem struct {
 // GetExportReportStatus response.
 type GetExportReportStatusResponse struct {
 	common.KrakenSpotRESTResponse
-	Result []*ExportReportStatusItem `json:"result"`
+	Result []ExportReportStatusItem `json:"result"`
 }

@@ -27,6 +27,6 @@ func TestHFNonceGenerator(t *testing.T) {
 	// - nonce - gen.base must be equal to 0
 	// - inc must be equal to 1
 	require.GreaterOrEqual(t, nonce, now)
-	require.Equal(t, 0, nonce-gen.base)
-	require.Equal(t, 1, gen.inc)
+	require.Equal(t, int64(0), nonce-gen.base)
+	require.Equal(t, int64(1), gen.inc)
 }

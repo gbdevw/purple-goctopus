@@ -32,23 +32,23 @@ func (spread *Spread) MarshalJSON() ([]byte, error) {
 // Unmarshal spread data from an array of data from the API.
 //
 // [int <unixsec>, string <bid>, string <ask>]
-func unmarshalSpreadFromArray(input []interface{}) (*Spread, error) {
+func unmarshalSpreadFromArray(input []interface{}) (Spread, error) {
 	// Convert timestamp to int64
 	ts, ok := input[0].(float64)
 	if !ok {
-		return &Spread{}, fmt.Errorf("could not parse timestamp as int64. Got %v", input[0])
+		return Spread{}, fmt.Errorf("could not parse timestamp as int64. Got %v", input[0])
 	}
 	// Convert other items to string
 	bid, ok := input[1].(string)
 	if !ok {
-		return &Spread{}, fmt.Errorf("could not parse spread best bid as text. Got %v", input[0])
+		return Spread{}, fmt.Errorf("could not parse spread best bid as text. Got %v", input[0])
 	}
 	ask, ok := input[2].(string)
 	if !ok {
-		return &Spread{}, fmt.Errorf("could not parse spread best ask as text. Got %v", input[1])
+		return Spread{}, fmt.Errorf("could not parse spread best ask as text. Got %v", input[1])
 	}
 	// Build and return trade data
-	return &Spread{
+	return Spread{
 		Timestamp: int64(ts),
 		BestBid:   bid,
 		BestAsk:   ask,
@@ -62,7 +62,7 @@ type SpreadData struct {
 	// Asset pair ID
 	PairId string
 	// Spreads by pair
-	Spreads []*Spread
+	Spreads []Spread
 }
 
 // Marshal spreads data to produce the same raw data as the API.
@@ -115,7 +115,7 @@ func (spreads *SpreadData) UnmarshalJSON(data []byte) error {
 	}
 	spreads.Last = int64(ts)
 	// Convert OHLC data as an array of object
-	spreads.Spreads = []*Spread{}
+	spreads.Spreads = []Spread{}
 	tdata, ok := tmp[spreads.PairId].([]interface{})
 	if !ok {
 		return &json.UnmarshalTypeError{

@@ -13,14 +13,14 @@ type OrderBook struct {
 	// Book pair ID
 	PairId string
 	// Ask side of the order book
-	Asks []*OrderBookEntry
+	Asks []OrderBookEntry
 	// Bid side of the order book
-	Bids []*OrderBookEntry
+	Bids []OrderBookEntry
 }
 
 // Marshal book data to produce the same JSON data as the API
 func (book *OrderBook) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]map[string][]*OrderBookEntry{
+	return json.Marshal(map[string]map[string][]OrderBookEntry{
 		book.PairId: {
 			"asks": book.Asks,
 			"bids": book.Bids,
@@ -30,7 +30,7 @@ func (book *OrderBook) MarshalJSON() ([]byte, error) {
 
 func (book *OrderBook) UnmarshalJSON(data []byte) error {
 	// Unmarshal in tmp struct
-	tmp := map[string]map[string][]*OrderBookEntry{}
+	tmp := map[string]map[string][]OrderBookEntry{}
 	err := json.Unmarshal(data, &tmp)
 	if err != nil {
 		return err

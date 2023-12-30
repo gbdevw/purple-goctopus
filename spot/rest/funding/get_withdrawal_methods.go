@@ -33,5 +33,5 @@ type WithdrawalMethod struct {
 // GetWithdrawalMethods response
 type GetWithdrawalMethodsResponse struct {
 	common.KrakenSpotRESTResponse
-	Result []*WithdrawalMethod `json:"result,omitempty"`
+	Result []WithdrawalMethod `json:"result,omitempty"`
 }

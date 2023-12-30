@@ -46,5 +46,5 @@ type GetDepositAddressesRequestOptions struct {
 // Get Deposit Addresses response
 type GetDepositAddressesResponse struct {
 	common.KrakenSpotRESTResponse
-	Result []*DepositAddress `json:"result"`
+	Result []DepositAddress `json:"result"`
 }
