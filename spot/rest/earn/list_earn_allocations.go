@@ -90,7 +90,7 @@ type ListEarnAllocationsResult struct {
 	// your allocations in USD). Choose this in the request parameters.
 	ConvertedAsset string `json:"converted_asset"`
 	// Earn allocations by startegy.
-	Items []EarnAllocation `json:"items"`
+	Items []*EarnAllocation `json:"items"`
 	// The total amount allocated across all strategies, denominated in the converted_asset currency.
 	TotalAllocated string `json:"total_allocated"`
 	// Amount earned across all strategies during the whole lifetime of user account, denominated
