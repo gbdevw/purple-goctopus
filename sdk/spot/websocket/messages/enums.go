@@ -7,12 +7,13 @@ type EventTypeEnum string
 
 // Values for EventTypeEnum
 const (
-	EventTypePing         EventTypeEnum = "ping"
-	EventTypePong         EventTypeEnum = "pong"
-	EventTypeHeartbeat    EventTypeEnum = "heartbeat"
-	EventTypeSystemStatus EventTypeEnum = "systemStatus"
-	EventTypeSubscribe    EventTypeEnum = "subscribe"
-	EventTypeUnsubscribe  EventTypeEnum = "unsubscribe"
+	EventTypePing               EventTypeEnum = "ping"
+	EventTypePong               EventTypeEnum = "pong"
+	EventTypeHeartbeat          EventTypeEnum = "heartbeat"
+	EventTypeSystemStatus       EventTypeEnum = "systemStatus"
+	EventTypeSubscribe          EventTypeEnum = "subscribe"
+	EventTypeUnsubscribe        EventTypeEnum = "unsubscribe"
+	EventTypeSubscriptionStatus EventTypeEnum = "subscriptionStatus"
 )
 
 // Enum for the API statuses
@@ -68,4 +69,14 @@ const (
 	D100  DepthEnum = 100
 	D500  DepthEnum = 500
 	D1000 DepthEnum = 1000
+)
+
+// Enum for subscription status
+type SubscriptionStatusEnum string
+
+// Values for SubscriptionStatusEnum
+const (
+	Subscribed   SubscriptionStatusEnum = "subscribed"
+	Unsubscribed SubscriptionStatusEnum = "unsubscribed"
+	Error        SubscriptionStatusEnum = "error"
 )
