@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strings"
 )
 
-// Static initialization of regexes used by the parser
-var extractChannelNameRegex = regexp.MustCompile(`^\[.*,.*,\"(.*)\",.*\]$`)
+// Static regex which extracts the channel name without trailing -***
+var extractChannelNameRegex = regexp.MustCompile(`^\[.*,.*,\"([a-z]*)[-,\"].*,.*\]$`)
+
+// Static regex used to matches whitespaces
 var matchesWhitespacesRegex = regexp.MustCompile(`\s`)
 
 // Abstract canevas for market updates published by the websocket API (trades, book, ticker, ...).
@@ -50,8 +53,26 @@ func (m *MarketData) UnmarshalJSON(data []byte) error {
 	case string(ChannelTicker):
 		// Market data should contain ticker data
 		tmp[1] = new(AssetTickerInfo)
+	case string(ChannelOHLC):
+		// Market data should contain ohlc data
+		tmp[1] = new(OHLCData)
+	case string(ChannelTrade):
+		// Market data should contain trade data
+		tmp[1] = []TradeData{}
+	case string(ChannelSpread):
+		// Market data should contain spread data
+		tmp[1] = new(SpreadData)
+	case string(ChannelBook):
+		// Check if parsed data contain a "as" which means we have a book snapshot
+		if strings.Contains(string(data), "as") {
+			tmp[1] = new(BookSnapshotData)
+		} else {
+			// We have a book update
+			tmp[1] = new(BookUpdateData)
+		}
 	default:
-		return fmt.Errorf("failed to parse market data: unknown channel name: %s", matches[0])
+		// Unknown channel name
+		return fmt.Errorf("failed to parse market data: unknown channel name: %s", matches[1])
 	}
 	// 4. Unmarshal data into the array of objects
 	err := json.Unmarshal(data, &tmp)
@@ -107,5 +128,100 @@ func (m *MarketData) AsTicker() (Ticker, error) {
 		Name:      m.Name,
 		Pair:      m.Pair,
 		Data:      *ticker,
+	}, nil
+}
+
+// Convert this market data into a ohlc.
+func (m *MarketData) AsOHLC() (OHLC, error) {
+	// Check channel name is ohlc
+	if strings.Contains(m.Name, string(ChannelOHLC)) {
+		return OHLC{}, fmt.Errorf("cannot convert to OHLC: market data channel name does not contain %s: %s", string(ChannelOHLC), m.Name)
+	}
+	ohlc, ok := m.Data.(*OHLCData)
+	if !ok {
+		return OHLC{}, fmt.Errorf("cannot convert market data to OHLC: market data are of type %T", m.Data)
+	}
+	// Return ticker
+	return OHLC{
+		ChannelId: 0,
+		Name:      m.Name,
+		Pair:      m.Pair,
+		Data:      *ohlc,
+	}, nil
+}
+
+// Convert this market data into a trade.
+func (m *MarketData) AsTrade() (Trade, error) {
+	// Check channel name is trade
+	if strings.Contains(m.Name, string(ChannelTrade)) {
+		return Trade{}, fmt.Errorf("cannot convert to Trade: market data channel name does not contain %s: %s", string(ChannelTrade), m.Name)
+	}
+	trade, ok := m.Data.([]TradeData)
+	if !ok {
+		return Trade{}, fmt.Errorf("cannot convert market data to Trade: market data are of type %T", m.Data)
+	}
+	// Return ticker
+	return Trade{
+		ChannelId: 0,
+		Name:      m.Name,
+		Pair:      m.Pair,
+		Data:      trade,
+	}, nil
+}
+
+// Convert this market data into a spread.
+func (m *MarketData) AsSpread() (Spread, error) {
+	// Check channel name is spread
+	if strings.Contains(m.Name, string(ChannelSpread)) {
+		return Spread{}, fmt.Errorf("cannot convert to Spread: market data channel name does not contain %s: %s", string(ChannelSpread), m.Name)
+	}
+	spread, ok := m.Data.(*SpreadData)
+	if !ok {
+		return Spread{}, fmt.Errorf("cannot convert market data to Spread: market data are of type %T", m.Data)
+	}
+	// Return ticker
+	return Spread{
+		ChannelId: 0,
+		Name:      m.Name,
+		Pair:      m.Pair,
+		Data:      *spread,
+	}, nil
+}
+
+// Convert this market data into a book snapshot.
+func (m *MarketData) AsBookSnapshot() (BookSnapshot, error) {
+	// Check channel name is book-*
+	if strings.Contains(m.Name, string(ChannelBook)) {
+		return BookSnapshot{}, fmt.Errorf("cannot convert to BookSnapshot: market data channel name does not contain %s: %s", string(ChannelBook), m.Name)
+	}
+	book, ok := m.Data.(*BookSnapshotData)
+	if !ok {
+		return BookSnapshot{}, fmt.Errorf("cannot convert market data to Spread: market data are of type %T", m.Data)
+	}
+	// Return ticker
+	return BookSnapshot{
+		ChannelId: 0,
+		Name:      m.Name,
+		Pair:      m.Pair,
+		Data:      *book,
+	}, nil
+}
+
+// Convert this market data into a book update.
+func (m *MarketData) AsBookUpdate() (BookUpdate, error) {
+	// Check channel name is book-*
+	if strings.Contains(m.Name, string(ChannelBook)) {
+		return BookUpdate{}, fmt.Errorf("cannot convert to BookUpdate: market data channel name does not contain %s: %s", string(ChannelBook), m.Name)
+	}
+	book, ok := m.Data.(*BookUpdateData)
+	if !ok {
+		return BookUpdate{}, fmt.Errorf("cannot convert market data to Spread: market data are of type %T", m.Data)
+	}
+	// Return ticker
+	return BookUpdate{
+		ChannelId: 0,
+		Name:      m.Name,
+		Pair:      m.Pair,
+		Data:      *book,
 	}, nil
 }

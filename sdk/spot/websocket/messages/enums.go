@@ -80,3 +80,21 @@ const (
 	Unsubscribed SubscriptionStatusEnum = "unsubscribed"
 	Error        SubscriptionStatusEnum = "error"
 )
+
+// Enum for trades triggering side
+type TriggeringSideEnum string
+
+// Values for TriggeringSideEnum
+const (
+	Buy  TriggeringSideEnum = "buy"
+	Sell TriggeringSideEnum = "sell"
+)
+
+// Enum for trades triggering order type
+type TriggeringOrderTypeEnum string
+
+// Values for TriggeringOrderTypeEnum
+const (
+	Market TriggeringOrderTypeEnum = "market"
+	Limit  TriggeringOrderTypeEnum = "limit"
+)

@@ -2,6 +2,7 @@ package messages
 
 import "encoding/json"
 
+// Data of a ticker message from the websocket API.
 type Ticker struct {
 	// Channel ID of subscription.
 	//
