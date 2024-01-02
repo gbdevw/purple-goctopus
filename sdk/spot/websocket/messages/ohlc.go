@@ -2,7 +2,12 @@ package messages
 
 import (
 	"encoding/json"
+	"fmt"
 )
+
+/*************************************************************************************************/
+/* OHLC MESSAGE                                                                                  */
+/*************************************************************************************************/
 
 // Data of a ohlc message from the websocket API.
 type OHLC struct {
@@ -17,6 +22,58 @@ type OHLC struct {
 	// OHLC data
 	Data OHLCData
 }
+
+// Custom JSON marshaller for OHLC
+func (ohlc *OHLC) MarshalJSON() ([]byte, error) {
+	return json.Marshal([]interface{}{
+		ohlc.ChannelId,
+		ohlc.Data,
+		ohlc.Name,
+		ohlc.Pair,
+	})
+}
+
+// Custom JSON unmarshaller for OHLC
+func (o *OHLC) UnmarshalJSON(data []byte) error {
+	// 1. Prepare an array objects that will be used as target by the unmarshaller
+	tmp := []interface{}{
+		0.0,           // The channel ID is understood as a float by the parser
+		new(OHLCData), // OHLC data
+		"",            // Expect a string for channel name
+		"",            // Expect a string for pair
+	}
+	// 2. Unmarshal data into the target array of objects
+	err := json.Unmarshal(data, &tmp)
+	if err != nil {
+		return err
+	}
+	// 3. Extract data
+	// Extract channel ID: index 0
+	cid, ok := tmp[0].(float64) // Yes, it is understood like that by the parser
+	if !ok {
+		return fmt.Errorf("failed to extract channel ID from parsed data: %s", string(data))
+	}
+	// Extract channel name: string - index 2
+	cname, ok := tmp[2].(string)
+	if !ok {
+		return fmt.Errorf("failed to extract channel name from parsed data: %s", string(data))
+	}
+	// Extract pair: string - index 3
+	pair, ok := tmp[3].(string)
+	if !ok {
+		return fmt.Errorf("failed to extract pair from parsed data: %s", string(data))
+	}
+	// 3 Encode OHLC
+	o.ChannelId = int(cid)
+	o.Name = cname
+	o.Pair = pair
+	o.Data = *tmp[1].(*OHLCData)
+	return nil
+}
+
+/*************************************************************************************************/
+/* OHLC DATA                                                                                     */
+/*************************************************************************************************/
 
 // Data of a single OHLC indicator
 type OHLCData struct {
@@ -90,14 +147,4 @@ func (ohlc *OHLCData) UnmarshalJSON(data []byte) error {
 	ohlc.Volume = json.Number(tmp[7].(string))
 	ohlc.TradesCount = int64(tmp[8].(float64))
 	return nil
-}
-
-// Custom JSON marshaller for OHLC
-func (ohlc *OHLC) MarshalJSON() ([]byte, error) {
-	return json.Marshal([]interface{}{
-		ohlc.ChannelId,
-		ohlc.Data,
-		ohlc.Name,
-		ohlc.Pair,
-	})
 }
