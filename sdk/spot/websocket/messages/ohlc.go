@@ -43,7 +43,7 @@ type OHLCData struct {
 // Marshal a single OHLC indicator as an array of strings to produce the same JSON data as the API.
 //
 // [string <time>, string <etime>, string <open>, string <high>, string <low>, string <close>, string <vwap>, string <volume>, int <count>]
-func (ohlc *OHLCData) MarshalJSON() ([]byte, error) {
+func (ohlc OHLCData) MarshalJSON() ([]byte, error) {
 	return json.Marshal([]interface{}{
 		ohlc.Start.String(),
 		ohlc.End.String(),
@@ -64,15 +64,15 @@ func (ohlc *OHLCData) UnmarshalJSON(data []byte) error {
 	// Create an array of interface with values that will help parser
 	// picking the right type.
 	tmp := []interface{}{
-		"",       // time
-		"",       // etime
-		"",       // open
-		"",       // high
-		"",       // low
-		"",       // close
-		"",       // vwap
-		"",       // volume
-		int64(0), // count
+		"",           // time
+		"",           // etime
+		"",           // open
+		"",           // high
+		"",           // low
+		"",           // close
+		"",           // vwap
+		"",           // volume
+		float64(0.0), // count - yes, float64 is needed here
 	}
 	// Unmarshal data into target array
 	err := json.Unmarshal(data, &tmp)
@@ -88,6 +88,16 @@ func (ohlc *OHLCData) UnmarshalJSON(data []byte) error {
 	ohlc.Close = json.Number(tmp[5].(string))
 	ohlc.VolumeAveragePrice = json.Number(tmp[6].(string))
 	ohlc.Volume = json.Number(tmp[7].(string))
-	ohlc.TradesCount = tmp[8].(int64)
+	ohlc.TradesCount = int64(tmp[8].(float64))
 	return nil
+}
+
+// Custom JSON marshaller for OHLC
+func (ohlc *OHLC) MarshalJSON() ([]byte, error) {
+	return json.Marshal([]interface{}{
+		ohlc.ChannelId,
+		ohlc.Data,
+		ohlc.Name,
+		ohlc.Pair,
+	})
 }

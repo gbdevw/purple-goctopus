@@ -18,6 +18,16 @@ type Spread struct {
 	Data SpreadData
 }
 
+// Custom JSON marshaller for Spread
+func (s *Spread) MarshalJSON() ([]byte, error) {
+	return json.Marshal([]interface{}{
+		s.ChannelId,
+		s.Data,
+		s.Name,
+		s.Pair,
+	})
+}
+
 // Data of a spread
 type SpreadData struct {
 	// Best bid price
@@ -35,7 +45,7 @@ type SpreadData struct {
 // Marshal a spread as an array of strings to produce the same JSON data as the API.
 //
 // [string <bid>, string <ask>, string <time>, string <bidVolume>, string <askVolume>]
-func (spread *SpreadData) MarshalJSON() ([]byte, error) {
+func (spread SpreadData) MarshalJSON() ([]byte, error) {
 	return json.Marshal([]string{
 		spread.BestBidPrice.String(),
 		spread.BestAskPrice.String(),

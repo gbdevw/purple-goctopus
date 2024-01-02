@@ -18,6 +18,16 @@ type Trade struct {
 	Data []TradeData
 }
 
+// Custom JSON marshaller for Trade
+func (t *Trade) MarshalJSON() ([]byte, error) {
+	return json.Marshal([]interface{}{
+		t.ChannelId,
+		t.Data,
+		t.Name,
+		t.Pair,
+	})
+}
+
 // Data of a single trade
 type TradeData struct {
 	// Price
@@ -37,11 +47,11 @@ type TradeData struct {
 // Marshal a single trade as an array of strings to produce the same JSON data as the API.
 //
 // [string <price>, string <volume>, string <time>, string <side>, string <orderType>, string <misc>]
-func (trade *TradeData) MarshalJSON() ([]byte, error) {
+func (trade TradeData) MarshalJSON() ([]byte, error) {
 	return json.Marshal([]string{
 		trade.Price.String(),
 		trade.Volume.String(),
-		trade.Price.String(),
+		trade.Timestamp.String(),
 		trade.Side,
 		trade.OrderType,
 		trade.Miscellaneous,

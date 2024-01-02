@@ -1,6 +1,9 @@
 package messages
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // Data of a ticker message from the websocket API.
 type Ticker struct {
@@ -14,6 +17,16 @@ type Ticker struct {
 	Pair string
 	// Ticker data
 	Data AssetTickerInfo
+}
+
+// Custom JSON marshaller for Ticker
+func (t Ticker) MarshalJSON() ([]byte, error) {
+	return json.Marshal([]interface{}{
+		t.ChannelId,
+		t.Data,
+		t.Name,
+		t.Pair,
+	})
 }
 
 // Asset Ticker Info
@@ -36,6 +49,59 @@ type AssetTickerInfo struct {
 	High []json.Number `json:"h"`
 	// Open array(<today>, <last 24 hours>)
 	Open []json.Number `json:"o"`
+}
+
+// Intermediate struct used to marshal AssetTickerInfo to the same payloads as the API.
+type marshalAssetTickerInfo struct {
+	// Ask array(<price>, <whole lot volume>, <lot volume>)
+	Ask []interface{} `json:"a"`
+	// Bid array(<price>, <whole lot volume>, <lot volume>)
+	Bid []interface{} `json:"b"`
+	// Last trade closed array(<price>, <lot volume>)
+	Close []interface{} `json:"c"`
+	// Volume array(<today>, <last 24 hours>)
+	Volume []interface{} `json:"v"`
+	// Volume weighted average price array(<today>, <last 24 hours>)
+	VolumeAveragePrice []interface{} `json:"p"`
+	// Number of trades array(<today>, <last 24 hours>)
+	Trades []interface{} `json:"t"`
+	// Low array(<today>, <last 24 hours>)
+	Low []interface{} `json:"l"`
+	// High array(<today>, <last 24 hours>)
+	High []interface{} `json:"h"`
+	// Open array(<today>, <last 24 hours>)
+	Open []interface{} `json:"o"`
+}
+
+// Custom JSON marshaller for AssetTickerInfo
+func (t AssetTickerInfo) MarshalJSON() ([]byte, error) {
+	awl, err := t.GetAskWholeLotVolume().Int64()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert AskWholeLotVolume to int64: %w", err)
+	}
+	bwl, err := t.GetBidWholeLotVolume().Int64()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert BidWholeLotVolume to int64: %w", err)
+	}
+	ttc, err := t.GetTodayTradeCount().Int64()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert TodayTradeCount to int64: %w", err)
+	}
+	t24c, err := t.GetPast24HTradeCount().Int64()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert Past24HTradeCount to int64: %w", err)
+	}
+	return json.Marshal(&marshalAssetTickerInfo{
+		Ask:                []interface{}{t.GetAskPrice().String(), awl, t.GetAskLotVolume().String()},
+		Bid:                []interface{}{t.GetBidPrice().String(), bwl, t.GetBidLotVolume().String()},
+		Close:              []interface{}{t.GetLastTradePrice().String(), t.GetLastTradeLotVolume().String()},
+		Volume:             []interface{}{t.GetTodayVolume().String(), t.GetPast24HVolume().String()},
+		VolumeAveragePrice: []interface{}{t.GetTodayVolumeAveragePrice().String(), t.GetPast24HVolumeAveragePrice().String()},
+		Trades:             []interface{}{ttc, t24c},
+		Low:                []interface{}{t.GetTodayLow().String(), t.GetPast24HLow().String()},
+		High:               []interface{}{t.GetTodayHigh().String(), t.GetPast24HHigh().String()},
+		Open:               []interface{}{t.GetTodayOpen().String(), t.GetPast24HOpen().String()},
+	})
 }
 
 /*************************************************************************************************/
