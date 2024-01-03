@@ -16,7 +16,7 @@ type OwnTrades struct {
 }
 
 // Custom JSON marshaller which produces the same JSON payloads as the API.
-func (owt *OwnTrades) MarshalJSON() ([]byte, error) {
+func (owt OwnTrades) MarshalJSON() ([]byte, error) {
 	return json.Marshal([]interface{}{
 		owt.Data,
 		owt.ChannelName,

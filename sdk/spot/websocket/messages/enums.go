@@ -81,20 +81,79 @@ const (
 	Error        SubscriptionStatusEnum = "error"
 )
 
-// Enum for trades triggering side
-type TriggeringSideEnum string
+// Enum for trades side
+type SideEnum string
 
 // Values for TriggeringSideEnum
 const (
-	Buy  TriggeringSideEnum = "buy"
-	Sell TriggeringSideEnum = "sell"
+	Buy  SideEnum = "buy"
+	Sell SideEnum = "sell"
 )
 
-// Enum for trades triggering order type
-type TriggeringOrderTypeEnum string
+// Enum for order type
+type OrderTypeEnum string
 
-// Values for TriggeringOrderTypeEnum
+// Values for OrderTypeEnum
 const (
-	Market TriggeringOrderTypeEnum = "market"
-	Limit  TriggeringOrderTypeEnum = "limit"
+	Market          OrderTypeEnum = "market"
+	Limit           OrderTypeEnum = "limit"
+	StopLoss        OrderTypeEnum = "stop-loss"
+	TakeProfit      OrderTypeEnum = "take-profit"
+	StopLossLimit   OrderTypeEnum = "stop-loss-limit"
+	TakeProfitLimit OrderTypeEnum = "take-profit-limit"
+	SettlePosition  OrderTypeEnum = "settle-position"
+	Iceberg         OrderTypeEnum = "iceberg"
+)
+
+// Enum for order statuses
+type OrderStatusEnum string
+
+// Values for OrderStatus
+const (
+	Pending  OrderStatusEnum = "pending"
+	Open     OrderStatusEnum = "open"
+	Closed   OrderStatusEnum = "closed"
+	Canceled OrderStatusEnum = "canceled"
+	Expired  OrderStatusEnum = "expired"
+)
+
+// Enum for trigger types
+type TriggerEnum string
+
+// Values for TriggerEnum
+const (
+	Last  TriggerEnum = "last"
+	Index TriggerEnum = "index"
+)
+
+// Enum for self trade prevention flags
+type SelfTradePreventionFlagEnum string
+
+// Values for SelfTradePreventionFlagEnum
+const (
+	STPCancelNewest SelfTradePreventionFlagEnum = "cancel-newest"
+	STPCancelOldest SelfTradePreventionFlagEnum = "cancel-oldest"
+	STPCancelBoth   SelfTradePreventionFlagEnum = "cancel-both"
+)
+
+// Enum for order flags
+type OrderFlagEnum string
+
+// Values for OrderFlagEnum
+const (
+	OFlagPost                    OrderFlagEnum = "post"
+	OFlagFeeInBase               OrderFlagEnum = "fcib"
+	OFlagFeeInQuote              OrderFlagEnum = "fciq"
+	OFlagNoMarketPriceProtection OrderFlagEnum = "nompp"
+	OFlagVolumeInQuote           OrderFlagEnum = "viqc"
+)
+
+// Enum for time in force flags
+type TimeInForceEnum string
+
+// Values for TimeInForceEnum
+const (
+	GoodTilCanceled   TimeInForceEnum = "GTC"
+	ImmediateOrCancel TimeInForceEnum = "IOC"
+	GoodTilDate       TimeInForceEnum = "GTD"
 )
