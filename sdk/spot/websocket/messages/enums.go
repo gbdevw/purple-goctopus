@@ -14,6 +14,10 @@ const (
 	EventTypeSubscribe          EventTypeEnum = "subscribe"
 	EventTypeUnsubscribe        EventTypeEnum = "unsubscribe"
 	EventTypeSubscriptionStatus EventTypeEnum = "subscriptionStatus"
+	EventTypeAddOrder           EventTypeEnum = "addOrder"
+	EventTypeAddOrderStatus     EventTypeEnum = "addOrderStatus"
+	EventTypeEditOrder          EventTypeEnum = "editOrder"
+	EventTypeEditOrderStatus    EventTypeEnum = "editOrderStatus"
 )
 
 // Enum for the API statuses
@@ -95,14 +99,16 @@ type OrderTypeEnum string
 
 // Values for OrderTypeEnum
 const (
-	Market          OrderTypeEnum = "market"
-	Limit           OrderTypeEnum = "limit"
-	StopLoss        OrderTypeEnum = "stop-loss"
-	TakeProfit      OrderTypeEnum = "take-profit"
-	StopLossLimit   OrderTypeEnum = "stop-loss-limit"
-	TakeProfitLimit OrderTypeEnum = "take-profit-limit"
-	SettlePosition  OrderTypeEnum = "settle-position"
-	Iceberg         OrderTypeEnum = "iceberg"
+	Market            OrderTypeEnum = "market"
+	Limit             OrderTypeEnum = "limit"
+	StopLoss          OrderTypeEnum = "stop-loss"
+	TakeProfit        OrderTypeEnum = "take-profit"
+	StopLossLimit     OrderTypeEnum = "stop-loss-limit"
+	TakeProfitLimit   OrderTypeEnum = "take-profit-limit"
+	SettlePosition    OrderTypeEnum = "settle-position"
+	Iceberg           OrderTypeEnum = "iceberg"
+	TrailingStop      OrderTypeEnum = "trailing-stop"
+	TrailingStopLimit OrderTypeEnum = "trailing-stop-limit"
 )
 
 // Enum for order statuses
@@ -156,4 +162,13 @@ const (
 	GoodTilCanceled   TimeInForceEnum = "GTC"
 	ImmediateOrCancel TimeInForceEnum = "IOC"
 	GoodTilDate       TimeInForceEnum = "GTD"
+)
+
+// Enum for AddOrderResponse status.
+type AddOrderStatusEnum string
+
+// Values for AddOrderStatusEnum
+const (
+	Ok  AddOrderStatusEnum = "ok"
+	Err AddOrderStatusEnum = "error"
 )
