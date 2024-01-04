@@ -30,6 +30,7 @@ const (
 	EventTypeCancelAllOrderStatus       EventTypeEnum = "cancelAllStatus"
 	EventTypeCancelAllOrdersAfterX      EventTypeEnum = "cancelAllOrdersAfter"
 	EventTypeCancelAllOrderAfterXStatus EventTypeEnum = "cancelAllOrdersAfterStatus"
+	EventTypeError                      EventTypeEnum = "error"
 )
 
 // Enum for the channels supported by the websocket API
