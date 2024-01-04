@@ -2,7 +2,6 @@ package messages
 
 import (
 	"encoding/json"
-	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,9 +11,6 @@ import (
 /*************************************************************************************************/
 /* UNIT TEST SUITE                                                                               */
 /*************************************************************************************************/
-
-// Static regex used to matches whitespaces
-var matchesWhitespacesRegex = regexp.MustCompile(`\s`)
 
 // Unit test suite for Book
 type BookUnitTestSuite struct {

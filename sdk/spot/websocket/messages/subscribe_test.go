@@ -26,8 +26,8 @@ func TestSubscribeUnitTestSuite(t *testing.T) {
 /* UNIT TESTS                                                                                    */
 /*************************************************************************************************/
 
-// Test unmarshalling an example Subscribe message from documentation into the corresponding struct.
-func (suite *SubscribeUnitTestSuite) TestSubscribeUnmarshalJson1() {
+// Test marshalling an example Subscribe message from documentation into the same payload.
+func (suite *SubscribeUnitTestSuite) TestSubscribeMarshalJson1() {
 	// Payload to unmarshal
 	payload := `{
 		"event": "subscribe",
@@ -39,22 +39,21 @@ func (suite *SubscribeUnitTestSuite) TestSubscribeUnmarshalJson1() {
 		  "name": "ticker"
 		}
 	}`
-	// Expectations
-	expectedEvent := string(EventTypeSubscribe)
-	expectedPairs := []string{"XBT/USD", "XBT/EUR"}
-	expectedSubscriptionName := string(ChannelTicker)
+	// Remove whitespaces
+	payload = matchesWhitespacesRegex.ReplaceAllString(payload, "")
 	// Unmarshal payload into target struct
 	target := new(Subscribe)
 	err := json.Unmarshal([]byte(payload), target)
 	require.NoError(suite.T(), err)
-	// Check data
-	require.Equal(suite.T(), expectedEvent, target.Event)
-	require.ElementsMatch(suite.T(), target.Pairs, expectedPairs)
-	require.Equal(suite.T(), expectedSubscriptionName, target.Subscription.Name)
+	// Marshal target
+	actual, err := json.Marshal(target)
+	require.NoError(suite.T(), err)
+	// Compare
+	require.Equal(suite.T(), payload, string(actual))
 }
 
-// Test unmarshalling an example Subscribe message from documentation into the corresponding struct.
-func (suite *SubscribeUnitTestSuite) TestSubscribeUnmarshalJson2() {
+// Test marshalling an example Subscribe message from documentation into the same payload.
+func (suite *SubscribeUnitTestSuite) TestSubscribeMarshalJson2() {
 	// Payload to unmarshal
 	payload := `{
 		"event": "subscribe",
@@ -66,24 +65,21 @@ func (suite *SubscribeUnitTestSuite) TestSubscribeUnmarshalJson2() {
 		  "name": "ohlc"
 		}
 	}`
-	// Expectations
-	expectedEvent := string(EventTypeSubscribe)
-	expectedPairs := []string{"XBT/EUR"}
-	expectedSubscriptionName := string(ChannelOHLC)
-	expectedSubscriptionInterval := int(M5)
+	// Remove whitespaces
+	payload = matchesWhitespacesRegex.ReplaceAllString(payload, "")
 	// Unmarshal payload into target struct
 	target := new(Subscribe)
 	err := json.Unmarshal([]byte(payload), target)
 	require.NoError(suite.T(), err)
-	// Check data
-	require.Equal(suite.T(), expectedEvent, target.Event)
-	require.ElementsMatch(suite.T(), target.Pairs, expectedPairs)
-	require.Equal(suite.T(), expectedSubscriptionName, target.Subscription.Name)
-	require.Equal(suite.T(), expectedSubscriptionInterval, target.Subscription.Interval)
+	// Marshal target
+	actual, err := json.Marshal(target)
+	require.NoError(suite.T(), err)
+	// Compare
+	require.Equal(suite.T(), payload, string(actual))
 }
 
-// Test unmarshalling an example Subscribe message from documentation into the corresponding struct.
-func (suite *SubscribeUnitTestSuite) TestSubscribeUnmarshalJson3() {
+// Test marshalling an example Subscribe message from documentation into the same payload.
+func (suite *SubscribeUnitTestSuite) TestSubscribeMarshalJson3() {
 	// Payload to unmarshal
 	payload := `{
 		"event": "subscribe",

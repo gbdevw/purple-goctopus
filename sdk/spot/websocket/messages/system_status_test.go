@@ -30,8 +30,8 @@ func TestSystemStatusUnitTestSuite(t *testing.T) {
 func (suite *SystemStatusUnitTestSuite) TestSystemStatusUnmarshalJson() {
 	// Payload to unmarshal
 	payload := `{
-		"connectionID": 8628615390848610000,
 		"event": "systemStatus",
+		"connectionID": 8628615390848610000,
 		"status": "online",
 		"version": "1.0.0"
 	}`
@@ -49,4 +49,26 @@ func (suite *SystemStatusUnitTestSuite) TestSystemStatusUnmarshalJson() {
 	require.Equal(suite.T(), expectedConnectionId, target.ConnectionId)
 	require.Equal(suite.T(), expectedStatus, target.Status)
 	require.Equal(suite.T(), expectedVersion, target.Version)
+}
+
+// Test marshalling an example SystemStatus to the same payload as the one shown in the API documentation.
+func (suite *SystemStatusUnitTestSuite) TestSystemStatusMarshalJson() {
+	// Payload to marshal
+	payload := `{
+		"event": "systemStatus",
+		"connectionID": 8628615390848610000,
+		"status": "online",
+		"version": "1.0.0"
+	}`
+	// Remove whitespaces from payload
+	payload = matchesWhitespacesRegex.ReplaceAllString(payload, "")
+	// Unmarshal payload into target struct
+	target := new(SystemStatus)
+	err := json.Unmarshal([]byte(payload), target)
+	require.NoError(suite.T(), err)
+	// Marshal
+	actual, err := json.Marshal(target)
+	require.NoError(suite.T(), err)
+	// Compare
+	require.Equal(suite.T(), payload, string(actual))
 }

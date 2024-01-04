@@ -2,7 +2,7 @@ package messages
 
 // Request message to add a new order
 type AddOrderRequest struct {
-	// Event type. Should be addOrder
+	// Event type. Should be 'addOrder'.
 	Event string `json:"event"`
 	// Session token string
 	Token string `json:"token"`
@@ -18,7 +18,7 @@ type AddOrderRequest struct {
 	Pair string `json:"pair"`
 	// Optional dependent on order type - order price
 	//
-	// An empty string can be used when price2 is not used.
+	// An empty string can be used when price is not used.
 	Price string `json:"price,omitempty"`
 	// Optional dependent on order type - order secondary price
 	//
@@ -51,11 +51,11 @@ type AddOrderRequest struct {
 	// Optional - expiration time.
 	//
 	// Values can be:
-	//	- 0 = now (default)
+	//	- 0 = no expiration (default)
 	//	- +<n> = schedule start time <n> seconds from now
 	//	- <n> = unix timestamp of start time
 	//
-	// An empty string triggers the default behavior (startm = now)
+	// An empty string triggers the default behavior (no expiration)
 	ExpireTimestamp string `json:"expiretm,omitempty"`
 	// Optional - RFC3339 timestamp (e.g. 2021-04-01T00:18:45Z) after which matching engine should reject new order request,4 in presence of latency
 	// or order queueing. min now + 2 seconds, max now + 60 seconds. Defaults to now + 60 seconds if not specified.

@@ -2,10 +2,12 @@ package messages
 
 // Request. Subscribe to a topic on a single or multiple currency pairs.
 type Subscribe struct {
-	// Event type.
+	// Event type. Should be 'subscribe'.
 	Event string `json:"event"`
 	// Optional - client originated ID reflected in response message.
-	ReqId int `json:"reqid,omitempty"`
+	//
+	// A zero value means no request ID will be provided.
+	ReqId int64 `json:"reqid,omitempty"`
 	// Optional - Array of currency pairs. Format of each pair is "A/B", where A and B are
 	// ISO 4217-A3 for standardized assets and popular unique symbol if not standardized.
 	Pairs []string `json:"pair,omitempty"`
@@ -15,31 +17,34 @@ type Subscribe struct {
 
 // Subscription details
 type SuscribeDetails struct {
-	// Optional - depth associated with book subscription in number of levels each side,
-	// default 10. Cf DepthEnum for values.
+	// Optional - depth associated with book subscription in number of levels each side. Cf. DepthEnum for values.
 	//
-	// A zero value will trigger default behavior.
+	// Default to a depth of 10. A zero value will trigger default behavior.
 	Depth int `json:"depth,omitempty"`
-	// Optional - Time interval associated with ohlc subscription in minutes. Default 1.
-	// Cf IntervalEnum for values.
+	// Optional - Time interval associated with ohlc subscription in minutes. Cf. IntervalEnum for values.
 	//
-	// A zero value will trigger default behavior.
+	// Default to 1 minute. A zero value will trigger default behavior.
 	Interval int `json:"interval,omitempty"`
 	// Name of the channel to subscribe to. Cf. ChannelEnum for values.
-	Name string `json:"name"`
-	// Optional - whether to send rate-limit counter in updates (supported only for openOrders
-	// subscriptions; default = false)
-	RateCounter bool `json:"ratecounter,omitempty"`
-	// Optional - whether to send historical feed data snapshot upon subscription (supported only
-	// for ownTrades subscriptions; default = true).
 	//
-	// A nil value means this feature is not meant to be used and default behavior will apply.
+	// ChannelAll will subscribe to all channels available in the target environment (eg. public | private)
+	Name string `json:"name"`
+	// Optional - whether to send rate-limit counter in updates (supported only for openOrders subscriptions)
+	//
+	// Defaut to false.
+	RateCounter bool `json:"ratecounter,omitempty"`
+	// Optional - whether to send historical feed data snapshot upon subscription (supported only for
+	// ownTrades subscriptions)
+	//
+	// Default to true. A nil value means default behavior will apply.
 	Snapshot *bool `json:"snapshot,omitempty"`
 	// Optional - base64-encoded authentication token for private-data endpoints.
-	Token string `json:"token,omitempty"`
-	// Optional - for ownTrades, whether to consolidate order fills by root taker trade(s),
-	// default = true. If false, all order fills will show separately.
 	//
-	// A nil value means this feature is not meant to be used and default behavior will apply.
+	// An empty string means no token will be suppied.
+	Token string `json:"token,omitempty"`
+	// Optional - for ownTrades, whether to consolidate order fills by root taker trade(s).
+	// If false, all order fills will show separately.
+	//
+	// Default to true. A nil value means default behavior will apply.
 	ConsolidateTaker *bool `json:"consolidate_taker,omitempty"`
 }

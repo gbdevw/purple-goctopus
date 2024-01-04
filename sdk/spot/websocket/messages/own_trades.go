@@ -53,9 +53,9 @@ type OwnTradeData struct {
 	Pair string `json:"pair"`
 	// Unix timestamp for the trade - As <sec>.<nsec> decimal
 	Timestamp string `json:"time"`
-	// Trade direction (buy/sell). Cf. TriggeringSideEnum for values
+	// Trade direction (buy/sell). Cf. SideEnum for values
 	Type string `json:"type"`
-	// Order type. Cf. TriggeringOrderTypeEnum for values
+	// Order type. Cf. OrderTypeEnum for values
 	OrderType string `json:"ordertype"`
 	// Average price order was executed at
 	Price string `json:"price"`

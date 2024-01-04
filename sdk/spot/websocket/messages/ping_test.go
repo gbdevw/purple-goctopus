@@ -26,21 +26,22 @@ func TestPingUnitTestSuite(t *testing.T) {
 /* UNIT TESTS                                                                                    */
 /*************************************************************************************************/
 
-// Test unmarshalling an example Ping message from documentation into the corresponding struct.
-func (suite *PingUnitTestSuite) TestPingUnmarshalJson() {
+// Test marshalling an example Ping message from documentation into the same payload.
+func (suite *PingUnitTestSuite) TestPingMarshalJson() {
 	// Payload to unmarshal
 	payload := `{
 		"event": "ping",
 		"reqid": 42
 	}`
-	// Expectations
-	expectedEvent := string(EventTypePing)
-	expectedReqId := 42
+	// Remove whitespaces
+	payload = matchesWhitespacesRegex.ReplaceAllString(payload, "")
 	// Unmarshal payload into target struct
 	target := new(Ping)
 	err := json.Unmarshal([]byte(payload), target)
 	require.NoError(suite.T(), err)
-	// Check data
-	require.Equal(suite.T(), expectedEvent, target.Event)
-	require.Equal(suite.T(), expectedReqId, target.ReqId)
+	// Marshal target
+	actual, err := json.Marshal(target)
+	require.NoError(suite.T(), err)
+	// Compare
+	require.Equal(suite.T(), payload, string(actual))
 }

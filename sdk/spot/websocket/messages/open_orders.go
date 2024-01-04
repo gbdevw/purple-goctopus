@@ -49,7 +49,7 @@ type OrderInfoDescription struct {
 	Pair string `json:"pair,omitempty"`
 	// Optional - position ID (if applicable)
 	PositionId string `json:"position,omitempty"`
-	// Order direction (buy/sell). Cf. TriggeringSideEnum.
+	// Order direction (buy/sell). Cf. SideEnum.
 	Type string `json:"type,omitempty"`
 	// Order type. Cf. OrderTypeEnum
 	OrderType string `json:"ordertype,omitempty"`

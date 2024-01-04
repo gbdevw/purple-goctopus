@@ -7,5 +7,5 @@ type Pong struct {
 	// Event type
 	Event string `json:"event"`
 	// Optional - matching client originated request ID
-	ReqId int `json:"reqid,omitempty"`
+	ReqId *int64 `json:"reqid,omitempty"`
 }

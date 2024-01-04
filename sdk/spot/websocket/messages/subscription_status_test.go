@@ -26,11 +26,10 @@ func TestSubscriptionStatusUnitTestSuite(t *testing.T) {
 /* UNIT TESTS                                                                                    */
 /*************************************************************************************************/
 
-// Test unmarshalling an example SubscriptionStatus message from documentation into the corresponding struct.
-func (suite *SubscriptionStatusUnitTestSuite) TestSubscriptionStatusUnmarshalJson1() {
-	// Payload to unmarshal
+// Test marshalling an example SubscriptionStatus message from documentation to the same payload.
+func (suite *SubscriptionStatusUnitTestSuite) TestSubscriptionStatusMarshalJson1() {
+	// Payload to marshal
 	payload := `{
-		"channelID": 10001,
 		"channelName": "ticker",
 		"event": "subscriptionStatus",
 		"pair": "XBT/EUR",
@@ -39,89 +38,68 @@ func (suite *SubscriptionStatusUnitTestSuite) TestSubscriptionStatusUnmarshalJso
 		  "name": "ticker"
 		}
 	}`
-	// Expectations
-	expectedEvent := string(EventTypeSubscriptionStatus)
-	expectedPair := "XBT/EUR"
-	expectedName := string(ChannelTicker)
-	expectedStatus := string(Subscribed)
+	// Remove whitespaces
+	payload = matchesWhitespacesRegex.ReplaceAllString(payload, "")
 	// Unmarshal payload into target struct
 	target := new(SubscriptionStatus)
 	err := json.Unmarshal([]byte(payload), target)
 	require.NoError(suite.T(), err)
-	// Check data
-	require.Equal(suite.T(), expectedEvent, target.Event)
-	require.Equal(suite.T(), expectedPair, target.Pair)
-	require.Equal(suite.T(), expectedName, target.ChannelName)
-	require.Equal(suite.T(), expectedStatus, target.Status)
-	require.Equal(suite.T(), expectedName, target.Subscription.Name)
+	// Marshal target
+	actual, err := json.Marshal(target)
+	require.NoError(suite.T(), err)
+	// Compare
+	require.Equal(suite.T(), payload, string(actual))
 }
 
-// Test unmarshalling an example SubscriptionStatus message from documentation into the corresponding struct.
-func (suite *SubscriptionStatusUnitTestSuite) TestSubscriptionStatusUnmarshalJson2() {
+// Test marshalling an example SubscriptionStatus message from documentation to the same payload.
+func (suite *SubscriptionStatusUnitTestSuite) TestSubscriptionStatusMarshalJson2() {
 	// Payload to unmarshal
 	payload := `{
-		"channelID": 10001,
 		"channelName": "ohlc-5",
 		"event": "subscriptionStatus",
-		"pair": "XBT/EUR",
 		"reqid": 42,
+		"pair": "XBT/EUR",
 		"status": "unsubscribed",
 		"subscription": {
 		  "interval": 5,
 		  "name": "ohlc"
 		}
 	}`
-	// Expectations
-	expectedEvent := string(EventTypeSubscriptionStatus)
-	expectedPair := "XBT/EUR"
-	expectedReqId := 42
-	expectedStatus := string(Unsubscribed)
-	expectedChannelName := "ohlc-5"
-	expectedSubscriptionName := string(ChannelOHLC)
-	expectedSubscriptionInterval := int(M5)
+	// Remove whitespaces
+	payload = matchesWhitespacesRegex.ReplaceAllString(payload, "")
 	// Unmarshal payload into target struct
 	target := new(SubscriptionStatus)
 	err := json.Unmarshal([]byte(payload), target)
 	require.NoError(suite.T(), err)
-	// Check data
-	require.Equal(suite.T(), expectedChannelName, target.ChannelName)
-	require.Equal(suite.T(), expectedEvent, target.Event)
-	require.Equal(suite.T(), expectedPair, target.Pair)
-	require.Equal(suite.T(), expectedReqId, target.ReqId)
-	require.Equal(suite.T(), expectedStatus, target.Status)
-	require.Equal(suite.T(), expectedSubscriptionName, target.Subscription.Name)
-	require.Equal(suite.T(), expectedSubscriptionInterval, target.Subscription.Interval)
+	// Marshal target
+	actual, err := json.Marshal(target)
+	require.NoError(suite.T(), err)
+	// Compare
+	require.Equal(suite.T(), payload, string(actual))
 }
 
 // Test unmarshalling an example SubscriptionStatus message from documentation into the corresponding struct.
 func (suite *SubscriptionStatusUnitTestSuite) TestSubscriptionStatusUnmarshalJson3() {
 	// Payload to unmarshal
 	payload := `{
-		"errorMessage": "Subscription depth not supported",
 		"event": "subscriptionStatus",
 		"pair": "XBT/USD",
 		"status": "error",
+		"errorMessage": "Subscription depth not supported",
 		"subscription": {
 		  "depth": 42,
 		  "name": "book"
 		}
 	}`
-	// Expectations
-	expectedEvent := string(EventTypeSubscriptionStatus)
-	expectedErrMsg := "Subscription depth not supported"
-	expectedPair := "XBT/USD"
-	expectedStatus := string(Error)
-	expectedSubscriptionName := string(ChannelBook)
-	expectedDepth := 42
+	// Remove whitespaces
+	payload = matchesWhitespacesRegex.ReplaceAllString(payload, "")
 	// Unmarshal payload into target struct
 	target := new(SubscriptionStatus)
 	err := json.Unmarshal([]byte(payload), target)
 	require.NoError(suite.T(), err)
-	// Check data
-	require.Equal(suite.T(), expectedErrMsg, target.Err)
-	require.Equal(suite.T(), expectedEvent, target.Event)
-	require.Equal(suite.T(), expectedPair, target.Pair)
-	require.Equal(suite.T(), expectedStatus, target.Status)
-	require.Equal(suite.T(), expectedSubscriptionName, target.Subscription.Name)
-	require.Equal(suite.T(), expectedDepth, target.Subscription.Depth)
+	// Marshal target
+	actual, err := json.Marshal(target)
+	require.NoError(suite.T(), err)
+	// Compare
+	require.Equal(suite.T(), payload, string(actual))
 }

@@ -1,14 +1,24 @@
 package messages
 
+// Enum for subscription status
+type SubscriptionStatusEnum string
+
+// Values for SubscriptionStatusEnum
+const (
+	Subscribed   SubscriptionStatusEnum = "subscribed"
+	Unsubscribed SubscriptionStatusEnum = "unsubscribed"
+	Error        SubscriptionStatusEnum = "error"
+)
+
 // Response. Subscription status response to subscribe, unsubscribe or exchange initiated unsubscribe.
 type SubscriptionStatus struct {
-	// Channel Name on successful subscription. For payloads 'ohlc' and 'book', respective interval or
+	// Channel nme on successful subscription. For payloads 'ohlc' and 'book', respective interval or
 	// depth will be added as suffix.
 	ChannelName string `json:"channelName,omitempty"`
-	// Event type.
+	// Event type. Should be 'subscriptionStatus'
 	Event string `json:"event"`
 	// Optional - client originated ID reflected in response message.
-	ReqId int `json:"reqid,omitempty"`
+	ReqId *int64 `json:"reqid,omitempty"`
 	// Optional - Currency pair, applicable to public messages only.
 	Pair string `json:"pair,omitempty"`
 	// Status of subscription. Cf. SubscriptionStatusEnum for values.
@@ -21,7 +31,7 @@ type SubscriptionStatus struct {
 
 // Subscription status details
 type SubscriptionStatusDetails struct {
-	// Optional - depth associated with book subscription in number of levels each side
+	// Optional - depth associated with book subscription in number of levels each side.
 	Depth int `json:"depth,omitempty"`
 	// Optional - Time interval associated with ohlc subscription in minutes.
 	Interval int `json:"interval,omitempty"`

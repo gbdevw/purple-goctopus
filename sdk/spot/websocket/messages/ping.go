@@ -6,6 +6,8 @@ package messages
 type Ping struct {
 	// Event type
 	Event string `json:"event"`
-	// Optional - client originated ID reflected in response message
-	ReqId int `json:"reqid,omitempty"`
+	// Optional - client originated ID reflected in response message.
+	//
+	// A zero value means no user ID will be provided.
+	ReqId int64 `json:"reqid,omitempty"`
 }
