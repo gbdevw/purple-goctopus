@@ -7,17 +7,23 @@ type EventTypeEnum string
 
 // Values for EventTypeEnum
 const (
-	EventTypePing               EventTypeEnum = "ping"
-	EventTypePong               EventTypeEnum = "pong"
-	EventTypeHeartbeat          EventTypeEnum = "heartbeat"
-	EventTypeSystemStatus       EventTypeEnum = "systemStatus"
-	EventTypeSubscribe          EventTypeEnum = "subscribe"
-	EventTypeUnsubscribe        EventTypeEnum = "unsubscribe"
-	EventTypeSubscriptionStatus EventTypeEnum = "subscriptionStatus"
-	EventTypeAddOrder           EventTypeEnum = "addOrder"
-	EventTypeAddOrderStatus     EventTypeEnum = "addOrderStatus"
-	EventTypeEditOrder          EventTypeEnum = "editOrder"
-	EventTypeEditOrderStatus    EventTypeEnum = "editOrderStatus"
+	EventTypePing                       EventTypeEnum = "ping"
+	EventTypePong                       EventTypeEnum = "pong"
+	EventTypeHeartbeat                  EventTypeEnum = "heartbeat"
+	EventTypeSystemStatus               EventTypeEnum = "systemStatus"
+	EventTypeSubscribe                  EventTypeEnum = "subscribe"
+	EventTypeUnsubscribe                EventTypeEnum = "unsubscribe"
+	EventTypeSubscriptionStatus         EventTypeEnum = "subscriptionStatus"
+	EventTypeAddOrder                   EventTypeEnum = "addOrder"
+	EventTypeAddOrderStatus             EventTypeEnum = "addOrderStatus"
+	EventTypeEditOrder                  EventTypeEnum = "editOrder"
+	EventTypeEditOrderStatus            EventTypeEnum = "editOrderStatus"
+	EventTypeCancelOrder                EventTypeEnum = "cancelOrder"
+	EventTypeCancelOrderStatus          EventTypeEnum = "cancelOrderStatus"
+	EventTypeCancelAllOrders            EventTypeEnum = "cancelAll"
+	EventTypeCancelAllOrderStatus       EventTypeEnum = "cancelAllStatus"
+	EventTypeCancelAllOrdersAfterX      EventTypeEnum = "cancelAllOrdersAfter"
+	EventTypeCancelAllOrderAfterXStatus EventTypeEnum = "cancelAllOrdersAfterStatus"
 )
 
 // Enum for the API statuses
