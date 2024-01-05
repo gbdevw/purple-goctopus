@@ -1,5 +1,7 @@
 package websocket
 
-// Data required when cancelling one or more orders
+// CancelOrder request parameters
 type CancelOrderRequestParameters struct {
+	// Array of order IDs to be canceled. These can be user reference IDs.
+	TxId []string `json:"txid"`
 }

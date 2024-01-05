@@ -375,7 +375,7 @@ type KrakenSpotPrivateWebsocketClientInterface interface {
 	//
 	//	- ctx: Context used for tracing and coordination purpose. The provided context Done channel
 	//    will be watched for timeout/cancel signal.
-	//	- params: Add order required parameters
+	//	- params: AddOrder request parameters
 	//	- opts: Add order options. A nil value can be provided and will trigger all default behavior.
 	//
 	// # Return
@@ -390,7 +390,7 @@ type KrakenSpotPrivateWebsocketClientInterface interface {
 	//	- An error message is received from the server (OperationError).
 	//	- A timeout or network failure occurs after sending the request to the server, while
 	//    waiting for the server response. In this case, a OperationInterruptedError is returned.
-	AddOrder(ctx context.Context, params AddOrderRequestParameters, opts *AddOrderRequestOptions) (*messages.AddOrderResponse, error)
+	AddOrder(ctx context.Context, params AddOrderRequestParameters) (*messages.AddOrderResponse, error)
 	// # Description
 	//
 	// Edit an existing order and wait until a EditOrderResponse response is received from the
@@ -400,7 +400,7 @@ type KrakenSpotPrivateWebsocketClientInterface interface {
 	//
 	//	- ctx: Context used for tracing and coordination purpose. The provided context Done channel
 	//    will be watched for timeout/cancel signal.
-	//	- params: Edit order required parameters.
+	//	- params: EditOrder request parameters.
 	//
 	// # Return
 	//
@@ -414,7 +414,7 @@ type KrakenSpotPrivateWebsocketClientInterface interface {
 	//	- An error message is received from the server (OperationError).
 	//	- A timeout or network failure occurs after sending the request to the server, while
 	//    waiting for the server response. In this case, a OperationInterruptedError is returned.
-	EditOrder(ctx context.Context, params EditORderRequestParameters) (*messages.EditOrderResponse, error)
+	EditOrder(ctx context.Context, params EditOrderRequestParameters) (*messages.EditOrderResponse, error)
 	// # Description
 	//
 	// Cancel one or several existing orders and wait until a CancelOrderResponse response is
@@ -424,7 +424,7 @@ type KrakenSpotPrivateWebsocketClientInterface interface {
 	//
 	//	- ctx: Context used for tracing and coordination purpose. The provided context Done channel
 	//    will be watched for timeout/cancel signal.
-	//	- params: Cancel order required parameters.
+	//	- params: CancelOrder request parameters.
 	//
 	// # Return
 	//
@@ -471,7 +471,7 @@ type KrakenSpotPrivateWebsocketClientInterface interface {
 	//
 	//	- ctx: Context used for tracing and coordination purpose. The provided context Done channel
 	//    will be watched for timeout/cancel signal.
-	//	- params: CancellAllOrdersAfterX required parameters.
+	//	- params: CancellAllOrdersAfterX request parameters.
 	//
 	// # Return
 	//
