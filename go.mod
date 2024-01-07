@@ -1,9 +1,10 @@
-module github.com/gbdevw/purple-goctopus/sdk
+module github.com/gbdevw/purple-goctopus
 
 go 1.21.5
 
 require (
 	github.com/gbdevw/gosette v0.0.0-20231029160843-0b9a6036c041
+	github.com/gbdevw/gowse v0.0.0-20240105171343-f682b98f12eb
 	github.com/hashicorp/go-retryablehttp v0.7.5
 	github.com/stretchr/testify v1.8.4
 	go.opentelemetry.io/otel v1.21.0

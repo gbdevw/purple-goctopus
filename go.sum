@@ -3,6 +3,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/gbdevw/gosette v0.0.0-20231029160843-0b9a6036c041 h1:iDfBHC5nzkp/8iN30gkv/VPiw3rP5NZF+bZ6/2+U9WY=
 github.com/gbdevw/gosette v0.0.0-20231029160843-0b9a6036c041/go.mod h1:K0sS8dwtHJRkylGtMxnhukTobhm55+NoT47xsbBSxd4=
+github.com/gbdevw/gowse v0.0.0-20240105171343-f682b98f12eb h1:h3MQpVcbGUXEUlHyyQJ/H3PERB7XXH91EbqXCiQSY7Q=
+github.com/gbdevw/gowse v0.0.0-20240105171343-f682b98f12eb/go.mod h1:Gam7qxyD7lL9PcAcU8Kvo66YYF9BCaZAD0zkzJ8BSPA=
 github.com/go-logr/logr v1.2.2/go.mod h1:jdQByPbusPIv2/zmleS9BjJVeZ6kBagPoEUsqbVz/1A=
 github.com/go-logr/logr v1.3.0 h1:2y3SDp0ZXuc6/cjLSZ+Q3ir+QB9T/iG5yYRXqsagWSY=
 github.com/go-logr/logr v1.3.0/go.mod h1:9T104GzyrTigFIr8wt5mBrctHMim0Nb2HLGrmQ40KvY=
