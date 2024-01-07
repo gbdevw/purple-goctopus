@@ -175,3 +175,13 @@ type SequenceId struct {
 
 // Static regex used to matches whitespaces.
 var matchesWhitespacesRegex = regexp.MustCompile(`\s`)
+
+// Static regex used to extract the message type from a message received form the server.
+//
+// The regex will match:
+//   - A JSON Object which contains a "event" fields and will extract ist value if this value is
+//     pong, heartbeat, systemStatus, subscriptionStatus, addOrderStatus, editOrderStatus,
+//     cancelOrderStatus, cancelAllStatus orcancelAllOrdersAfterStatus
+//   - A JSON array which contains an string like ownTrades, openOrders, ticker, trade, spread,
+//     ohlc* or book*
+var matchMessageTypeRegex = regexp.MustCompile(`^{.*\"event\":\ *\"(pong|heartbeat|systemStatus|subscriptionStatus|addOrderStatus|editOrderStatus|cancelOrderStatus|cancelAllStatus|cancelAllOrdersAfterStatus)\".*}$|^\[.*\"(ownTrades|openOrders|ticker|trade|spread|ohlc|book)[-0-9]*\".*\]$`)
