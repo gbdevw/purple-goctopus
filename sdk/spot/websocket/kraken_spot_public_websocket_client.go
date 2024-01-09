@@ -42,6 +42,16 @@ type KrakenSpotPublicWebsocketClient struct {
 	tracer trace.Tracer
 	// Mutex used to protect access to pending requests while client is discarding them.
 	mu sync.Mutex
+	// Mutex used to protect ticker subscribe/unsubscribe methods
+	tickerSubMu sync.Mutex
+	// Mutex used to protect ohlc subscribe/unsubscribe methods
+	ohlcSubMu sync.Mutex
+	// Mutex used to protect trade subscribe/unsubscribe methods
+	tradeSubMu sync.Mutex
+	// Mutex used to protect spread subscribe/unsubscribe methods
+	spreadSubMu sync.Mutex
+	// Mutex used to protect book subscribe/unsubscribe methods
+	bookSubMu sync.Mutex
 }
 
 // # Description
@@ -99,6 +109,11 @@ func NewKrakenSpotPublicWebsocketClient(
 		onRestartError:      onRestartError,
 		tracer:              tracerProvider.Tracer(tracing.PackageName, trace.WithInstrumentationVersion(tracing.PackageVersion)),
 		mu:                  sync.Mutex{},
+		tickerSubMu:         sync.Mutex{},
+		ohlcSubMu:           sync.Mutex{},
+		tradeSubMu:          sync.Mutex{},
+		spreadSubMu:         sync.Mutex{},
+		bookSubMu:           sync.Mutex{},
 	}
 }
 
@@ -476,7 +491,7 @@ func (client *KrakenSpotPublicWebsocketClient) OnClose(
 	// Lock mutex before starting to discard pending requests
 	client.mu.Lock()
 	defer client.mu.Unlock()
-	// Discard pending ping requests
+	// Discard pending ping requests to unlock all blocked thread waiting for a response.
 	for reqid, req := range client.requests.pendingPing {
 		// blocking write can be used as channels are managed internally and must have a capacity of 1
 		req.err <- &OperationInterruptedError{
@@ -508,18 +523,28 @@ func (client *KrakenSpotPublicWebsocketClient) OnClose(
 	}
 	// Send a nil value on all active subscriptions
 	// Use blocking writes (design principle: wait 'till delivery)
+	client.tickerSubMu.Lock()
+	defer client.tickerSubMu.Unlock()
 	if client.subscriptions.ticker != nil {
 		client.subscriptions.ticker.pub <- nil
 	}
+	client.ohlcSubMu.Lock()
+	defer client.ohlcSubMu.Unlock()
 	if client.subscriptions.ohlcs != nil {
 		client.subscriptions.ohlcs.pub <- nil
 	}
+	client.tradeSubMu.Lock()
+	defer client.tradeSubMu.Unlock()
 	if client.subscriptions.trade != nil {
 		client.subscriptions.trade.pub <- nil
 	}
+	client.spreadSubMu.Lock()
+	defer client.spreadSubMu.Unlock()
 	if client.subscriptions.spread != nil {
 		client.subscriptions.spread.pub <- nil
 	}
+	client.bookSubMu.Lock()
+	defer client.bookSubMu.Unlock()
 	if client.subscriptions.book != nil {
 		client.subscriptions.book.snapshots <- nil
 		client.subscriptions.book.updates <- nil
@@ -1077,7 +1102,39 @@ func (client *KrakenSpotPublicWebsocketClient) handleBookSnapshot(
 //   - The provided context expires (timeout/cancel).
 //   - An error message is received from the server (OperationError).
 func (client *KrakenSpotPublicWebsocketClient) Ping(ctx context.Context) error {
-	return nil
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".ping", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
+	// Create response channels
+	errChan := make(chan error, 1)
+	respChan := make(chan *messages.Pong, 1)
+	// Send ping message to server
+	err := client.sendPingRequest(
+		ctx,
+		&messages.Ping{
+			Event: string(messages.EventTypePing),
+			ReqId: client.ngen.GenerateNonce(),
+		},
+		respChan,
+		errChan)
+	if err != nil {
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, fmt.Errorf("ping failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, fmt.Errorf("ping failed: %w", err))
+	case <-errChan:
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, fmt.Errorf("ping failed: %w", err))
+	case <-respChan:
+		// Set span status and exit
+		span.AddEvent(tracing.TracesNamespace + ".pong_received")
+		span.SetStatus(codes.Ok, codes.Ok.String())
+		return nil
+	}
 }
 
 // # Description
@@ -1127,7 +1184,56 @@ func (client *KrakenSpotPublicWebsocketClient) Ping(ctx context.Context) error {
 //     If the user use the subscribe method again, then, a new channel MUST be created and the
 //     older one MUST NOT be used anymore.
 func (client *KrakenSpotPublicWebsocketClient) SubscribeTicker(ctx context.Context, pairs []string, capacity int) (chan *messages.Ticker, error) {
-	return nil, nil
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".subscribe_ticker",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(
+			attribute.StringSlice("pairs", pairs),
+			attribute.Int("capacity", capacity),
+		))
+	defer span.End()
+	// Check if there is already an active subscription
+	client.tickerSubMu.Lock() // Lock mutex till subscribe completes - this will block Unsubscribe
+	defer client.tickerSubMu.Unlock()
+	if client.subscriptions.ticker != nil {
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe ticker failed because there is already an active subscription"))
+	}
+	// Create response channels
+	errChan := make(chan error, 1)
+	// Send subscribe message to server
+	err := client.sendSubscribeRequest(
+		ctx,
+		&messages.Subscribe{
+			Event: string(messages.EventTypeSubscribe),
+			ReqId: client.ngen.GenerateNonce(),
+			Pairs: pairs,
+			Subscription: messages.SuscribeDetails{
+				Name: string(messages.ChannelTicker),
+			},
+		},
+		errChan)
+	if err != nil {
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe ticker failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe ticker failed: %w", err))
+	case err := <-errChan:
+		if err != nil {
+			// Trace and return error
+			return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe ticker failed: %w", err))
+		}
+		// Register the subscription
+		client.subscriptions.ticker = &tickerSubscription{
+			pairs: pairs,
+			pub:   make(chan *messages.Ticker, capacity),
+		}
+		// Return publish channel
+		return client.subscriptions.ticker.pub, nil
+	}
 }
 
 // # Description
@@ -1179,7 +1285,59 @@ func (client *KrakenSpotPublicWebsocketClient) SubscribeTicker(ctx context.Conte
 //     If the user use the subscribe method again, then, a new channel MUST be created and the
 //     older one MUST NOT be used anymore.
 func (client *KrakenSpotPublicWebsocketClient) SubscribeOHLC(ctx context.Context, pairs []string, interval messages.IntervalEnum, capacity int) (chan *messages.OHLC, error) {
-	return nil, nil
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".subscribe_ohlc",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(
+			attribute.StringSlice("pairs", pairs),
+			attribute.Int("interval", int(interval)),
+			attribute.Int("capacity", capacity),
+		))
+	defer span.End()
+	// Check if there is already an active subscription
+	client.ohlcSubMu.Lock() // Lock mutex till subscribe completes - this will block Unsubscribe
+	defer client.ohlcSubMu.Unlock()
+	if client.subscriptions.ohlcs != nil {
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe ohlc failed because there is already an active subscription"))
+	}
+	// Create response channels
+	errChan := make(chan error, 1)
+	// Send subscribe message to server
+	err := client.sendSubscribeRequest(
+		ctx,
+		&messages.Subscribe{
+			Event: string(messages.EventTypeSubscribe),
+			ReqId: client.ngen.GenerateNonce(),
+			Pairs: pairs,
+			Subscription: messages.SuscribeDetails{
+				Name:     string(messages.ChannelOHLC),
+				Interval: int(interval),
+			},
+		},
+		errChan)
+	if err != nil {
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe ohlc failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe ohlc failed: %w", err))
+	case err := <-errChan:
+		if err != nil {
+			// Trace and return error
+			return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe ohlc failed: %w", err))
+		}
+		// Register the subscription
+		client.subscriptions.ohlcs = &ohlcSubscription{
+			pairs:    pairs,
+			pub:      make(chan *messages.OHLC, capacity),
+			interval: interval,
+		}
+		// Return publish channel
+		return client.subscriptions.ohlcs.pub, nil
+	}
 }
 
 // # Description
@@ -1228,7 +1386,56 @@ func (client *KrakenSpotPublicWebsocketClient) SubscribeOHLC(ctx context.Context
 //     If the user use the subscribe method again, then, a new channel MUST be created and the
 //     older one MUST NOT be used anymore.
 func (client *KrakenSpotPublicWebsocketClient) SubscribeTrade(ctx context.Context, pairs []string, capacity int) (chan *messages.Trade, error) {
-	return nil, nil
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".subscribe_trade",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(
+			attribute.StringSlice("pairs", pairs),
+			attribute.Int("capacity", capacity),
+		))
+	defer span.End()
+	// Check if there is already an active subscription
+	client.tradeSubMu.Lock() // Lock mutex till subscribe completes - this will block Unsubscribe
+	defer client.tradeSubMu.Unlock()
+	if client.subscriptions.trade != nil {
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe trade failed because there is already an active subscription"))
+	}
+	// Create response channels
+	errChan := make(chan error, 1)
+	// Send subscribe message to server
+	err := client.sendSubscribeRequest(
+		ctx,
+		&messages.Subscribe{
+			Event: string(messages.EventTypeSubscribe),
+			ReqId: client.ngen.GenerateNonce(),
+			Pairs: pairs,
+			Subscription: messages.SuscribeDetails{
+				Name: string(messages.ChannelTrade),
+			},
+		},
+		errChan)
+	if err != nil {
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe trade failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe trade failed: %w", err))
+	case err := <-errChan:
+		if err != nil {
+			// Trace and return error
+			return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe trade failed: %w", err))
+		}
+		// Register the subscription
+		client.subscriptions.trade = &tradeSubscription{
+			pairs: pairs,
+			pub:   make(chan *messages.Trade, capacity),
+		}
+		// Return publish channel
+		return client.subscriptions.trade.pub, nil
+	}
 }
 
 // # Description
@@ -1277,7 +1484,56 @@ func (client *KrakenSpotPublicWebsocketClient) SubscribeTrade(ctx context.Contex
 //     If the user use the subscribe method again, then, a new channel MUST be created and the
 //     older one MUST NOT be used anymore.
 func (client *KrakenSpotPublicWebsocketClient) SubscribeSpread(ctx context.Context, pairs []string, capacity int) (chan *messages.Spread, error) {
-	return nil, nil
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".subscribe_spread",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(
+			attribute.StringSlice("pairs", pairs),
+			attribute.Int("capacity", capacity),
+		))
+	defer span.End()
+	// Check if there is already an active subscription
+	client.spreadSubMu.Lock() // Lock mutex till subscribe completes - this will block Unsubscribe
+	defer client.spreadSubMu.Unlock()
+	if client.subscriptions.spread != nil {
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe spread failed because there is already an active subscription"))
+	}
+	// Create response channels
+	errChan := make(chan error, 1)
+	// Send subscribe message to server
+	err := client.sendSubscribeRequest(
+		ctx,
+		&messages.Subscribe{
+			Event: string(messages.EventTypeSubscribe),
+			ReqId: client.ngen.GenerateNonce(),
+			Pairs: pairs,
+			Subscription: messages.SuscribeDetails{
+				Name: string(messages.ChannelSpread),
+			},
+		},
+		errChan)
+	if err != nil {
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe spread failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe spread failed: %w", err))
+	case err := <-errChan:
+		if err != nil {
+			// Trace and return error
+			return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe spread failed: %w", err))
+		}
+		// Register the subscription
+		client.subscriptions.spread = &spreadSubscription{
+			pairs: pairs,
+			pub:   make(chan *messages.Spread, capacity),
+		}
+		// Return publish channel
+		return client.subscriptions.spread.pub, nil
+	}
 }
 
 // # Description
@@ -1326,7 +1582,60 @@ func (client *KrakenSpotPublicWebsocketClient) SubscribeSpread(ctx context.Conte
 //     If the user use the subscribe method again, then, a new channel MUST be created and the
 //     older one MUST NOT be used anymore.
 func (client *KrakenSpotPublicWebsocketClient) SubscribeBook(ctx context.Context, pairs []string, depth messages.DepthEnum, capacity int) (chan *messages.BookSnapshot, chan *messages.BookUpdate, error) {
-	return nil, nil, nil
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".subscribe_book",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(
+			attribute.StringSlice("pairs", pairs),
+			attribute.Int("depth", int(depth)),
+			attribute.Int("capacity", capacity),
+		))
+	defer span.End()
+	// Check if there is already an active subscription
+	client.bookSubMu.Lock() // Lock mutex till subscribe completes - this will block Unsubscribe
+	defer client.bookSubMu.Unlock()
+	if client.subscriptions.book != nil {
+		return nil, nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe book failed because there is already an active subscription"))
+	}
+	// Create response channels
+	errChan := make(chan error, 1)
+	// Send subscribe message to server
+	err := client.sendSubscribeRequest(
+		ctx,
+		&messages.Subscribe{
+			Event: string(messages.EventTypeSubscribe),
+			ReqId: client.ngen.GenerateNonce(),
+			Pairs: pairs,
+			Subscription: messages.SuscribeDetails{
+				Name:  string(messages.ChannelBook),
+				Depth: int(depth),
+			},
+		},
+		errChan)
+	if err != nil {
+		// Trace and return error
+		return nil, nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe book failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return nil, nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe book failed: %w", err))
+	case err := <-errChan:
+		if err != nil {
+			// Trace and return error
+			return nil, nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe book failed: %w", err))
+		}
+		// Register the subscription
+		client.subscriptions.book = &bookSubscription{
+			pairs:     pairs,
+			updates:   make(chan *messages.BookUpdate, capacity),
+			snapshots: make(chan *messages.BookSnapshot, len(pairs)*10),
+			depth:     depth,
+		}
+		// Return publish channel
+		return client.subscriptions.book.snapshots, client.subscriptions.book.updates, nil
+	}
 }
 
 // # Description
@@ -1354,7 +1663,47 @@ func (client *KrakenSpotPublicWebsocketClient) SubscribeBook(ctx context.Context
 //
 //   - The client MUST return an error if channel was not subscribed to.
 func (client *KrakenSpotPublicWebsocketClient) UnsubscribeTicker(ctx context.Context) error {
-	return nil
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_ticker", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
+	// Check if there is already an active subscription
+	client.tickerSubMu.Lock() // Lock mutex till subscribe completes - this will block Subscribe
+	defer client.tickerSubMu.Unlock()
+	if client.subscriptions.ticker == nil {
+		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe ticker failed because there is no active subscription"))
+	}
+	// Create response channels
+	errChan := make(chan error, 1)
+	// Send unsubscribe message to server
+	err := client.sendUnsubscribeRequest(
+		ctx,
+		&messages.Unsubscribe{
+			Event: string(messages.EventTypeUnsubscribe),
+			ReqId: client.ngen.GenerateNonce(),
+			Pairs: client.subscriptions.ticker.pairs,
+			Subscription: messages.UnsuscribeDetails{
+				Name: string(messages.ChannelTicker),
+			},
+		},
+		errChan)
+	if err != nil {
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe ticker failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe ticker failed: %w", err))
+	case err := <-errChan:
+		if err != nil {
+			// Trace and return error
+			return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe ticker failed: %w", err))
+		}
+		// Discard the subscription and exit
+		client.subscriptions.ticker = nil
+		return nil
+	}
 }
 
 // # Description
@@ -1382,7 +1731,48 @@ func (client *KrakenSpotPublicWebsocketClient) UnsubscribeTicker(ctx context.Con
 //
 //   - The client MUST return an error if channel was not subscribed to.
 func (client *KrakenSpotPublicWebsocketClient) UnsubscribeOHLC(ctx context.Context) error {
-	return nil
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_ohlc", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
+	// Check if there is already an active subscription
+	client.ohlcSubMu.Lock() // Lock mutex till unsubscribe completes - this will block Subscribe
+	defer client.ohlcSubMu.Unlock()
+	if client.subscriptions.ohlcs == nil {
+		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe ohlc failed because there is no active subscription"))
+	}
+	// Create response channels
+	errChan := make(chan error, 1)
+	// Send unsubscribe message to server
+	err := client.sendUnsubscribeRequest(
+		ctx,
+		&messages.Unsubscribe{
+			Event: string(messages.EventTypeSubscribe),
+			ReqId: client.ngen.GenerateNonce(),
+			Pairs: client.subscriptions.ohlcs.pairs,
+			Subscription: messages.UnsuscribeDetails{
+				Name:     string(messages.ChannelOHLC),
+				Interval: int(client.subscriptions.ohlcs.interval),
+			},
+		},
+		errChan)
+	if err != nil {
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe ohlc failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe ohlc failed: %w", err))
+	case err := <-errChan:
+		if err != nil {
+			// Trace and return error
+			return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe ohlc failed: %w", err))
+		}
+		// Discard the subscription and exit
+		client.subscriptions.ohlcs = nil
+		return nil
+	}
 }
 
 // # Description
@@ -1410,7 +1800,47 @@ func (client *KrakenSpotPublicWebsocketClient) UnsubscribeOHLC(ctx context.Conte
 //
 //   - The client MUST return an error if channel was not subscribed to.
 func (client *KrakenSpotPublicWebsocketClient) UnsubscribeTrade(ctx context.Context) error {
-	return nil
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_trade", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
+	// Check if there is already an active subscription
+	client.tradeSubMu.Lock() // Lock mutex till subscribe completes - this will block Subscribe
+	defer client.tradeSubMu.Unlock()
+	if client.subscriptions.trade == nil {
+		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe trade failed because there is no active subscription"))
+	}
+	// Create response channels
+	errChan := make(chan error, 1)
+	// Send unsubscribe message to server
+	err := client.sendUnsubscribeRequest(
+		ctx,
+		&messages.Unsubscribe{
+			Event: string(messages.EventTypeUnsubscribe),
+			ReqId: client.ngen.GenerateNonce(),
+			Pairs: client.subscriptions.trade.pairs,
+			Subscription: messages.UnsuscribeDetails{
+				Name: string(messages.ChannelTrade),
+			},
+		},
+		errChan)
+	if err != nil {
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe trade failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe trade failed: %w", err))
+	case err := <-errChan:
+		if err != nil {
+			// Trace and return error
+			return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe trade failed: %w", err))
+		}
+		// Discard the subscription and exit
+		client.subscriptions.trade = nil
+		return nil
+	}
 }
 
 // # Description
@@ -1438,7 +1868,47 @@ func (client *KrakenSpotPublicWebsocketClient) UnsubscribeTrade(ctx context.Cont
 //
 //   - The client MUST return an error if channel was not subscribed to.
 func (client *KrakenSpotPublicWebsocketClient) UnsubscribeSpread(ctx context.Context) error {
-	return nil
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_spread", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
+	// Check if there is already an active subscription
+	client.spreadSubMu.Lock() // Lock mutex till subscribe completes - this will block Subscribe
+	defer client.spreadSubMu.Unlock()
+	if client.subscriptions.spread == nil {
+		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe spread failed because there is no active subscription"))
+	}
+	// Create response channels
+	errChan := make(chan error, 1)
+	// Send unsubscribe message to server
+	err := client.sendUnsubscribeRequest(
+		ctx,
+		&messages.Unsubscribe{
+			Event: string(messages.EventTypeUnsubscribe),
+			ReqId: client.ngen.GenerateNonce(),
+			Pairs: client.subscriptions.spread.pairs,
+			Subscription: messages.UnsuscribeDetails{
+				Name: string(messages.ChannelSpread),
+			},
+		},
+		errChan)
+	if err != nil {
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe spread failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe spread failed: %w", err))
+	case err := <-errChan:
+		if err != nil {
+			// Trace and return error
+			return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe spread failed: %w", err))
+		}
+		// Discard the subscription and exit
+		client.subscriptions.spread = nil
+		return nil
+	}
 }
 
 // # Description
@@ -1466,7 +1936,48 @@ func (client *KrakenSpotPublicWebsocketClient) UnsubscribeSpread(ctx context.Con
 //
 //   - The client MUST return an error if channel was not subscribed to.
 func (client *KrakenSpotPublicWebsocketClient) UnsubscribeBook(ctx context.Context) error {
-	return nil
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_book", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
+	// Check if there is already an active subscription
+	client.bookSubMu.Lock() // Lock mutex till subscribe completes - this will block Subscribe
+	defer client.bookSubMu.Unlock()
+	if client.subscriptions.book == nil {
+		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe book failed because there is no active subscription"))
+	}
+	// Create response channels
+	errChan := make(chan error, 1)
+	// Send unsubscribe message to server
+	err := client.sendUnsubscribeRequest(
+		ctx,
+		&messages.Unsubscribe{
+			Event: string(messages.EventTypeUnsubscribe),
+			ReqId: client.ngen.GenerateNonce(),
+			Pairs: client.subscriptions.book.pairs,
+			Subscription: messages.UnsuscribeDetails{
+				Name:  string(messages.ChannelBook),
+				Depth: int(client.subscriptions.book.depth),
+			},
+		},
+		errChan)
+	if err != nil {
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe book failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe book failed: %w", err))
+	case err := <-errChan:
+		if err != nil {
+			// Trace and return error
+			return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe book failed: %w", err))
+		}
+		// Discard the subscription and exit
+		client.subscriptions.book = nil
+		return nil
+	}
 }
 
 /*************************************************************************************************/
@@ -1475,16 +1986,65 @@ func (client *KrakenSpotPublicWebsocketClient) UnsubscribeBook(ctx context.Conte
 
 // # Description
 //
-// Send a subscribe request to the websocket server. The method will add a pending subscribe
-// request to the client's pending requests stack.
+// Send a ping request to the websocket server. The method will add a pending ping request to the
+// client's pending requests stack.
 //
 // The method returns an error if it fails to send the request.
 //
 // # Inputs
 //
 //   - ctx: Context used for tracing and coordination purpose. Will be provided to the pending request.
-//   - pairs: Pairs to subscribe to
-//   - errChan: Channel provided to the pending request. Will be used to publish the subscription results.
+//   - req: Ping request to send. Must not be nil
+//   - respChan: Channel used to publish pong response to requestor. Must have a capacity of 1 to not block the engine.
+//   - errChan: Channel provided to the pending request. Will be used to publish the subscription results.  Must have a capacity of 1 to not block the engine.
+//
+// # Return
+//
+// An error if the request cannot be sent.
+func (client *KrakenSpotPublicWebsocketClient) sendPingRequest(ctx context.Context, req *messages.Ping, respChan chan *messages.Pong, errChan chan error) error {
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".send_ping_request",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(attribute.Int64("request_id", req.ReqId)))
+	defer span.End()
+	// Add pending ping request to client's stack
+	client.mu.Lock() // Lock to not add requests while engine is discarding pending requests
+	client.requests.pendingPing[req.ReqId] = &pendingPing{
+		resp: respChan,
+		err:  errChan,
+	}
+	client.mu.Lock() // Immediatly unlock to not block the engine while waiting for the response
+	// Marshal to JSON
+	payload, err := json.Marshal(req)
+	if err != nil {
+		// Remove pending request as it has failed before it even starts
+		delete(client.requests.pendingPing, req.ReqId)
+		return tracing.HandleAndTraceError(span, fmt.Errorf("failed to format ping request: %w", err))
+	}
+	// Send message to websocket server
+	err = client.conn.Write(ctx, wsadapters.Text, payload)
+	if err != nil {
+		// Remove pending request as it has failed before it even starts
+		delete(client.requests.pendingSubscribe, req.ReqId)
+		return tracing.HandleAndTraceError(span, fmt.Errorf("failed to send ping request: %w", err))
+	}
+	// Set span status and exit
+	span.SetStatus(codes.Ok, codes.Ok.String())
+	return nil
+}
+
+// # Description
+//
+// Send a subscribe request to the websocket server. The method will add a pending subscribe request
+// to the client's pending requests stack.
+//
+// The method returns an error if it fails to send the request.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose. Will be provided to the pending request.
+//   - req: Subscribe request to send. Must not be nil
+//   - errChan: Channel provided to the pending request. Will be used to publish the results.
 //
 // # Return
 //
@@ -1494,9 +2054,9 @@ func (client *KrakenSpotPublicWebsocketClient) sendSubscribeRequest(ctx context.
 	reqAttr := []attribute.KeyValue{
 		attribute.String("type", req.Subscription.Name),
 		attribute.Int64("request_id", req.ReqId),
-		attribute.StringSlice("pair", req.Pairs),
+		attribute.StringSlice("pairs", req.Pairs),
 	}
-	// Tracing: Add specific attribute dep ending on the subscribed channel
+	// Tracing: Add specific attribute depending on the subscribed channel
 	switch req.Subscription.Name {
 	case string(messages.ChannelOwnTrades):
 		if req.Subscription.Snapshot != nil && req.Subscription.ConsolidateTaker != nil {
@@ -1519,23 +2079,84 @@ func (client *KrakenSpotPublicWebsocketClient) sendSubscribeRequest(ctx context.
 		trace.WithAttributes(reqAttr...))
 	defer span.End()
 	// Add pending susbcribe request to client's stack
+	client.mu.Lock() // Lock to not add requests while engine is discarding pending requests
 	client.requests.pendingSubscribe[req.ReqId] = &pendingSubscribe{
-		ctx: ctx,
 		err: errChan,
 	}
+	client.mu.Lock() // Immediatly unlock to not block the engine while waiting for the response
 	// Marshal to JSON
 	payload, err := json.Marshal(req)
 	if err != nil {
 		// Remove pending request as it has failed before it even starts
 		delete(client.requests.pendingSubscribe, req.ReqId)
-		return tracing.HandleAndTraceError(span, fmt.Errorf("failed to format request to subscribe to ticker: %w", err))
+		return tracing.HandleAndTraceError(span, fmt.Errorf("failed to format subscribe request: %w", err))
 	}
 	// Send message to websocket server
 	err = client.conn.Write(ctx, wsadapters.Text, payload)
 	if err != nil {
 		// Remove pending request as it has failed before it even starts
 		delete(client.requests.pendingSubscribe, req.ReqId)
-		return tracing.HandleAndTraceError(span, fmt.Errorf("failed to send request to subscribe to ticker: %w", err))
+		return tracing.HandleAndTraceError(span, fmt.Errorf("failed to send subscribe request: %w", err))
+	}
+	// Set span status and exit
+	span.SetStatus(codes.Ok, codes.Ok.String())
+	return nil
+}
+
+// # Description
+//
+// Send a unsubscribe request to the websocket server. The method will add a pending unsubscribe
+// request to the client's pending requests stack.
+//
+// The method returns an error if it fails to send the request.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose. Will be provided to the pending request.
+//   - req: Unsubscribe request to send. Must not be nil
+//   - errChan: Channel provided to the pending request. Will be used to publish the results.
+//
+// # Return
+//
+// An error if the request cannot be sent.
+func (client *KrakenSpotPublicWebsocketClient) sendUnsubscribeRequest(ctx context.Context, req *messages.Unsubscribe, errChan chan error) error {
+	// Tracing: Prepare span attributes
+	reqAttr := []attribute.KeyValue{
+		attribute.String("type", req.Subscription.Name),
+		attribute.Int64("request_id", req.ReqId),
+		attribute.StringSlice("pairs", req.Pairs),
+	}
+	// Tracing: Add specific attribute depending on the unsubscribed channel
+	switch req.Subscription.Name {
+	case string(messages.ChannelOHLC):
+		reqAttr = append(reqAttr, attribute.Int("interval", req.Subscription.Interval))
+	case string(messages.ChannelBook):
+		reqAttr = append(reqAttr, attribute.Int("depth", req.Subscription.Depth))
+	}
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".send_unsubscribe_request",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(reqAttr...))
+	defer span.End()
+	// Add pending unsusbcribe request to client's stack
+	client.mu.Lock() // Lock to not add requests while engine is discarding pending requests
+	client.requests.pendingUnsubscribe[req.ReqId] = &pendingUnsubscribe{
+		err: errChan,
+	}
+	client.mu.Lock() // Immediatly unlock to not block the engine while waiting for the response
+	// Marshal to JSON
+	payload, err := json.Marshal(req)
+	if err != nil {
+		// Remove pending request as it has failed before it even starts
+		delete(client.requests.pendingUnsubscribe, req.ReqId)
+		return tracing.HandleAndTraceError(span, fmt.Errorf("failed to format unsubscribe request: %w", err))
+	}
+	// Send message to websocket server
+	err = client.conn.Write(ctx, wsadapters.Text, payload)
+	if err != nil {
+		// Remove pending request as it has failed before it even starts
+		delete(client.requests.pendingUnsubscribe, req.ReqId)
+		return tracing.HandleAndTraceError(span, fmt.Errorf("failed to send unsubscribe request: %w", err))
 	}
 	// Set span status and exit
 	span.SetStatus(codes.Ok, codes.Ok.String())
