@@ -19,6 +19,11 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const (
+	// URL for Kraken spot websocket client - public endpoints - Production
+	KrakenSpotWebsocketPublicProductionURL = "wss://ws.kraken.com"
+)
+
 type KrakenSpotPublicWebsocketClient struct {
 	// Websocket connection adapter to use to interact with the chosen
 	// underlying low-level websocket framework.
@@ -1978,6 +1983,40 @@ func (client *KrakenSpotPublicWebsocketClient) UnsubscribeBook(ctx context.Conte
 		client.subscriptions.book = nil
 		return nil
 	}
+}
+
+// # Description
+//
+// Get the client's built-in channel to publish received system status updates.
+//
+// # Implemetation and usage guidelines
+//
+//   - As the channel is automatically subscribed to, the client implementation CAN discard messages
+//     in case of congestion in the publication channel. The client implementation must be clear
+//     about how it deals with congestion.
+//
+// # Return
+//
+// The client's built-in channel used to publish received system status updates.
+func (client *KrakenSpotPublicWebsocketClient) GetSystemStatusChannel() chan *messages.SystemStatus {
+	return client.subscriptions.systemStatus
+}
+
+// # Description
+//
+// Get the client's built-in channel to publish received heartbeats.
+//
+// # Implemetation and usage guidelines
+//
+//   - As the channel is automatically subscribed to, the client implementation CAN discard messages
+//     in case of congestion in the publication channel. The client implementation must be clear
+//     about how it deals with congestion.
+//
+// # Return
+//
+// The client's built-in channel used to publish received heartbeats.
+func (client *KrakenSpotPublicWebsocketClient) GetHeartbeatChannel() chan *messages.Heartbeat {
+	return client.subscriptions.heartbeat
 }
 
 /*************************************************************************************************/
