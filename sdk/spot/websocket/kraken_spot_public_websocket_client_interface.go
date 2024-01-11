@@ -422,5 +422,5 @@ type KrakenSpotPublicWebsocketClientInterface interface {
 	// # Return
 	//
 	// The client's built-in channel used to publish received heartbeats.
-	GetHeartbeatChannel() chan *messages.SystemStatus
+	GetHeartbeatChannel() chan *messages.Heartbeat
 }
