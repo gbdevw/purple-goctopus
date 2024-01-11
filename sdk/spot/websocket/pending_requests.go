@@ -1,8 +1,6 @@
 package websocket
 
 import (
-	"context"
-
 	"github.com/gbdevw/purple-goctopus/sdk/spot/websocket/messages"
 )
 
@@ -38,6 +36,12 @@ type pendingPing struct {
 // Data of a pending Subscribe request which contains channels whch can be used to provide the
 // request results.
 type pendingSubscribe struct {
+	// Request pairs
+	pairs []string
+	// Map which tracks whether a response has been received for the given pair
+	served map[string]bool
+	// Map which records error messages received when some pairs could not be subscribed to
+	errPerPair map[string]error
 	// Channel used to push errors to requester.
 	err chan error
 }
@@ -45,6 +49,12 @@ type pendingSubscribe struct {
 // Data of a pending Unsubscribe request which contains channels whch can be used to provide the
 // request results.
 type pendingUnsubscribe struct {
+	// Request pairs
+	pairs []string
+	// Map which tracks whether a response has been received for the given pair
+	served map[string]bool
+	// Map which records error messages received when some pairs could not be subscribed to
+	errPerPair map[string]error
 	// Channel used to push errors to requester.
 	err chan error
 }
@@ -52,8 +62,6 @@ type pendingUnsubscribe struct {
 // Data of a pending AddOrder request which contains channels whch can be used to provide the
 // request results.
 type pendingAddOrderRequest struct {
-	// Context used to watch for cancellation signals
-	ctx context.Context
 	// Channel to use to push the received response to requester.
 	resp chan *messages.AddOrderResponse
 	// Channel used to push errors to requester.

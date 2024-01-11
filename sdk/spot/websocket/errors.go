@@ -38,3 +38,15 @@ func (e *OperationInterruptedError) Error() string {
 }
 
 func (e *OperationInterruptedError) Unwrap() error { return e.Root }
+
+// This error is used to carry information about pairs for which subscribe or unsubscribe failed.
+type SubscriptionError struct {
+	// Map where keys are pairs for which subscribe/unsubscribe failed and value are the cause.
+	Errs map[string]error
+}
+
+func (e *SubscriptionError) Error() string {
+	return fmt.Sprintf("subscription failed for the following pairs: %v", e.Errs)
+}
+
+func (e *SubscriptionError) Unwrap() error { return nil }
