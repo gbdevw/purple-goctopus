@@ -89,13 +89,7 @@ func NewKrakenSpotPublicWebsocketClient(
 		conn: nil,
 		ngen: noncegen.NewHFNonceGenerator(),
 		subscriptions: activeSubscriptions{
-			ticker:       &tickerSubscription{},
-			ohlcs:        &ohlcSubscription{},
-			trade:        &tradeSubscription{},
-			spread:       &spreadSubscription{},
-			book:         &bookSubscription{},
-			ownTrades:    &ownTradesSubscription{},
-			openOrders:   &openOrdersSubscription{},
+			// All other must be nil (default value)
 			heartbeat:    make(chan *messages.Heartbeat, 10),
 			systemStatus: make(chan *messages.SystemStatus, 10),
 		},
@@ -684,7 +678,7 @@ func (client *KrakenSpotPublicWebsocketClient) handleSystemStatus(
 		attribute.String("session_id", sessionId),
 		attribute.String("status", systemStatus.Status),
 		attribute.String("version", systemStatus.Version),
-		attribute.Int64("connection_id", systemStatus.ConnectionId),
+		attribute.String("connection_id", systemStatus.ConnectionId.String()),
 	))
 	// Publish heartbeat - as user might not actively listen to system statuses, manage the channel
 	// in FIFO fashion by discarding oldest messages in case of congestion
@@ -2052,7 +2046,7 @@ func (client *KrakenSpotPublicWebsocketClient) sendPingRequest(ctx context.Conte
 		resp: respChan,
 		err:  errChan,
 	}
-	client.mu.Lock() // Immediatly unlock to not block the engine while waiting for the response
+	client.mu.Unlock() // Immediatly unlock to not block the engine while waiting for the response
 	// Marshal to JSON
 	payload, err := json.Marshal(req)
 	if err != nil {
@@ -2122,7 +2116,7 @@ func (client *KrakenSpotPublicWebsocketClient) sendSubscribeRequest(ctx context.
 	client.requests.pendingSubscribe[req.ReqId] = &pendingSubscribe{
 		err: errChan,
 	}
-	client.mu.Lock() // Immediatly unlock to not block the engine while waiting for the response
+	client.mu.Unlock() // Immediatly unlock to not block the engine while waiting for the response
 	// Marshal to JSON
 	payload, err := json.Marshal(req)
 	if err != nil {
@@ -2182,7 +2176,7 @@ func (client *KrakenSpotPublicWebsocketClient) sendUnsubscribeRequest(ctx contex
 	client.requests.pendingUnsubscribe[req.ReqId] = &pendingUnsubscribe{
 		err: errChan,
 	}
-	client.mu.Lock() // Immediatly unlock to not block the engine while waiting for the response
+	client.mu.Unlock() // Immediatly unlock to not block the engine while waiting for the response
 	// Marshal to JSON
 	payload, err := json.Marshal(req)
 	if err != nil {

@@ -1,5 +1,7 @@
 package messages
 
+import "encoding/json"
+
 // Enum for the trading engine statuses
 type EngineStatusEnum string
 
@@ -17,7 +19,7 @@ type SystemStatus struct {
 	// Event type
 	Event string `json:"event"`
 	// Optional - Connection ID (will appear only in initial connection status message)
-	ConnectionId int64 `json:"connectionID,omitempty"`
+	ConnectionId json.Number `json:"connectionID,omitempty"`
 	// Status. Cf. EngineStatusEnum for values.
 	Status string `json:"status"`
 	// API version
