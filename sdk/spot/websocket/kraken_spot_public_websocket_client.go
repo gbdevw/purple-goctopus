@@ -1321,10 +1321,10 @@ func (client *KrakenSpotPublicWebsocketClient) Ping(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return tracing.HandleAndTraceError(span, fmt.Errorf("ping failed: %w", err))
+		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "ping", Root: fmt.Errorf("ping failed: %w", err)})
 	case <-errChan:
 		// Trace and return error
-		return tracing.HandleAndTraceError(span, fmt.Errorf("ping failed: %w", err))
+		return tracing.HandleAndTraceError(span, &OperationError{Operation: "ping", Root: fmt.Errorf("ping failed: %w", err)})
 	case <-respChan:
 		// Set span status and exit
 		span.AddEvent(tracing.TracesNamespace + ".pong_received")
@@ -1416,11 +1416,11 @@ func (client *KrakenSpotPublicWebsocketClient) SubscribeTicker(ctx context.Conte
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe ticker failed: %w", err))
+		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "suscribe_ticker", Root: fmt.Errorf("subscribe ticker failed: %w", err)})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe ticker failed: %w", err))
+			return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "suscribe_ticker", Root: fmt.Errorf("subscribe ticker failed: %w", err)})
 		}
 		// Register the subscription
 		client.subscriptions.ticker = &tickerSubscription{
@@ -1519,11 +1519,11 @@ func (client *KrakenSpotPublicWebsocketClient) SubscribeOHLC(ctx context.Context
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe ohlc failed: %w", err))
+		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "subscribe_ohlc", Root: fmt.Errorf("subscribe ohlc failed: %w", err)})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe ohlc failed: %w", err))
+			return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "subscribe_ohlc", Root: fmt.Errorf("subscribe ohlc failed: %w", err)})
 		}
 		// Register the subscription
 		client.subscriptions.ohlcs = &ohlcSubscription{
@@ -1618,11 +1618,11 @@ func (client *KrakenSpotPublicWebsocketClient) SubscribeTrade(ctx context.Contex
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe trade failed: %w", err))
+		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "subscribe_trade", Root: fmt.Errorf("subscribe trade failed: %w", err)})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe trade failed: %w", err))
+			return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "subscribe_trade", Root: fmt.Errorf("subscribe trade failed: %w", err)})
 		}
 		// Register the subscription
 		client.subscriptions.trade = &tradeSubscription{
@@ -1716,11 +1716,11 @@ func (client *KrakenSpotPublicWebsocketClient) SubscribeSpread(ctx context.Conte
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe spread failed: %w", err))
+		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "subscribe_spread", Root: fmt.Errorf("subscribe spread failed: %w", err)})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe spread failed: %w", err))
+			return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "subscribe_spread", Root: fmt.Errorf("subscribe spread failed: %w", err)})
 		}
 		// Register the subscription
 		client.subscriptions.spread = &spreadSubscription{
@@ -1816,11 +1816,11 @@ func (client *KrakenSpotPublicWebsocketClient) SubscribeBook(ctx context.Context
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return nil, nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe book failed: %w", err))
+		return nil, nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "subscribe_book", Root: fmt.Errorf("subscribe book failed: %w", err)})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			return nil, nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe book failed: %w", err))
+			return nil, nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "subscribe_book", Root: fmt.Errorf("subscribe book failed: %w", err)})
 		}
 		// Register the subscription
 		client.subscriptions.book = &bookSubscription{
@@ -1890,11 +1890,11 @@ func (client *KrakenSpotPublicWebsocketClient) UnsubscribeTicker(ctx context.Con
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe ticker failed: %w", err))
+		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_ticker", Root: fmt.Errorf("unsubscribe ticker failed: %w", err)})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe ticker failed: %w", err))
+			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_ticker", Root: fmt.Errorf("unsubscribe ticker failed: %w", err)})
 		}
 		// Discard the subscription and exit
 		client.subscriptions.ticker = nil
@@ -1959,11 +1959,11 @@ func (client *KrakenSpotPublicWebsocketClient) UnsubscribeOHLC(ctx context.Conte
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe ohlc failed: %w", err))
+		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_ohlc", Root: fmt.Errorf("unsubscribe ohlc failed: %w", err)})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe ohlc failed: %w", err))
+			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_ohlc", Root: fmt.Errorf("unsubscribe ohlc failed: %w", err)})
 		}
 		// Discard the subscription and exit
 		client.subscriptions.ohlcs = nil
@@ -2027,11 +2027,11 @@ func (client *KrakenSpotPublicWebsocketClient) UnsubscribeTrade(ctx context.Cont
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe trade failed: %w", err))
+		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_trade", Root: fmt.Errorf("unsubscribe trade failed: %w", err)})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe trade failed: %w", err))
+			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_trade", Root: fmt.Errorf("unsubscribe trade failed: %w", err)})
 		}
 		// Discard the subscription and exit
 		client.subscriptions.trade = nil
@@ -2095,11 +2095,11 @@ func (client *KrakenSpotPublicWebsocketClient) UnsubscribeSpread(ctx context.Con
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe spread failed: %w", err))
+		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_spread", Root: fmt.Errorf("unsubscribe spread failed: %w", err)})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe spread failed: %w", err))
+			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_spread", Root: fmt.Errorf("unsubscribe spread failed: %w", err)})
 		}
 		// Discard the subscription and exit
 		client.subscriptions.spread = nil
@@ -2163,12 +2163,12 @@ func (client *KrakenSpotPublicWebsocketClient) UnsubscribeBook(ctx context.Conte
 	// Wait for response to be published on channels or timeout
 	select {
 	case <-ctx.Done():
-		// Trace and return error
-		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe book failed: %w", err))
+		// Trace and return error - OperationInterruptedError
+		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_book", Root: fmt.Errorf("unsubscribe book failed: %w", err)})
 	case err := <-errChan:
 		if err != nil {
-			// Trace and return error
-			return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe book failed: %w", err))
+			// Trace and return error - OperationError
+			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_book", Root: fmt.Errorf("unsubscribe book failed: %w", err)})
 		}
 		// Discard the subscription and exit
 		client.subscriptions.book = nil
