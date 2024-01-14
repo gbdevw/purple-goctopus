@@ -28,6 +28,7 @@ func (e *OperationError) Unwrap() error { return e.Root }
 //   - Always provide user defined IDs when adding/editing orders.
 //   - Use the websocket/rest client to reconciliate state. Query open or closed orders by using
 //     the expected user ID and then retry the operation if needed.
+//   - Retry the subscribe/unsubscribe operation
 type OperationInterruptedError struct {
 	Operation string
 	Root      error

@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gbdevw/gowse/wscengine/wsadapters"
 	"github.com/gbdevw/gowse/wscengine/wsclient"
@@ -16,6 +18,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -45,8 +48,6 @@ type KrakenSpotPublicWebsocketClient struct {
 	onRestartError func(ctx context.Context, exit context.CancelFunc, err error, retryCount int)
 	// Tracer used to instrument code
 	tracer trace.Tracer
-	// Mutex used to protect access to pending requests while client is discarding them.
-	mu sync.Mutex
 	// Mutex used to protect ticker subscribe/unsubscribe methods
 	tickerSubMu sync.Mutex
 	// Mutex used to protect ohlc subscribe/unsubscribe methods
@@ -57,6 +58,12 @@ type KrakenSpotPublicWebsocketClient struct {
 	spreadSubMu sync.Mutex
 	// Mutex used to protect book subscribe/unsubscribe methods
 	bookSubMu sync.Mutex
+	// Mutex used to protect pending ping request map from concurrent writes
+	pendingPingMu sync.Mutex
+	// Mutex used to protect pending subscribe request map from concurrent writes
+	pendingSubscribeMu sync.Mutex
+	// Mutex used to protect pending unsubscribe request map from concurrent writes
+	pendingUnsubscribeMu sync.Mutex
 }
 
 // # Description
@@ -89,10 +96,8 @@ func NewKrakenSpotPublicWebsocketClient(
 		conn: nil,
 		ngen: noncegen.NewHFNonceGenerator(),
 		subscriptions: activeSubscriptions{
-			// All other must be nil (default value)
 			heartbeat:    make(chan *messages.Heartbeat, 10),
-			systemStatus: make(chan *messages.SystemStatus, 10),
-		},
+			systemStatus: make(chan *messages.SystemStatus, 10)},
 		requests: pendingRequests{
 			pendingPing:                          map[int64]*pendingPing{},
 			pendingSubscribe:                     map[int64]*pendingSubscribe{},
@@ -101,18 +106,19 @@ func NewKrakenSpotPublicWebsocketClient(
 			pendingEditOrderRequests:             map[int64]*pendingEditOrderRequest{},
 			pendingCancelOrderRequests:           map[int64]*pendingCancelOrderRequest{},
 			pendingCancelAllOrdersRequests:       map[int64]*pendingCancelAllOrdersRequest{},
-			pendingCancelAllOrdersAfterXRequests: map[int64]*pendingCancelAllOrdersAfterXRequest{},
-		},
-		onCloseCallback:     onCloseCallback,
-		onReadErrorCallback: onReadErrorCallback,
-		onRestartError:      onRestartError,
-		tracer:              tracerProvider.Tracer(tracing.PackageName, trace.WithInstrumentationVersion(tracing.PackageVersion)),
-		mu:                  sync.Mutex{},
-		tickerSubMu:         sync.Mutex{},
-		ohlcSubMu:           sync.Mutex{},
-		tradeSubMu:          sync.Mutex{},
-		spreadSubMu:         sync.Mutex{},
-		bookSubMu:           sync.Mutex{},
+			pendingCancelAllOrdersAfterXRequests: map[int64]*pendingCancelAllOrdersAfterXRequest{}},
+		onCloseCallback:      onCloseCallback,
+		onReadErrorCallback:  onReadErrorCallback,
+		onRestartError:       onRestartError,
+		tracer:               tracerProvider.Tracer(tracing.PackageName, trace.WithInstrumentationVersion(tracing.PackageVersion)),
+		tickerSubMu:          sync.Mutex{},
+		ohlcSubMu:            sync.Mutex{},
+		tradeSubMu:           sync.Mutex{},
+		spreadSubMu:          sync.Mutex{},
+		bookSubMu:            sync.Mutex{},
+		pendingPingMu:        sync.Mutex{},
+		pendingSubscribeMu:   sync.Mutex{},
+		pendingUnsubscribeMu: sync.Mutex{},
 	}
 }
 
@@ -121,6 +127,16 @@ func NewKrakenSpotPublicWebsocketClient(
 /*************************************************************************************************/
 
 // # Description
+//
+// In case the client is reconnecting to the server, the client will attempt to resubscribe to all
+// channels that have been previously subscribed. The client will attempts at most three times to
+// resubscribe. THe client will not wait for resubscribe to succeed before resuming its operations.
+//
+// It is up to the user to monitor interruptions in stream of data and react according its own
+// needs and requirements. In such a case, user can either kill/restart its application,
+// unsubscribe and resubscribe to channel or shutdown and start again the wesocket client.
+//
+// # OnOpen Documentation
 //
 // Callback called when engine has (re)opened a connection to the websocket server. OnOpen is
 // called once, synchronously by the engine during its (re)start phase: no messages or events
@@ -174,131 +190,122 @@ func (client *KrakenSpotPublicWebsocketClient) OnOpen(
 	client.conn = conn
 	// Restore all active subscriptions if restarting
 	if restarting {
+		// Provided context is canceled by the engine after OnOpen exits. Hence, a separate context
+		// with a separate timeout must be used by resubscribe goroutine otherwise they will be
+		// canceled a little bit after starting
+		propgator := propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{})
+		carrier := propagation.MapCarrier{}
+		propgator.Inject(ctx, carrier)
+		rootctx := propgator.Extract(context.Background(), carrier)
+		// Retry limit & base wait time
+		base := 2.0
+		limit := 3
+		// Resubscribe to ticker if an active subscription is set
+		client.tickerSubMu.Lock()
+		defer client.tickerSubMu.Unlock()
 		if client.subscriptions.ticker != nil {
-			err := client.sendSubscribeRequest(
-				ctx,
-				&messages.Subscribe{
-					Event: string(messages.EventTypeSubscribe),
-					ReqId: client.ngen.GenerateNonce(),
-					Pairs: client.subscriptions.ticker.pairs,
-					Subscription: messages.SuscribeDetails{
-						Name: string(messages.ChannelTicker),
-					},
-				},
-				// Error will not be watched: Subscriptions should not fail as they have been used once.
-				// In case of failure, it is up to the user to monitor interruptions in the stream of
-				// data and react if no data is received for a long time. User can unsubscribe and then
-				// subscribe again, for example
-				//
-				// Use a capcity of 1 so writer will not be blocked in any case
-				make(chan error, 1))
-			if err != nil {
-				// Return an error so engine will restart again and retry to subscribe.
-				// No message will be processed until OnOpen succeed.
-				eerr := fmt.Errorf("failed to resubscribe to ticker channel: %w", err)
-				return tracing.HandleAndTraceError(span, eerr)
-			}
+			// Start a goroutine that will perform the resubscribe.
+			// Goroutine will make 3 attempts then exit.
+			go func(client *KrakenSpotPublicWebsocketClient) {
+				ctx, cancel := context.WithTimeout(rootctx, 30*time.Second)
+				defer cancel()
+				for retry := 0; retry < limit; retry++ {
+					err := client.resubscribeTicker(ctx, client.subscriptions.ticker.pairs)
+					if err != nil {
+						// Wait an exponential amount of time before retrying (1, 2 & 4 seconds)
+						time.Sleep(time.Second * time.Duration(int64(math.Pow(base, float64(retry)))))
+					} else {
+						// Break
+						break
+					}
+				}
+			}(client)
 		}
+		// Resubscribe to ohlcs if an active subscription is set
+		client.ohlcSubMu.Lock()
+		defer client.ohlcSubMu.Unlock()
 		if client.subscriptions.ohlcs != nil {
-			err := client.sendSubscribeRequest(
-				ctx,
-				&messages.Subscribe{
-					Event: string(messages.EventTypeSubscribe),
-					ReqId: client.ngen.GenerateNonce(),
-					Pairs: client.subscriptions.ohlcs.pairs,
-					Subscription: messages.SuscribeDetails{
-						Name:     string(messages.ChannelOHLC),
-						Interval: int(client.subscriptions.ohlcs.interval),
-					},
-				},
-				// Error will not be watched: Subscriptions should not fail as they have been used once.
-				// In case of failure, it is up to the user to monitor interruptions in the stream of
-				// data and react if no data is received for a long time. User can unsubscribe and then
-				// subscribe again, for example
-				//
-				// Use a capcity of 1 so writer will not be blocked in any case
-				make(chan error, 1))
-			if err != nil {
-				// Return an error so engine will restart again and retry to subscribe.
-				// No message will be processed until OnOpen succeed.
-				eerr := fmt.Errorf("failed to resubscribe to ohlc channel: %w", err)
-				return tracing.HandleAndTraceError(span, eerr)
-			}
+			// Start a goroutine that will perform the resubscribe.
+			// Goroutine will make 3 attempts then exit.
+			go func() {
+				ctx, cancel := context.WithTimeout(rootctx, 30*time.Second)
+				defer cancel()
+				for retry := 0; retry < limit; retry++ {
+					err := client.resubscribeOHLC(ctx, client.subscriptions.ohlcs.pairs, client.subscriptions.ohlcs.interval)
+					if err != nil {
+						// Wait an exponential amount of time before retrying (1, 2 & 4 seconds)
+						time.Sleep(time.Second * time.Duration(int64(math.Pow(base, float64(retry)))))
+					} else {
+						// Break
+						break
+					}
+				}
+			}()
 		}
+		// Resubscribe to trade if an active subscription is set
+		client.tradeSubMu.Lock()
+		defer client.tradeSubMu.Unlock()
 		if client.subscriptions.trade != nil {
-			err := client.sendSubscribeRequest(
-				ctx,
-				&messages.Subscribe{
-					Event: string(messages.EventTypeSubscribe),
-					ReqId: client.ngen.GenerateNonce(),
-					Pairs: client.subscriptions.trade.pairs,
-					Subscription: messages.SuscribeDetails{
-						Name: string(messages.ChannelTrade),
-					},
-				},
-				// Error will not be watched: Subscriptions should not fail as they have been used once.
-				// In case of failure, it is up to the user to monitor interruptions in the stream of
-				// data and react if no data is received for a long time. User can unsubscribe and then
-				// subscribe again, for example
-				//
-				// Use a capcity of 1 so writer will not be blocked in any case
-				make(chan error, 1))
-			if err != nil {
-				// Return an error so engine will restart again and retry to subscribe.
-				// No message will be processed until OnOpen succeed.
-				eerr := fmt.Errorf("failed to resubscribe to trade channel: %w", err)
-				return tracing.HandleAndTraceError(span, eerr)
-			}
+			// Start a goroutine that will perform the resubscribe.
+			// Goroutine will make 3 attempts then exit.
+			go func() {
+				for retry := 0; retry < limit; retry++ {
+					ctx, cancel := context.WithTimeout(rootctx, 30*time.Second)
+					defer cancel()
+					err := client.resubscribeTrade(ctx, client.subscriptions.trade.pairs)
+					if err != nil {
+						// Wait an exponential amount of time before retrying (1, 2 & 4 seconds)
+						time.Sleep(time.Second * time.Duration(int64(math.Pow(base, float64(retry)))))
+					} else {
+						// Break
+						break
+					}
+				}
+			}()
 		}
+		// Resubscribe to spread if an active subscription is set
+		client.spreadSubMu.Lock()
+		defer client.spreadSubMu.Unlock()
 		if client.subscriptions.spread != nil {
-			err := client.sendSubscribeRequest(
-				ctx,
-				&messages.Subscribe{
-					Event: string(messages.EventTypeSubscribe),
-					ReqId: client.ngen.GenerateNonce(),
-					Pairs: client.subscriptions.spread.pairs,
-					Subscription: messages.SuscribeDetails{
-						Name: string(messages.ChannelSpread),
-					},
-				},
-				// Error will not be watched: Subscriptions should not fail as they have been used once.
-				// In case of failure, it is up to the user to monitor interruptions in the stream of
-				// data and react if no data is received for a long time. User can unsubscribe and then
-				// subscribe again, for example
-				//
-				// Use a capcity of 1 so writer will not be blocked in any case
-				make(chan error, 1))
-			if err != nil {
-				// Return an error so engine will restart again and retry to subscribe.
-				eerr := fmt.Errorf("failed to resubscribe to spread channel: %w", err)
-				return tracing.HandleAndTraceError(span, eerr)
-			}
+			// Start a goroutine that will perform the resubscribe.
+			// Goroutine will make 3 attempts then exit.
+			go func() {
+				ctx, cancel := context.WithTimeout(rootctx, 30*time.Second)
+				defer cancel()
+				for retry := 0; retry < limit; retry++ {
+					err := client.resubscribeSpread(ctx, client.subscriptions.spread.pairs)
+					if err != nil {
+						// Wait an exponential amount of time before retrying (1, 2 & 4 seconds)
+						time.Sleep(time.Second * time.Duration(int64(math.Pow(base, float64(retry)))))
+					} else {
+						// Break
+						break
+					}
+				}
+			}()
 		}
+		// Resubscribe to book if an active subscription is set
+		client.bookSubMu.Lock()
+		defer client.bookSubMu.Unlock()
 		if client.subscriptions.book != nil {
-			err := client.sendSubscribeRequest(
-				ctx,
-				&messages.Subscribe{
-					Event: string(messages.EventTypeSubscribe),
-					ReqId: client.ngen.GenerateNonce(),
-					Pairs: client.subscriptions.book.pairs,
-					Subscription: messages.SuscribeDetails{
-						Name:  string(messages.ChannelBook),
-						Depth: int(client.subscriptions.book.depth),
-					},
-				},
-				// Error will not be watched: Subscriptions should not fail as they have been used once.
-				// In case of failure, it is up to the user to monitor interruptions in the stream of
-				// data and react if no data is received for a long time. User can unsubscribe and then
-				// subscribe again, for example
-				//
-				// Use a capcity of 1 so writer will not be blocked in any case
-				make(chan error, 1))
-			if err != nil {
-				// Return an error so engine will restart again and retry to subscribe.
-				eerr := fmt.Errorf("failed to resubscribe to book channel: %w", err)
-				return tracing.HandleAndTraceError(span, eerr)
-			}
+			// Start a goroutine that will perform the resubscribe.
+			// Goroutine will make 3 attempts then exit.
+			go func() {
+				for retry := 0; retry < limit; retry++ {
+					ctx, cancel := context.WithTimeout(rootctx, 30*time.Second)
+					defer cancel()
+					err := client.resubscribeBook(ctx, client.subscriptions.book.pairs, client.subscriptions.book.depth)
+					if err != nil {
+						// Wait an exponential amount of time before retrying (1, 2 & 4 seconds)
+						time.Sleep(time.Second * time.Duration(int64(math.Pow(base, float64(retry)))))
+					} else {
+						// Break
+						break
+					}
+				}
+			}()
 		}
+		// Do not wait for goroutines: Engine will start reading messages only after OnOpen completes
 	}
 	// Return nil, will complete connection opening
 	span.SetStatus(codes.Ok, codes.Ok.String())
@@ -469,6 +476,7 @@ func (client *KrakenSpotPublicWebsocketClient) OnReadError(
 	restart context.CancelFunc,
 	exit context.CancelFunc,
 	err error) {
+	fmt.Println("read error", err.Error())
 	// Tracing: start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".on_read_error", trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
@@ -519,10 +527,9 @@ func (client *KrakenSpotPublicWebsocketClient) OnClose(
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".on_close", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
 	defer span.SetStatus(codes.Ok, codes.Ok.String())
-	// Lock mutex before starting to discard pending requests
-	client.mu.Lock()
-	defer client.mu.Unlock()
 	// Discard pending ping requests to unlock all blocked thread waiting for a response.
+	client.pendingPingMu.Lock()
+	defer client.pendingPingMu.Unlock()
 	for reqid, req := range client.requests.pendingPing {
 		// blocking write can be used as channels are managed internally and must have a capacity of 1
 		req.err <- &OperationInterruptedError{
@@ -533,6 +540,8 @@ func (client *KrakenSpotPublicWebsocketClient) OnClose(
 		delete(client.requests.pendingPing, reqid)
 	}
 	// Discard pending subscribe requests
+	client.pendingSubscribeMu.Lock()
+	defer client.pendingSubscribeMu.Unlock()
 	for reqid, req := range client.requests.pendingSubscribe {
 		// blocking write can be used as channels are managed internally and must have a capacity of 1
 		req.err <- &OperationInterruptedError{
@@ -543,6 +552,8 @@ func (client *KrakenSpotPublicWebsocketClient) OnClose(
 		delete(client.requests.pendingSubscribe, reqid)
 	}
 	// Discard pending unsubscribe requests
+	client.pendingUnsubscribeMu.Lock()
+	defer client.pendingUnsubscribeMu.Unlock()
 	for reqid, req := range client.requests.pendingUnsubscribe {
 		// blocking write can be used as channels are managed internally and must have a capacity of 1
 		req.err <- &OperationInterruptedError{
@@ -601,6 +612,7 @@ func (client *KrakenSpotPublicWebsocketClient) OnClose(
 func (client *KrakenSpotPublicWebsocketClient) OnCloseError(
 	ctx context.Context,
 	err error) {
+	fmt.Println("close error", err.Error())
 	// Tracing: start span
 	_, span := client.tracer.Start(ctx, tracing.TracesNamespace+".on_close_error",
 		trace.WithSpanKind(trace.SpanKindInternal),
@@ -625,6 +637,7 @@ func (client *KrakenSpotPublicWebsocketClient) OnRestartError(
 	exit context.CancelFunc,
 	err error,
 	retryCount int) {
+	fmt.Println("restart error", err.Error(), retryCount)
 	// Tracing: start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".on_restart_error",
 		trace.WithSpanKind(trace.SpanKindInternal),
@@ -679,41 +692,48 @@ func (client *KrakenSpotPublicWebsocketClient) handleErrorMessage(
 	// If there is a joined request ID, check pending requests
 	if errMsg.ReqId != nil {
 		// Check pending subscribe
-		if client.requests.pendingSubscribe[*errMsg.ReqId] != nil {
-			// Error message is related to a pending subscribe request
-			req := client.requests.pendingSubscribe[*errMsg.ReqId]
+		client.pendingSubscribeMu.Lock()
+		prSub := client.requests.pendingSubscribe[*errMsg.ReqId]
+		if prSub != nil {
 			// Fulfil request by publish an OperationError on the request error channel
-			req.err <- &OperationError{
+			prSub.err <- &OperationError{
 				Operation: "subscribe",
 				Root:      fmt.Errorf("server replied with an error message: %s", errMsg.Err),
 			}
 			// Discard the request
 			delete(client.requests.pendingSubscribe, *errMsg.ReqId)
-			// Exit
+			// Unlock pending subscribe requests map & Exit
+			client.pendingSubscribeMu.Unlock()
 			span.SetStatus(codes.Ok, codes.Ok.String())
 			return nil
 		}
+		// Unlock pending subscribe requests map
+		client.pendingSubscribeMu.Unlock()
 		// Check pending unsubscribe
-		if client.requests.pendingUnsubscribe[*errMsg.ReqId] != nil {
-			// Error message is related to a pending unsubscribe request
-			req := client.requests.pendingUnsubscribe[*errMsg.ReqId]
+		client.pendingUnsubscribeMu.Lock()
+		prUnsub := client.requests.pendingUnsubscribe[*errMsg.ReqId]
+		if prUnsub != nil {
 			// Fulfil request by publish an OperationError on the request error channel
-			req.err <- &OperationError{
+			prUnsub.err <- &OperationError{
 				Operation: "unsubscribe",
 				Root:      fmt.Errorf("server replied with an error message: %s", errMsg.Err),
 			}
 			// Discard the request
 			delete(client.requests.pendingUnsubscribe, *errMsg.ReqId)
-			// Exit
+
+			client.pendingUnsubscribeMu.Unlock()
 			span.SetStatus(codes.Ok, codes.Ok.String())
 			return nil
 		}
+		// Unlock pending unsubscribe requets map & Exit
+		client.pendingUnsubscribeMu.Unlock()
 		//  Check pending ping
-		if client.requests.pendingPing[*errMsg.ReqId] != nil {
-			// Error message is related to a pending ping request
-			req := client.requests.pendingPing[*errMsg.ReqId]
+		client.pendingPingMu.Lock()
+		defer client.pendingPingMu.Lock()
+		prPing := client.requests.pendingPing[*errMsg.ReqId]
+		if prPing != nil {
 			// Fulfil request by publish an OperationError on the request error channel
-			req.err <- &OperationError{
+			prPing.err <- &OperationError{
 				Operation: "ping",
 				Root:      fmt.Errorf("server replied with an error message: %s", errMsg.Err),
 			}
@@ -851,6 +871,8 @@ func (client *KrakenSpotPublicWebsocketClient) handlePong(
 		attribute.String("session_id", sessionId),
 	))
 	// Extract pending ping request corresponding to the request ID
+	client.pendingPingMu.Lock()
+	defer client.pendingPingMu.Unlock()
 	pr := client.requests.pendingPing[*pong.ReqId]
 	if pr == nil {
 		// Call OnRead error: as user defined request ids must be used. Not a corresponding
@@ -926,9 +948,13 @@ func (client *KrakenSpotPublicWebsocketClient) handleSubscriptionStatus(
 	}
 	span.AddEvent(tracing.TracesNamespace+".subscription_status", trace.WithAttributes(attr...))
 	// Extract pending subscribe request corresponding to the request ID
+	client.pendingSubscribeMu.Lock()
+	defer client.pendingSubscribeMu.Unlock()
 	subreq := client.requests.pendingSubscribe[*subs.ReqId]
 	if subreq == nil {
 		// Check unsubscribe
+		client.pendingUnsubscribeMu.Lock()
+		defer client.pendingUnsubscribeMu.Unlock()
 		unsubreq := client.requests.pendingUnsubscribe[*subs.ReqId]
 		if unsubreq == nil {
 			// Call OnRead error: as user defined request ids must be used. Not a corresponding
@@ -946,9 +972,10 @@ func (client *KrakenSpotPublicWebsocketClient) handleSubscriptionStatus(
 		unsubreq.served[subs.Pair] = true
 		// Check if a response has been received for each requested pair. If that is the case fulfil the request.
 		// Otherwise, do nothing and wait for more responses from the server
-		fully := false
+		fully := true
 		for _, v := range unsubreq.pairs {
-			fully = fully || unsubreq.served[v]
+			// fully will remain true only if all requests have been served ;)
+			fully = fully && unsubreq.served[v]
 		}
 		if fully {
 			// Fulfil pending unsubscribe: send nil in case of success or an error with the error message if
@@ -976,9 +1003,10 @@ func (client *KrakenSpotPublicWebsocketClient) handleSubscriptionStatus(
 		subreq.served[subs.Pair] = true
 		// Check if a response has been received for each requested pair. If that is the case fulfil the request.
 		// Otherwise, do nothing and wait for more responses from the server
-		fully := false
+		fully := true
 		for _, v := range subreq.pairs {
-			fully = fully || subreq.served[v]
+			// fully will remain true only if all requests have been served ;)
+			fully = fully && subreq.served[v]
 		}
 		if fully {
 			// Fulfil pending subscribe: send nil in case of success or an error with the error message if
@@ -1026,6 +1054,8 @@ func (client *KrakenSpotPublicWebsocketClient) handleTicker(
 		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Check if there is an active subscription, discard otherwise
+	client.tickerSubMu.Lock()
+	defer client.tickerSubMu.Unlock()
 	if client.subscriptions.ticker == nil {
 		err := fmt.Errorf("a ticker message has been received while there is no active subscription to ticker channel")
 		return tracing.HandleAndTraceError(span, err)
@@ -1061,6 +1091,8 @@ func (client *KrakenSpotPublicWebsocketClient) handleOHLC(
 		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Check if there is an active subscription, discard otherwise
+	client.ohlcSubMu.Lock()
+	defer client.ohlcSubMu.Unlock()
 	if client.subscriptions.ohlcs == nil {
 		err := fmt.Errorf("a ohlc message has been received while there is no active subscription to ohlc channel")
 		return tracing.HandleAndTraceError(span, err)
@@ -1096,6 +1128,8 @@ func (client *KrakenSpotPublicWebsocketClient) handleTrade(
 		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Check if there is an active subscription, discard otherwise
+	client.tradeSubMu.Lock()
+	defer client.tradeSubMu.Unlock()
 	if client.subscriptions.trade == nil {
 		err := fmt.Errorf("a trade message has been received while there is no active subscription to trade channel")
 		return tracing.HandleAndTraceError(span, err)
@@ -1131,6 +1165,8 @@ func (client *KrakenSpotPublicWebsocketClient) handleSpread(
 		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Check if there is an active subscription, discard otherwise
+	client.spreadSubMu.Lock()
+	defer client.spreadSubMu.Unlock()
 	if client.subscriptions.spread == nil {
 		err := fmt.Errorf("a spread message has been received while there is no active subscription to spread channel")
 		return tracing.HandleAndTraceError(span, err)
@@ -1191,6 +1227,8 @@ func (client *KrakenSpotPublicWebsocketClient) handleBookUpdate(
 		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Check if there is an active subscription, discard otherwise
+	client.bookSubMu.Lock()
+	defer client.bookSubMu.Unlock()
 	if client.subscriptions.book == nil {
 		err := fmt.Errorf("a book update message has been received while there is no active subscription to book channel")
 		return tracing.HandleAndTraceError(span, err)
@@ -1226,6 +1264,8 @@ func (client *KrakenSpotPublicWebsocketClient) handleBookSnapshot(
 		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Check if there is an active subscription, discard otherwise
+	client.bookSubMu.Lock()
+	defer client.bookSubMu.Unlock()
 	if client.subscriptions.book == nil {
 		err := fmt.Errorf("a book snapshot message has been received while there is no active subscription to book channel")
 		return tracing.HandleAndTraceError(span, err)
@@ -2198,12 +2238,12 @@ func (client *KrakenSpotPublicWebsocketClient) sendPingRequest(ctx context.Conte
 		trace.WithAttributes(attribute.Int64("request_id", req.ReqId)))
 	defer span.End()
 	// Add pending ping request to client's stack
-	client.mu.Lock() // Lock to not add requests while engine is discarding pending requests
+	client.pendingPingMu.Lock() // Lock to not add requests while engine is discarding pending requests
+	defer client.pendingPingMu.Unlock()
 	client.requests.pendingPing[req.ReqId] = &pendingPing{
 		resp: respChan,
 		err:  errChan,
 	}
-	client.mu.Unlock() // Immediatly unlock to not block the engine while waiting for the response
 	// Marshal to JSON
 	payload, err := json.Marshal(req)
 	if err != nil {
@@ -2269,14 +2309,14 @@ func (client *KrakenSpotPublicWebsocketClient) sendSubscribeRequest(ctx context.
 		trace.WithAttributes(reqAttr...))
 	defer span.End()
 	// Add pending susbcribe request to client's stack
-	client.mu.Lock() // Lock to not add requests while engine is discarding pending requests
+	client.pendingSubscribeMu.Lock() // Lock to not add requests while engine is discarding pending requests
+	defer client.pendingSubscribeMu.Unlock()
 	client.requests.pendingSubscribe[req.ReqId] = &pendingSubscribe{
 		pairs:      req.Pairs,
 		served:     map[string]bool{},
 		errPerPair: map[string]error{},
 		err:        errChan,
 	}
-	client.mu.Unlock() // Immediatly unlock to not block the engine while waiting for the response
 	// Marshal to JSON
 	payload, err := json.Marshal(req)
 	if err != nil {
@@ -2332,14 +2372,14 @@ func (client *KrakenSpotPublicWebsocketClient) sendUnsubscribeRequest(ctx contex
 		trace.WithAttributes(reqAttr...))
 	defer span.End()
 	// Add pending unsusbcribe request to client's stack
-	client.mu.Lock() // Lock to not add requests while engine is discarding pending requests
+	client.pendingUnsubscribeMu.Lock() // Lock to not add requests while engine is discarding pending requests
+	defer client.pendingUnsubscribeMu.Unlock()
 	client.requests.pendingUnsubscribe[req.ReqId] = &pendingUnsubscribe{
 		pairs:      req.Pairs,
 		served:     map[string]bool{},
 		errPerPair: map[string]error{},
 		err:        errChan,
 	}
-	client.mu.Unlock() // Immediatly unlock to not block the engine while waiting for the response
 	// Marshal to JSON
 	payload, err := json.Marshal(req)
 	if err != nil {
@@ -2357,4 +2397,306 @@ func (client *KrakenSpotPublicWebsocketClient) sendUnsubscribeRequest(ctx contex
 	// Set span status and exit
 	span.SetStatus(codes.Ok, codes.Ok.String())
 	return nil
+}
+
+// # Description
+//
+// Resubscribe to the ticker channel.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel
+//     will be watched for timeout/cancel signal.
+//   - pairs: Array of currency pairs to subscribe to. Format of each pair is "A/B".
+//
+// # Return
+//
+// An error is returned when:
+//
+//   - An error occurs when sending the subscription message.
+//   - The provided context expires (timeout/cancel - OperationInterruptedError).
+//   - An error message is received from the server (OperationError).
+func (client *KrakenSpotPublicWebsocketClient) resubscribeTicker(ctx context.Context, pairs []string) error {
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".resubscribe_ticker",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(
+			attribute.StringSlice("pairs", pairs),
+		))
+	defer span.End()
+	// Create response channels
+	errChan := make(chan error, 1)
+	// Send subscribe message to server
+	err := client.sendSubscribeRequest(
+		ctx,
+		&messages.Subscribe{
+			Event: string(messages.EventTypeSubscribe),
+			ReqId: client.ngen.GenerateNonce(),
+			Pairs: pairs,
+			Subscription: messages.SuscribeDetails{
+				Name: string(messages.ChannelTicker),
+			},
+		},
+		errChan)
+	if err != nil {
+		// Trace and return error
+		fmt.Println("resubscribe failed", err.Error())
+		return tracing.HandleAndTraceError(span, fmt.Errorf("resubscribe ticker failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error - Use an operation itnerrupted error as request has been sent to the server
+		fmt.Println("resubscribe failed", err.Error())
+		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "resubscribe_ticker", Root: fmt.Errorf("subscribe ticker failed: %w", err)})
+	case err := <-errChan:
+		if err != nil && !strings.Contains(strings.ToLower(err.Error()), "already subscribed") {
+			fmt.Println("resubscribe failed", err.Error())
+			// Trace and return error - Use an operation error as the error was caused by an error emssage from the server.
+			return tracing.HandleAndTraceError(span, &OperationError{Operation: "resubscribe_ticker", Root: fmt.Errorf("subscribe ticker failed: %w", err)})
+		}
+		// Exit - Success
+		span.SetStatus(codes.Ok, codes.Ok.String())
+		return nil
+	}
+}
+
+// # Description
+//
+// Resubscribe to the ohlc channel.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel
+//     will be watched for timeout/cancel signal.
+//   - pairs: Array of currency pairs to subscribe to. Format of each pair is "A/B".
+//   - interval: The desired interval for OHLC indicators. Multiple subscriptions can be
+//     maintained for different intervals.
+//
+// # Return
+//
+// An error is returned when:
+//
+//   - An error occurs when sending the subscription message.
+//   - The provided context expires (timeout/cancel - OperationInterruptedError).
+//   - An error message is received from the server (OperationError).
+func (client *KrakenSpotPublicWebsocketClient) resubscribeOHLC(ctx context.Context, pairs []string, interval messages.IntervalEnum) error {
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".resubscribe_ohlc",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(
+			attribute.StringSlice("pairs", pairs),
+			attribute.Int("interval", int(interval)),
+		))
+	defer span.End()
+	// Create response channels
+	errChan := make(chan error, 1)
+	// Send subscribe message to server
+	err := client.sendSubscribeRequest(
+		ctx,
+		&messages.Subscribe{
+			Event: string(messages.EventTypeSubscribe),
+			ReqId: client.ngen.GenerateNonce(),
+			Pairs: pairs,
+			Subscription: messages.SuscribeDetails{
+				Name:     string(messages.ChannelOHLC),
+				Interval: int(interval),
+			},
+		},
+		errChan)
+	if err != nil {
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, fmt.Errorf("resubscribe ohlc failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "resubscribe_ohlc", Root: fmt.Errorf("resubscribe ohlc failed: %w", err)})
+	case err := <-errChan:
+		if err != nil && !strings.Contains(strings.ToLower(err.Error()), "already subscribed") {
+			// Trace and return error
+			return tracing.HandleAndTraceError(span, &OperationError{Operation: "resubscribe_ohlc", Root: fmt.Errorf("resubscribe ohlc failed: %w", err)})
+		}
+		// Exit - success
+		span.SetStatus(codes.Ok, codes.Ok.String())
+		return nil
+	}
+}
+
+// # Description
+//
+// Resubscribe to the trade channel.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel will be watched for timeout/cancel signal.
+//   - pairs: Array of currency pairs to subscribe to. Format of each pair is "A/B".
+//
+// # Return
+//
+// An error is returned when:
+//
+//   - An error occurs when sending the subscription message.
+//   - The provided context expires (timeout/cancel - OperationInterruptedError).
+//   - An error message is received from the server (OperationError).
+func (client *KrakenSpotPublicWebsocketClient) resubscribeTrade(ctx context.Context, pairs []string) error {
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".resubscribe_trade",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(
+			attribute.StringSlice("pairs", pairs),
+		))
+	defer span.End()
+	// Create response channels
+	errChan := make(chan error, 1)
+	// Send subscribe message to server
+	err := client.sendSubscribeRequest(
+		ctx,
+		&messages.Subscribe{
+			Event: string(messages.EventTypeSubscribe),
+			ReqId: client.ngen.GenerateNonce(),
+			Pairs: pairs,
+			Subscription: messages.SuscribeDetails{
+				Name: string(messages.ChannelTrade),
+			},
+		},
+		errChan)
+	if err != nil {
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, fmt.Errorf("resubscribe trade failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "resubscribe_trade", Root: fmt.Errorf("resubscribe trade failed: %w", err)})
+	case err := <-errChan:
+		if err != nil && !strings.Contains(strings.ToLower(err.Error()), "already subscribed") {
+			// Trace and return error
+			return tracing.HandleAndTraceError(span, &OperationError{Operation: "resubscribe_trade", Root: fmt.Errorf("resubscribe trade failed: %w", err)})
+		}
+		// Exit - success
+		span.SetStatus(codes.Ok, codes.Ok.String())
+		return nil
+	}
+}
+
+// # Description
+//
+// Subscribe to the spread channel.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel will be watched for timeout/cancel signal.
+//   - pairs: Array of currency pairs to subscribe to. Format of each pair is "A/B".
+//
+// # Return
+//
+// An error is returned when:
+//
+//   - An error occurs when sending the subscription message.
+//   - The provided context expires (timeout/cancel - OperationInterruptedError).
+//   - An error message is received from the server (OperationError).
+func (client *KrakenSpotPublicWebsocketClient) resubscribeSpread(ctx context.Context, pairs []string) error {
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".resubscribe_spread",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(
+			attribute.StringSlice("pairs", pairs),
+		))
+	defer span.End()
+	// Create response channels
+	errChan := make(chan error, 1)
+	// Send subscribe message to server
+	err := client.sendSubscribeRequest(
+		ctx,
+		&messages.Subscribe{
+			Event: string(messages.EventTypeSubscribe),
+			ReqId: client.ngen.GenerateNonce(),
+			Pairs: pairs,
+			Subscription: messages.SuscribeDetails{
+				Name: string(messages.ChannelSpread),
+			},
+		},
+		errChan)
+	if err != nil {
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, fmt.Errorf("resubscribe spread failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "resubscribe_spread", Root: fmt.Errorf("resubscribe spread failed: %w", err)})
+	case err := <-errChan:
+		if err != nil && !strings.Contains(strings.ToLower(err.Error()), "already subscribed") {
+			// Trace and return error
+			return tracing.HandleAndTraceError(span, &OperationError{Operation: "resubscribe_spread", Root: fmt.Errorf("resubscribe spread failed: %w", err)})
+		}
+		// Exit - success
+		span.SetStatus(codes.Ok, codes.Ok.String())
+		return nil
+	}
+}
+
+// # Description
+//
+// Resubscribe to the book channel.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel will be watched for timeout/cancel signal.
+//   - pairs: Array of currency pairs to subscribe to. Format of each pair is "A/B".
+//   - depth: Desired book depth. Multiple subscriptions can be maintained for different depths.
+
+// # Return
+//
+// An error is returned when:
+//
+//   - An error occurs when sending the subscription message.
+//   - The provided context expires (timeout/cancel - OperationInterruptedError).
+//   - An error message is received from the server (OperationError).
+func (client *KrakenSpotPublicWebsocketClient) resubscribeBook(ctx context.Context, pairs []string, depth messages.DepthEnum) error {
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".resubscribe_book",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(
+			attribute.StringSlice("pairs", pairs),
+			attribute.Int("depth", int(depth)),
+		))
+	defer span.End()
+	// Create response channels
+	errChan := make(chan error, 1)
+	// Send subscribe message to server
+	err := client.sendSubscribeRequest(
+		ctx,
+		&messages.Subscribe{
+			Event: string(messages.EventTypeSubscribe),
+			ReqId: client.ngen.GenerateNonce(),
+			Pairs: pairs,
+			Subscription: messages.SuscribeDetails{
+				Name:  string(messages.ChannelBook),
+				Depth: int(depth),
+			},
+		},
+		errChan)
+	if err != nil {
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, fmt.Errorf("resubscribe book failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "resubscribe_book", Root: fmt.Errorf("resubscribe book failed: %w", err)})
+	case err := <-errChan:
+		if err != nil && !strings.Contains(strings.ToLower(err.Error()), "already subscribed") {
+			// Trace and return error
+			return tracing.HandleAndTraceError(span, &OperationError{Operation: "resubscribe_book", Root: fmt.Errorf("resubscribe book failed: %w", err)})
+		}
+		// Exit - Success
+		span.SetStatus(codes.Ok, codes.Ok.String())
+		return nil
+	}
 }

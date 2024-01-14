@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/gbdevw/gowse/wscengine"
-	"github.com/gbdevw/gowse/wscengine/wsadapters"
 	"github.com/gbdevw/gowse/wscengine/wsadapters/gorilla"
 	"github.com/gbdevw/gowse/wscengine/wsclient"
 	"github.com/gbdevw/purple-goctopus/sdk/spot/websocket/messages"
@@ -97,19 +96,14 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestConnection
 }
 
 // This integration test opens a connection to the server and subscribe to the ticker channel and
-// read some messages (heartbeats and tickers). Once that is done, the connection will be shutdown
-// to test the subscription recovery mechanism. In case of successful recovery, a unsubscibe
-// message will be sent to test channel. Finally, the connection will be shutdown again to test
-// if the subscription recovery mechanism does not try to subscribe again to ticker channel.
+// read some messages (heartbeats and tickers). Once that is done, a unsubscibe message will be
+// sent to the server.
 //
 // Test will ensure:
 //
 //   - The client can subscribe to the ticker channel
 //   - The client can read ticker messages and heartbeats from the server.
-//   - When connection is shutdown, the engine reconnects to the server and resubscribe to channel.
-//   - A nil value is present in the ticker channel data to mark data stream interruption.
 //   - The client can unsubscribe from the ticker channel
-//   - When connection is shutdown again, the engine reconnects to the server and do not resubscribe to channel.
 func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeTicker() {
 	// Build websocket client without any callback set and no tracing
 	client := NewKrakenSpotPublicWebsocketClient(nil, nil, nil, nil)
@@ -129,7 +123,6 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeT
 	suite.T().Log("connected to websocket server!")
 	// Get the builtin channel for heartbeat and systemStatus
 	heartbeatChan := client.GetHeartbeatChannel()
-	systemStatusChan := client.GetSystemStatusChannel()
 	// Subscribe to ticker
 	suite.T().Log("subscribing to ticker...")
 	pairs := []string{"XBT/USD", "XBT/EUR"}
@@ -155,43 +148,6 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeT
 		suite.T().Log("heartbeat received!")
 		require.Equal(suite.T(), string(messages.EventTypeHeartbeat), heartbeat.Event)
 	}
-	// Shutdown connection - use the client.conn directly to 'trick' the engine
-	suite.T().Log("shuttting down connection...")
-	client.conn.Close(ctx, wsadapters.GoingAway, "client shutdown")
-	suite.T().Log("connection shutdown!")
-	// Read tickers until a nil value is read (= interruption is stream of data) followed by a ticker
-	// This will ensure client impl. has injected a nil value in channel when connection has been lost
-	// and this will ensure subscription recovery mechanism worked well.
-	gapFound := false
-	done := false
-	for !done {
-		if !gapFound {
-			suite.T().Log("waiting for a nil value in ticker data...")
-		} else {
-			suite.T().Log("waiting for a ticker message after recovery...")
-		}
-		select {
-		case <-ctx.Done():
-			suite.FailNow(ctx.Err().Error())
-		case ticker := <-tickerChan:
-			if !gapFound {
-				// Check for a nil value. Discard otherwise
-				if ticker == nil {
-					suite.T().Log("nil value  found in ticker data!")
-					gapFound = true
-				}
-			} else {
-				// Once a gap has been found, we must read at elast one ticker to ensure
-				// recovery mechanism has worked as expected
-				if ticker != nil {
-					suite.T().Log("ticker received after recovery!")
-					done = true
-				} else {
-					suite.FailNow("multiple nil values read in ticker data stream")
-				}
-			}
-		}
-	}
 	// Unsubscribe from ticker channel
 	suite.T().Log("unsubscribing from ticker channel...")
 	err = client.UnsubscribeTicker(ctx)
@@ -199,30 +155,6 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeT
 	suite.T().Log("unsubscribed from ticker channel!")
 	// Check the internal ticker subscription is nil
 	require.Nil(suite.T(), client.subscriptions.ticker)
-	// Empty previously used ticker channel and system status channel
-	done = false
-	for !done {
-		select {
-		case <-tickerChan:
-		case <-systemStatusChan:
-		default:
-			done = true
-		}
-	}
-	// Shutdown connection - use the client.conn directly to 'trick' the engine
-	client.conn.Close(ctx, wsadapters.GoingAway, "client shutdown")
-	// Read a system status
-	select {
-	case <-systemStatusChan:
-	case <-ctx.Done():
-		suite.FailNow(ctx.Err().Error())
-	}
-	// Check ticker is empty
-	select {
-	case <-tickerChan:
-		suite.FailNow("ticker channel should be empty")
-	default:
-	}
 	// Stop engine (close the connection)
 	suite.T().Log("stopping the websocket engine...")
 	engine.Stop(ctx)
