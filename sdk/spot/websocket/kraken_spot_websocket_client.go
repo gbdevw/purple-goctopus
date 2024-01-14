@@ -13,6 +13,8 @@ import (
 	"github.com/gbdevw/gowse/wscengine/wsadapters"
 	"github.com/gbdevw/gowse/wscengine/wsclient"
 	"github.com/gbdevw/purple-goctopus/sdk/noncegen"
+	"github.com/gbdevw/purple-goctopus/sdk/spot/rest"
+	restcommon "github.com/gbdevw/purple-goctopus/sdk/spot/rest/common"
 	"github.com/gbdevw/purple-goctopus/sdk/spot/websocket/messages"
 	"github.com/gbdevw/purple-goctopus/sdk/spot/websocket/tracing"
 	"go.opentelemetry.io/otel"
@@ -25,13 +27,22 @@ import (
 const (
 	// URL for Kraken spot websocket client - public endpoints - Production
 	KrakenSpotWebsocketPublicProductionURL = "wss://ws.kraken.com"
+	// URL for Kraken spot websocket client - public endpoints - Beta
+	KrakenSpotWebsocketPublicBetaURL = "wss://beta-ws.kraken.com"
+	// URL for Kraken spot websocket client - private endpoints - Production
+	KrakenSpotWebsocketPrivateProductionURL = "wss://ws-auth.kraken.com"
+	// URL for Kraken spot websocket client - private endpoints - Beta
+	KrakenSpotWebsocketPrivateBetaURL = "wss://beta-ws-auth.kraken.com"
 )
 
-type KrakenSpotPublicWebsocketClient struct {
+// This is the base Kraken websocket client implementation: The logic is the same for both public
+// and private clients but separate clients must be built because public and private clients do
+// not use the same servers and connection.
+type krakenSpotWebsocketClient struct {
 	// Websocket connection adapter to use to interact with the chosen
 	// underlying low-level websocket framework.
 	conn wsadapters.WebsocketConnectionAdapterInterface
-	// Nonce generator used to generate unique request IDs
+	// Internal nonce generator used to generate unique request IDs
 	ngen noncegen.NonceGenerator
 	// Subscriptions which must be maintained by the websocket client.
 	subscriptions activeSubscriptions
@@ -64,11 +75,33 @@ type KrakenSpotPublicWebsocketClient struct {
 	pendingSubscribeMu sync.Mutex
 	// Mutex used to protect pending unsubscribe request map from concurrent writes
 	pendingUnsubscribeMu sync.Mutex
+	// Mutex used to protect pending addOrder request map from concurrent writes
+	pendingAddOrderMu sync.Mutex
+	// Mutex used to protect pending editOrder request map from concurrent writes
+	pendingEditOrderMu sync.Mutex
+	// Mutex used to protect pending cancelOrder request map from concurrent writes
+	pendingCancelOrderMu sync.Mutex
+	// Mutex used to protect pending cancelAllOrders request map from concurrent writes
+	pendingCancelAllOrdersMu sync.Mutex
+	// Mutex used to protect pending cancelAllOrdersAfterX request map from concurrent writes
+	pendingCancelAllOrdersAfterXOrderMu sync.Mutex
+	// Kraken websocket client used to get websocket token
+	restClient rest.KrakenSpotRESTClientIface
+	// User provided nonce generator used to generate nonces used when GetWebsocketToken is called
+	cgen noncegen.NonceGenerator
+	// User provided security options used when
+	secopts *restcommon.SecurityOptions
+	// Mutex used to protect cached websocket token
+	tokenMu sync.Mutex
+	// Cached websocket token
+	token string
+	// Cached websocket token epiration time
+	tokenExpiresAt time.Time
 }
 
 // # Description
 //
-// Build a new KrakenSpotPublicWebsocketClient. The client must be provided to a wscengine.WebsocketEngine
+// Build a new krakenSpotWebsocketClient. The client must be provided to a wscengine.WebsocketEngine
 // which will manage the connection with the server and execute the client's logic. Once connected, the
 // client can be used to send messages to the websocket server, subscribe to data feeds, ...
 //
@@ -81,18 +114,18 @@ type KrakenSpotPublicWebsocketClient struct {
 //
 // # Return
 //
-// A new KrakenSpotPublicWebsocketClient which can then be used by a wscengine.WebsocketEngine.
-func NewKrakenSpotPublicWebsocketClient(
+// A new krakenSpotWebsocketClient which can then be used by a wscengine.WebsocketEngine.
+func NewKrakenSpotWebsocketClient(
 	onCloseCallback func(ctx context.Context, closeMessage *wsclient.CloseMessageDetails),
 	onReadErrorCallback func(ctx context.Context, restart context.CancelFunc, exit context.CancelFunc, err error),
 	onRestartError func(ctx context.Context, exit context.CancelFunc, err error, retryCount int),
 	tracerProvider trace.TracerProvider,
-) *KrakenSpotPublicWebsocketClient {
+) *krakenSpotWebsocketClient {
 	// Use the global tracer provider if none is provided
 	if tracerProvider == nil {
 		tracerProvider = otel.GetTracerProvider()
 	}
-	return &KrakenSpotPublicWebsocketClient{
+	return &krakenSpotWebsocketClient{
 		conn: nil,
 		ngen: noncegen.NewHFNonceGenerator(),
 		subscriptions: activeSubscriptions{
@@ -107,18 +140,23 @@ func NewKrakenSpotPublicWebsocketClient(
 			pendingCancelOrderRequests:           map[int64]*pendingCancelOrderRequest{},
 			pendingCancelAllOrdersRequests:       map[int64]*pendingCancelAllOrdersRequest{},
 			pendingCancelAllOrdersAfterXRequests: map[int64]*pendingCancelAllOrdersAfterXRequest{}},
-		onCloseCallback:      onCloseCallback,
-		onReadErrorCallback:  onReadErrorCallback,
-		onRestartError:       onRestartError,
-		tracer:               tracerProvider.Tracer(tracing.PackageName, trace.WithInstrumentationVersion(tracing.PackageVersion)),
-		tickerSubMu:          sync.Mutex{},
-		ohlcSubMu:            sync.Mutex{},
-		tradeSubMu:           sync.Mutex{},
-		spreadSubMu:          sync.Mutex{},
-		bookSubMu:            sync.Mutex{},
-		pendingPingMu:        sync.Mutex{},
-		pendingSubscribeMu:   sync.Mutex{},
-		pendingUnsubscribeMu: sync.Mutex{},
+		onCloseCallback:                     onCloseCallback,
+		onReadErrorCallback:                 onReadErrorCallback,
+		onRestartError:                      onRestartError,
+		tracer:                              tracerProvider.Tracer(tracing.PackageName, trace.WithInstrumentationVersion(tracing.PackageVersion)),
+		tickerSubMu:                         sync.Mutex{},
+		ohlcSubMu:                           sync.Mutex{},
+		tradeSubMu:                          sync.Mutex{},
+		spreadSubMu:                         sync.Mutex{},
+		bookSubMu:                           sync.Mutex{},
+		pendingPingMu:                       sync.Mutex{},
+		pendingSubscribeMu:                  sync.Mutex{},
+		pendingUnsubscribeMu:                sync.Mutex{},
+		pendingAddOrderMu:                   sync.Mutex{},
+		pendingEditOrderMu:                  sync.Mutex{},
+		pendingCancelOrderMu:                sync.Mutex{},
+		pendingCancelAllOrdersMu:            sync.Mutex{},
+		pendingCancelAllOrdersAfterXOrderMu: sync.Mutex{},
 	}
 }
 
@@ -174,7 +212,7 @@ func NewKrakenSpotPublicWebsocketClient(
 //   - If engine is starting, engine will definitely stop. Calling exit will do nothing.
 //   - If engine is restarting, engine will try again to restart.
 //   - If engine is restarting and exit has been called, engine will definitely stop.
-func (client *KrakenSpotPublicWebsocketClient) OnOpen(
+func (client *krakenSpotWebsocketClient) OnOpen(
 	ctx context.Context,
 	resp *http.Response,
 	conn wsadapters.WebsocketConnectionAdapterInterface,
@@ -206,7 +244,7 @@ func (client *KrakenSpotPublicWebsocketClient) OnOpen(
 		if client.subscriptions.ticker != nil {
 			// Start a goroutine that will perform the resubscribe.
 			// Goroutine will make 3 attempts then exit.
-			go func(client *KrakenSpotPublicWebsocketClient) {
+			go func(client *krakenSpotWebsocketClient) {
 				ctx, cancel := context.WithTimeout(rootctx, 30*time.Second)
 				defer cancel()
 				for retry := 0; retry < limit; retry++ {
@@ -341,7 +379,7 @@ func (client *KrakenSpotPublicWebsocketClient) OnOpen(
 //   - All pending messages will be discarded. The user can continue to read and send messages
 //     in this callback and/or in the OnClose callback until conditions are met to stop the
 //     engine and close the websocket connection.
-func (client *KrakenSpotPublicWebsocketClient) OnMessage(
+func (client *krakenSpotWebsocketClient) OnMessage(
 	ctx context.Context,
 	conn wsadapters.WebsocketConnectionAdapterInterface,
 	readMutex *sync.Mutex,
@@ -469,7 +507,7 @@ func (client *KrakenSpotPublicWebsocketClient) OnMessage(
 //   - All pending messages will be discarded. The user can continue to read and send messages
 //     in this callback and/or in the OnClose callback until conditions are met to stop the
 //     engine and close the websocket connection.
-func (client *KrakenSpotPublicWebsocketClient) OnReadError(
+func (client *krakenSpotWebsocketClient) OnReadError(
 	ctx context.Context,
 	conn wsadapters.WebsocketConnectionAdapterInterface,
 	readMutex *sync.Mutex,
@@ -518,7 +556,7 @@ func (client *KrakenSpotPublicWebsocketClient) OnReadError(
 // # Warning
 //
 // Provided context will already be canceled.
-func (client *KrakenSpotPublicWebsocketClient) OnClose(
+func (client *krakenSpotWebsocketClient) OnClose(
 	ctx context.Context,
 	conn wsadapters.WebsocketConnectionAdapterInterface,
 	readMutex *sync.Mutex,
@@ -609,7 +647,7 @@ func (client *KrakenSpotPublicWebsocketClient) OnClose(
 //
 //   - ctx:  Context produced OnClose context.
 //   - err: Error returned by conn.Close method
-func (client *KrakenSpotPublicWebsocketClient) OnCloseError(
+func (client *krakenSpotWebsocketClient) OnCloseError(
 	ctx context.Context,
 	err error) {
 	fmt.Println("close error", err.Error())
@@ -632,7 +670,7 @@ func (client *KrakenSpotPublicWebsocketClient) OnCloseError(
 //   - exit: Function to call to stop trying to restart the engine.
 //   - err: Error which has occured when restarting the engine
 //   - retryCount: Number of restart retry since last time engine has successfully (re)started.
-func (client *KrakenSpotPublicWebsocketClient) OnRestartError(
+func (client *krakenSpotWebsocketClient) OnRestartError(
 	ctx context.Context,
 	exit context.CancelFunc,
 	err error,
@@ -658,7 +696,7 @@ func (client *KrakenSpotPublicWebsocketClient) OnRestartError(
 /*************************************************************************************************/
 
 // This method contains the logic to handle a received general error message.
-func (client *KrakenSpotPublicWebsocketClient) handleErrorMessage(
+func (client *krakenSpotWebsocketClient) handleErrorMessage(
 	ctx context.Context,
 	conn wsadapters.WebsocketConnectionAdapterInterface,
 	readMutex *sync.Mutex,
@@ -753,7 +791,7 @@ func (client *KrakenSpotPublicWebsocketClient) handleErrorMessage(
 }
 
 // This method contains the logic to handle a received heartbeat message.
-func (client *KrakenSpotPublicWebsocketClient) handleHeartbeat(
+func (client *krakenSpotWebsocketClient) handleHeartbeat(
 	ctx context.Context,
 	conn wsadapters.WebsocketConnectionAdapterInterface,
 	readMutex *sync.Mutex,
@@ -790,7 +828,7 @@ func (client *KrakenSpotPublicWebsocketClient) handleHeartbeat(
 }
 
 // This method contains the logic to handle a received systemStatus message.
-func (client *KrakenSpotPublicWebsocketClient) handleSystemStatus(
+func (client *krakenSpotWebsocketClient) handleSystemStatus(
 	ctx context.Context,
 	conn wsadapters.WebsocketConnectionAdapterInterface,
 	readMutex *sync.Mutex,
@@ -834,7 +872,7 @@ func (client *KrakenSpotPublicWebsocketClient) handleSystemStatus(
 }
 
 // This method contains the logic to handle a received pong message.
-func (client *KrakenSpotPublicWebsocketClient) handlePong(
+func (client *krakenSpotWebsocketClient) handlePong(
 	ctx context.Context,
 	conn wsadapters.WebsocketConnectionAdapterInterface,
 	readMutex *sync.Mutex,
@@ -892,7 +930,7 @@ func (client *KrakenSpotPublicWebsocketClient) handlePong(
 
 // This method contains the logic to handle a received subscriptionStatus message as a response for
 // either Subscribe or Unsubscribe.
-func (client *KrakenSpotPublicWebsocketClient) handleSubscriptionStatus(
+func (client *krakenSpotWebsocketClient) handleSubscriptionStatus(
 	ctx context.Context,
 	conn wsadapters.WebsocketConnectionAdapterInterface,
 	readMutex *sync.Mutex,
@@ -1030,7 +1068,7 @@ func (client *KrakenSpotPublicWebsocketClient) handleSubscriptionStatus(
 }
 
 // This method contains the logic to handle a received ticker message.
-func (client *KrakenSpotPublicWebsocketClient) handleTicker(
+func (client *krakenSpotWebsocketClient) handleTicker(
 	ctx context.Context,
 	conn wsadapters.WebsocketConnectionAdapterInterface,
 	readMutex *sync.Mutex,
@@ -1067,7 +1105,7 @@ func (client *KrakenSpotPublicWebsocketClient) handleTicker(
 }
 
 // This method contains the logic to handle a received ohlc message.
-func (client *KrakenSpotPublicWebsocketClient) handleOHLC(
+func (client *krakenSpotWebsocketClient) handleOHLC(
 	ctx context.Context,
 	conn wsadapters.WebsocketConnectionAdapterInterface,
 	readMutex *sync.Mutex,
@@ -1104,7 +1142,7 @@ func (client *KrakenSpotPublicWebsocketClient) handleOHLC(
 }
 
 // This method contains the logic to handle a received trade message.
-func (client *KrakenSpotPublicWebsocketClient) handleTrade(
+func (client *krakenSpotWebsocketClient) handleTrade(
 	ctx context.Context,
 	conn wsadapters.WebsocketConnectionAdapterInterface,
 	readMutex *sync.Mutex,
@@ -1141,7 +1179,7 @@ func (client *KrakenSpotPublicWebsocketClient) handleTrade(
 }
 
 // This method contains the logic to handle a received spread message.
-func (client *KrakenSpotPublicWebsocketClient) handleSpread(
+func (client *krakenSpotWebsocketClient) handleSpread(
 	ctx context.Context,
 	conn wsadapters.WebsocketConnectionAdapterInterface,
 	readMutex *sync.Mutex,
@@ -1178,7 +1216,7 @@ func (client *KrakenSpotPublicWebsocketClient) handleSpread(
 }
 
 // This method contains the logic to handle a received book message.
-func (client *KrakenSpotPublicWebsocketClient) handleBook(
+func (client *krakenSpotWebsocketClient) handleBook(
 	ctx context.Context,
 	conn wsadapters.WebsocketConnectionAdapterInterface,
 	readMutex *sync.Mutex,
@@ -1203,7 +1241,7 @@ func (client *KrakenSpotPublicWebsocketClient) handleBook(
 }
 
 // This method contains the logic to handle a received book update message.
-func (client *KrakenSpotPublicWebsocketClient) handleBookUpdate(
+func (client *krakenSpotWebsocketClient) handleBookUpdate(
 	ctx context.Context,
 	conn wsadapters.WebsocketConnectionAdapterInterface,
 	readMutex *sync.Mutex,
@@ -1240,7 +1278,7 @@ func (client *KrakenSpotPublicWebsocketClient) handleBookUpdate(
 }
 
 // This method contains the logic to handle a received book snapshot message.
-func (client *KrakenSpotPublicWebsocketClient) handleBookSnapshot(
+func (client *krakenSpotWebsocketClient) handleBookSnapshot(
 	ctx context.Context,
 	conn wsadapters.WebsocketConnectionAdapterInterface,
 	readMutex *sync.Mutex,
@@ -1297,7 +1335,7 @@ func (client *KrakenSpotPublicWebsocketClient) handleBookSnapshot(
 //   - An error occurs when sending the message.
 //   - The provided context expires (timeout/cancel).
 //   - An error message is received from the server (OperationError).
-func (client *KrakenSpotPublicWebsocketClient) Ping(ctx context.Context) error {
+func (client *krakenSpotWebsocketClient) Ping(ctx context.Context) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".ping", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
@@ -1379,7 +1417,7 @@ func (client *KrakenSpotPublicWebsocketClient) Ping(ctx context.Context) error {
 //   - The client MUST drop the channel if the user has used the corresponding Unsubscribe method.
 //     If the user use the subscribe method again, then, a new channel MUST be created and the
 //     older one MUST NOT be used anymore.
-func (client *KrakenSpotPublicWebsocketClient) SubscribeTicker(ctx context.Context, pairs []string, capacity int) (chan *messages.Ticker, error) {
+func (client *krakenSpotWebsocketClient) SubscribeTicker(ctx context.Context, pairs []string, capacity int) (chan *messages.Ticker, error) {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".subscribe_ticker",
 		trace.WithSpanKind(trace.SpanKindClient),
@@ -1480,7 +1518,7 @@ func (client *KrakenSpotPublicWebsocketClient) SubscribeTicker(ctx context.Conte
 //   - The client MUST drop the channel if the user has used the corresponding Unsubscribe method.
 //     If the user use the subscribe method again, then, a new channel MUST be created and the
 //     older one MUST NOT be used anymore.
-func (client *KrakenSpotPublicWebsocketClient) SubscribeOHLC(ctx context.Context, pairs []string, interval messages.IntervalEnum, capacity int) (chan *messages.OHLC, error) {
+func (client *krakenSpotWebsocketClient) SubscribeOHLC(ctx context.Context, pairs []string, interval messages.IntervalEnum, capacity int) (chan *messages.OHLC, error) {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".subscribe_ohlc",
 		trace.WithSpanKind(trace.SpanKindClient),
@@ -1581,7 +1619,7 @@ func (client *KrakenSpotPublicWebsocketClient) SubscribeOHLC(ctx context.Context
 //   - The client MUST drop the channel if the user has used the corresponding Unsubscribe method.
 //     If the user use the subscribe method again, then, a new channel MUST be created and the
 //     older one MUST NOT be used anymore.
-func (client *KrakenSpotPublicWebsocketClient) SubscribeTrade(ctx context.Context, pairs []string, capacity int) (chan *messages.Trade, error) {
+func (client *krakenSpotWebsocketClient) SubscribeTrade(ctx context.Context, pairs []string, capacity int) (chan *messages.Trade, error) {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".subscribe_trade",
 		trace.WithSpanKind(trace.SpanKindClient),
@@ -1679,7 +1717,7 @@ func (client *KrakenSpotPublicWebsocketClient) SubscribeTrade(ctx context.Contex
 //   - The client MUST drop the channel if the user has used the corresponding Unsubscribe method.
 //     If the user use the subscribe method again, then, a new channel MUST be created and the
 //     older one MUST NOT be used anymore.
-func (client *KrakenSpotPublicWebsocketClient) SubscribeSpread(ctx context.Context, pairs []string, capacity int) (chan *messages.Spread, error) {
+func (client *krakenSpotWebsocketClient) SubscribeSpread(ctx context.Context, pairs []string, capacity int) (chan *messages.Spread, error) {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".subscribe_spread",
 		trace.WithSpanKind(trace.SpanKindClient),
@@ -1777,7 +1815,7 @@ func (client *KrakenSpotPublicWebsocketClient) SubscribeSpread(ctx context.Conte
 //   - The client MUST drop the channel if the user has used the corresponding Unsubscribe method.
 //     If the user use the subscribe method again, then, a new channel MUST be created and the
 //     older one MUST NOT be used anymore.
-func (client *KrakenSpotPublicWebsocketClient) SubscribeBook(ctx context.Context, pairs []string, depth messages.DepthEnum, capacity int) (chan *messages.BookSnapshot, chan *messages.BookUpdate, error) {
+func (client *krakenSpotWebsocketClient) SubscribeBook(ctx context.Context, pairs []string, depth messages.DepthEnum, capacity int) (chan *messages.BookSnapshot, chan *messages.BookUpdate, error) {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".subscribe_book",
 		trace.WithSpanKind(trace.SpanKindClient),
@@ -1858,7 +1896,7 @@ func (client *KrakenSpotPublicWebsocketClient) SubscribeBook(ctx context.Context
 //   - The client MUST drop the channel that was used by the canceled subscription.
 //
 //   - The client MUST return an error if channel was not subscribed to.
-func (client *KrakenSpotPublicWebsocketClient) UnsubscribeTicker(ctx context.Context) error {
+func (client *krakenSpotWebsocketClient) UnsubscribeTicker(ctx context.Context) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_ticker", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
@@ -1926,7 +1964,7 @@ func (client *KrakenSpotPublicWebsocketClient) UnsubscribeTicker(ctx context.Con
 //   - The client MUST drop the channel that was used by the canceled subscription.
 //
 //   - The client MUST return an error if channel was not subscribed to.
-func (client *KrakenSpotPublicWebsocketClient) UnsubscribeOHLC(ctx context.Context) error {
+func (client *krakenSpotWebsocketClient) UnsubscribeOHLC(ctx context.Context) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_ohlc", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
@@ -1995,7 +2033,7 @@ func (client *KrakenSpotPublicWebsocketClient) UnsubscribeOHLC(ctx context.Conte
 //   - The client MUST drop the channel that was used by the canceled subscription.
 //
 //   - The client MUST return an error if channel was not subscribed to.
-func (client *KrakenSpotPublicWebsocketClient) UnsubscribeTrade(ctx context.Context) error {
+func (client *krakenSpotWebsocketClient) UnsubscribeTrade(ctx context.Context) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_trade", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
@@ -2063,7 +2101,7 @@ func (client *KrakenSpotPublicWebsocketClient) UnsubscribeTrade(ctx context.Cont
 //   - The client MUST drop the channel that was used by the canceled subscription.
 //
 //   - The client MUST return an error if channel was not subscribed to.
-func (client *KrakenSpotPublicWebsocketClient) UnsubscribeSpread(ctx context.Context) error {
+func (client *krakenSpotWebsocketClient) UnsubscribeSpread(ctx context.Context) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_spread", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
@@ -2131,7 +2169,7 @@ func (client *KrakenSpotPublicWebsocketClient) UnsubscribeSpread(ctx context.Con
 //   - The client MUST drop the channel that was used by the canceled subscription.
 //
 //   - The client MUST return an error if channel was not subscribed to.
-func (client *KrakenSpotPublicWebsocketClient) UnsubscribeBook(ctx context.Context) error {
+func (client *krakenSpotWebsocketClient) UnsubscribeBook(ctx context.Context) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_book", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
@@ -2189,7 +2227,7 @@ func (client *KrakenSpotPublicWebsocketClient) UnsubscribeBook(ctx context.Conte
 // # Return
 //
 // The client's built-in channel used to publish received system status updates.
-func (client *KrakenSpotPublicWebsocketClient) GetSystemStatusChannel() chan *messages.SystemStatus {
+func (client *krakenSpotWebsocketClient) GetSystemStatusChannel() chan *messages.SystemStatus {
 	return client.subscriptions.systemStatus
 }
 
@@ -2206,8 +2244,659 @@ func (client *KrakenSpotPublicWebsocketClient) GetSystemStatusChannel() chan *me
 // # Return
 //
 // The client's built-in channel used to publish received heartbeats.
-func (client *KrakenSpotPublicWebsocketClient) GetHeartbeatChannel() chan *messages.Heartbeat {
+func (client *krakenSpotWebsocketClient) GetHeartbeatChannel() chan *messages.Heartbeat {
 	return client.subscriptions.heartbeat
+}
+
+/*************************************************************************************************/
+/* KRAKEN PRIVATE WEBSOCKET IMPL.                                                                */
+/*************************************************************************************************/
+
+// # Description
+//
+// Add a new order and wait until a AddOrderResponse response is received from the server or
+// until an error or a timeout occurs.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel
+//     will be watched for timeout/cancel signal.
+//   - params: AddOrder request parameters.
+//
+// # Return
+//
+// The AddOrderResponse message from the server if any has been received. In case the response
+// has its error message set, an error with the error message will also be returned.
+//
+// An error is returned when:
+//
+//   - The client failed to send the request (no specific error type).
+//   - A timeout has occured before the request could be sent (no specific error type)
+//   - An error message is received from the server (OperationError).
+//   - A timeout or network failure occurs after sending the request to the server, while
+//     waiting for the server response. In this case, a OperationInterruptedError is returned.
+func (client *krakenSpotWebsocketClient) AddOrder(ctx context.Context, params AddOrderRequestParameters) (*messages.AddOrderResponse, error) {
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".add_order", trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(
+
+		attribute.String("order_type", params.OrderType),
+		attribute.String("side", params.Type),
+		attribute.String("pair", params.Pair),
+		attribute.String("price", params.Price),
+		attribute.String("price2", params.Price2),
+		attribute.String("volume", params.Volume),
+		attribute.Int("leverage", params.Leverage),
+		attribute.Bool("reduce_only", params.ReduceOnly),
+		attribute.String("oflags", params.OFlags),
+		attribute.String("starttm", params.StartTimestamp),
+		attribute.String("expiretm", params.ExpireTimestamp),
+		attribute.String("deadline", params.Deadline),
+		attribute.String("userref", params.UserReference),
+		attribute.Bool("validate", params.Validate),
+		attribute.String("close_order_type", params.CloseOrderType),
+		attribute.String("close_price", params.ClosePrice),
+		attribute.String("close_price2", params.ClosePrice2),
+		attribute.String("time_in_force", params.TimeInForce),
+	))
+	defer span.End()
+	// Get websocket token
+	token, err := client.getWebsocketToken(ctx)
+	if err != nil {
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("add order failed: %w", err))
+	}
+	// Create response channels
+	errChan := make(chan error, 1)
+	respChan := make(chan *messages.AddOrderResponse, 1)
+	// Format request
+	req := &messages.AddOrderRequest{
+		Event:           string(messages.EventTypeAddOrder),
+		Token:           token,
+		RequestId:       client.ngen.GenerateNonce(),
+		OrderType:       params.OrderType,
+		Type:            params.Type,
+		Pair:            params.Pair,
+		Price:           params.Price,
+		Price2:          params.Price2,
+		Volume:          params.Volume,
+		Leverage:        params.Leverage,
+		ReduceOnly:      params.ReduceOnly,
+		OFlags:          params.OFlags,
+		StartTimestamp:  params.StartTimestamp,
+		ExpireTimestamp: params.ExpireTimestamp,
+		Deadline:        params.Deadline,
+		UserReference:   params.UserReference,
+		Validate:        params.Validate,
+		CloseOrderType:  params.CloseOrderType,
+		ClosePrice:      params.ClosePrice,
+		ClosePrice2:     params.ClosePrice2,
+		TimeInForce:     params.TimeInForce,
+	}
+	payload, err := json.Marshal(req)
+	if err != nil {
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("add order failed: %w", err))
+	}
+	// Add pending addOrder request
+	client.pendingAddOrderMu.Lock()
+	defer client.pendingAddOrderMu.Unlock()
+	client.requests.pendingAddOrderRequests[req.RequestId] = &pendingAddOrderRequest{
+		resp: respChan,
+		err:  errChan,
+	}
+	// Write message to the server
+	err = client.conn.Write(ctx, wsadapters.Text, payload)
+	if err != nil {
+		// Discard pending request, trace and return error
+		delete(client.requests.pendingAddOrderRequests, req.RequestId)
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("add order failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "add_order", Root: fmt.Errorf("add order failed: %w", err)})
+	case <-errChan:
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "add_order", Root: fmt.Errorf("add order failed: %w", err)})
+	case resp := <-respChan:
+		// Tracing: Add an event for the response
+		span.AddEvent(tracing.TracesNamespace+".add_order_response", trace.WithAttributes(
+			attribute.String("status", resp.Status),
+			attribute.String("txid", resp.TxId),
+			attribute.String("error", resp.Err),
+			attribute.Int64("request_id", *resp.RequestId),
+		))
+		// Check the response status
+		if resp.Status == string(messages.Err) {
+			return resp, tracing.HandleAndTraceError(span, &OperationError{Operation: "add_order", Root: fmt.Errorf("add order failed: %s", resp.Err)})
+		}
+		// Exit - success
+		span.SetStatus(codes.Ok, codes.Ok.String())
+		return resp, nil
+	}
+}
+
+// # Description
+//
+// Edit an existing order and wait until a EditOrderResponse response is received from the
+// server or until an error or a timeout occurs.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel
+//     will be watched for timeout/cancel signal.
+//   - params: EditOrder request parameters.
+//
+// # Return
+//
+// The EditOrderResponse message from the server if any has been received. In case the response
+// has its error message set, an error with the error message will also be returned.
+//
+// An error is returned when:
+//
+//   - The client failed to send the request (no specific error type).
+//   - A timeout has occured before the request could be sent (no specific error type)
+//   - An error message is received from the server (OperationError).
+//   - A timeout or network failure occurs after sending the request to the server, while
+//     waiting for the server response. In this case, a OperationInterruptedError is returned.
+func (client *krakenSpotWebsocketClient) EditOrder(ctx context.Context, params EditOrderRequestParameters) (*messages.EditOrderResponse, error) {
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".edit_order", trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(
+		attribute.String("id", params.Id),
+		attribute.String("pair", params.Pair),
+		attribute.String("price", params.Price),
+		attribute.String("price2", params.Price2),
+		attribute.String("volume", params.Volume),
+		attribute.String("oflags", params.OFlags),
+		attribute.String("new_userref", params.NewUserReference),
+		attribute.Bool("validate", params.Validate),
+	))
+	defer span.End()
+	// Get websocket token
+	token, err := client.getWebsocketToken(ctx)
+	if err != nil {
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("edit order failed: %w", err))
+	}
+	// Create response channels
+	errChan := make(chan error, 1)
+	respChan := make(chan *messages.EditOrderResponse, 1)
+	// Format request
+	req := &messages.EditOrderRequest{
+		Event:            string(messages.EventTypeEditOrder),
+		Token:            token,
+		RequestId:        client.ngen.GenerateNonce(),
+		Pair:             params.Pair,
+		Price:            params.Price,
+		Price2:           params.Price2,
+		Volume:           params.Volume,
+		OFlags:           params.OFlags,
+		Validate:         params.Validate,
+		NewUserReference: params.NewUserReference,
+	}
+	payload, err := json.Marshal(req)
+	if err != nil {
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("edit order failed: %w", err))
+	}
+	// Add pending editOrder request
+	client.pendingEditOrderMu.Lock()
+	defer client.pendingEditOrderMu.Unlock()
+	client.requests.pendingEditOrderRequests[req.RequestId] = &pendingEditOrderRequest{
+		resp: respChan,
+		err:  errChan,
+	}
+	// Write message to the server
+	err = client.conn.Write(ctx, wsadapters.Text, payload)
+	if err != nil {
+		// Discard pending request, trace and return error
+		delete(client.requests.pendingEditOrderRequests, req.RequestId)
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("edit order failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "edit_order", Root: fmt.Errorf("edit order failed: %w", err)})
+	case <-errChan:
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "edit_order", Root: fmt.Errorf("edit order failed: %w", err)})
+	case resp := <-respChan:
+		// Tracing: Add an event for the response
+		span.AddEvent(tracing.TracesNamespace+".edit_order_response", trace.WithAttributes(
+			attribute.String("status", resp.Status),
+			attribute.String("original_txid", resp.OriginalTxId),
+			attribute.String("txid", resp.TxId),
+			attribute.String("description", resp.Description),
+			attribute.String("error", resp.Err),
+			attribute.Int64("request_id", *resp.RequestId),
+		))
+		// Check the response status
+		if resp.Status == string(messages.Err) {
+			return resp, tracing.HandleAndTraceError(span, &OperationError{Operation: "edit_order", Root: fmt.Errorf("edit order failed: %s", resp.Err)})
+		}
+		// Exit - success
+		span.SetStatus(codes.Ok, codes.Ok.String())
+		return resp, nil
+	}
+}
+
+// # Description
+//
+// Cancel one or several existing orders and wait until a CancelOrderResponse response is
+// received from the server or until an error or a timeout occurs.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel
+//     will be watched for timeout/cancel signal.
+//   - params: CancelOrder request parameters.
+//
+// # Return
+//
+// The CancelOrderResponse message from the server if any has been received. In case the response
+// has its error message set, an error with the error message will also be returned.
+//
+// An error is returned when:
+//
+//   - The client failed to send the request (no specific error type).
+//   - A timeout has occured before the request could be sent (no specific error type)
+//   - An error message is received from the server (OperationError).
+//   - A timeout or network failure occurs after sending the request to the server, while
+//     waiting for the server response. In this case, a OperationInterruptedError is returned.
+func (client *krakenSpotWebsocketClient) CancelOrder(ctx context.Context, params CancelOrderRequestParameters) (*messages.CancelOrderResponse, error) {
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".cancel_order", trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(
+		attribute.StringSlice("id", params.TxId),
+	))
+	defer span.End()
+	// Get websocket token
+	token, err := client.getWebsocketToken(ctx)
+	if err != nil {
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel order failed: %w", err))
+	}
+	// Create response channels
+	errChan := make(chan error, 1)
+	respChan := make(chan *messages.CancelOrderResponse, 1)
+	// Format request
+	req := &messages.CancelOrderRequest{
+		Event:     string(messages.EventTypeCancelOrder),
+		Token:     token,
+		RequestId: client.ngen.GenerateNonce(),
+		TxId:      params.TxId,
+	}
+	payload, err := json.Marshal(req)
+	if err != nil {
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel order failed: %w", err))
+	}
+	// Add pending cancelOrder request
+	client.pendingCancelOrderMu.Lock()
+	defer client.pendingCancelOrderMu.Unlock()
+	client.requests.pendingCancelOrderRequests[req.RequestId] = &pendingCancelOrderRequest{
+		resp: respChan,
+		err:  errChan,
+	}
+	// Write message to the server
+	err = client.conn.Write(ctx, wsadapters.Text, payload)
+	if err != nil {
+		// Discard pending request, trace and return error
+		delete(client.requests.pendingCancelOrderRequests, req.RequestId)
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel order failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "cancel_order", Root: fmt.Errorf("cancel order failed: %w", err)})
+	case <-errChan:
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_order", Root: fmt.Errorf("cancel order failed: %w", err)})
+	case resp := <-respChan:
+		// Tracing: Add an event for the response
+		span.AddEvent(tracing.TracesNamespace+".cancel_order_response", trace.WithAttributes(
+			attribute.String("status", resp.Status),
+			attribute.String("error", resp.Err),
+			attribute.Int64("request_id", *resp.RequestId),
+		))
+		// Check the response status
+		if resp.Status == string(messages.Err) {
+			return resp, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_order", Root: fmt.Errorf("cancel order failed: %s", resp.Err)})
+		}
+		// Exit - success
+		span.SetStatus(codes.Ok, codes.Ok.String())
+		return resp, nil
+	}
+}
+
+// # Description
+//
+// Cancel all orders and wait until a CancelAllOrdersResponse response is received from the
+// server or until an error or a timeout occurs.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel
+//     will be watched for timeout/cancel signal.
+//
+// # Return
+//
+// The CancelAllOrdersResponse message from the server if any has been received. In case the response
+// has its error message set, an error with the error message will also be returned.
+//
+// An error is returned when:
+//
+//   - The client failed to send the request (no specific error type).
+//   - A timeout has occured before the request could be sent (no specific error type)
+//   - An error message is received from the server (OperationError).
+//   - A timeout or network failure occurs after sending the request to the server, while
+//     waiting for the server response. In this case, a OperationInterruptedError is returned.
+func (client *krakenSpotWebsocketClient) CancellAllOrders(ctx context.Context) (*messages.CancelAllOrdersResponse, error) {
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".cancel_all_orders", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
+	// Get websocket token
+	token, err := client.getWebsocketToken(ctx)
+	if err != nil {
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel all orders failed: %w", err))
+	}
+	// Create response channels
+	errChan := make(chan error, 1)
+	respChan := make(chan *messages.CancelAllOrdersResponse, 1)
+	// Format request
+	req := &messages.CancelAllOrdersRequest{
+		Event:     string(messages.EventTypeCancelAllOrders),
+		Token:     token,
+		RequestId: client.ngen.GenerateNonce(),
+	}
+	payload, err := json.Marshal(req)
+	if err != nil {
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel all orders failed: %w", err))
+	}
+	// Add pending cancelAllOrders request
+	client.pendingCancelAllOrdersMu.Lock()
+	defer client.pendingCancelAllOrdersMu.Unlock()
+	client.requests.pendingCancelAllOrdersRequests[req.RequestId] = &pendingCancelAllOrdersRequest{
+		resp: respChan,
+		err:  errChan,
+	}
+	// Write message to the server
+	err = client.conn.Write(ctx, wsadapters.Text, payload)
+	if err != nil {
+		// Discard pending request, trace and return error
+		delete(client.requests.pendingCancelAllOrdersRequests, req.RequestId)
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel all orders failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "cancel_all_orders", Root: fmt.Errorf("cancel all orders failed: %w", err)})
+	case <-errChan:
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_all_orders", Root: fmt.Errorf("cancel all orders failed: %w", err)})
+	case resp := <-respChan:
+		// Tracing: Add an event for the response
+		span.AddEvent(tracing.TracesNamespace+".cancel_all_orders_response", trace.WithAttributes(
+			attribute.String("status", resp.Status),
+			attribute.String("error", resp.Err),
+			attribute.Int64("request_id", *resp.RequestId),
+		))
+		// Check the response status
+		if resp.Status == string(messages.Err) {
+			return resp, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_all_orders", Root: fmt.Errorf("cancel all orders failed: %s", resp.Err)})
+		}
+		// Exit - success
+		span.SetStatus(codes.Ok, codes.Ok.String())
+		return resp, nil
+	}
+}
+
+// # Description
+//
+// Set, extend or unset a timer which cancels all orders when expiring and wait until a
+// response is received from the server or until an error or a timeout occurs.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel
+//     will be watched for timeout/cancel signal.
+//   - params: CancellAllOrdersAfterX request parameters.
+//
+// # Return
+//
+// The CancelAllOrdersAfterXResponse message from the server if any has been received. In case
+// the response has its error message set, an error with the error message is also be returned.
+//
+// An error is returned when:
+//
+//   - The client failed to send the request (no specific error type).
+//   - A timeout has occured before the request could be sent (no specific error type)
+//   - An error message is received from the server (OperationError).
+//   - A timeout or network failure occurs after sending the request to the server, while
+//     waiting for the server response. In this case, a OperationInterruptedError is returned.
+func (client *krakenSpotWebsocketClient) CancellAllOrdersAfterX(ctx context.Context, params CancelAllOrdersAfterXRequestParameters) (*messages.CancelAllOrdersAfterXResponse, error) {
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".cancel_all_orders_after_x", trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(
+		attribute.Int("timeout", params.Timeout),
+	))
+	defer span.End()
+	// Get websocket token
+	token, err := client.getWebsocketToken(ctx)
+	if err != nil {
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel all orders after x failed: %w", err))
+	}
+	// Create response channels
+	errChan := make(chan error, 1)
+	respChan := make(chan *messages.CancelAllOrdersAfterXResponse, 1)
+	// Format request
+	req := &messages.CancelAllOrdersAfterXRequest{
+		Event:     string(messages.EventTypeCancelAllOrdersAfterX),
+		Token:     token,
+		RequestId: client.ngen.GenerateNonce(),
+		Timeout:   params.Timeout,
+	}
+	payload, err := json.Marshal(req)
+	if err != nil {
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel all orders after x failed: %w", err))
+	}
+	// Add pending cancelAllOrders request
+	client.pendingCancelAllOrdersAfterXOrderMu.Lock()
+	defer client.pendingCancelAllOrdersAfterXOrderMu.Unlock()
+	client.requests.pendingCancelAllOrdersAfterXRequests[req.RequestId] = &pendingCancelAllOrdersAfterXRequest{
+		resp: respChan,
+		err:  errChan,
+	}
+	// Write message to the server
+	err = client.conn.Write(ctx, wsadapters.Text, payload)
+	if err != nil {
+		// Discard pending request, trace and return error
+		delete(client.requests.pendingCancelAllOrdersAfterXRequests, req.RequestId)
+		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel all orders after x failed: %w", err))
+	}
+	// Wait for response to be published on channels or timeout
+	select {
+	case <-ctx.Done():
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "cancel_all_orders_after_x", Root: fmt.Errorf("cancel all orders after x failed: %w", err)})
+	case <-errChan:
+		// Trace and return error
+		return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_all_orders_after_x", Root: fmt.Errorf("cancel all orders after x failed: %w", err)})
+	case resp := <-respChan:
+		// Tracing: Add an event for the response
+		span.AddEvent(tracing.TracesNamespace+".cancel_all_orders_after_x", trace.WithAttributes(
+			attribute.String("status", resp.Status),
+			attribute.String("current_time", resp.CurrentTime),
+			attribute.String("trigger_time", resp.TriggerTime),
+			attribute.String("error", resp.Err),
+			attribute.Int64("request_id", *resp.RequestId),
+		))
+		// Check the response status
+		if resp.Status == string(messages.Err) {
+			return resp, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_all_orders_after_x", Root: fmt.Errorf("cancel all orders after x failed: %s", resp.Err)})
+		}
+		// Exit - success
+		span.SetStatus(codes.Ok, codes.Ok.String())
+		return resp, nil
+	}
+}
+
+// # Description
+//
+// Subscribe to the ownTrades channel. In case of success, a channel with the provided capacity
+// will be created and returned.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel
+//     will be watched for timeout/cancel signal.
+//   - snapshot: If true, upon subscription, the 50 most recent user trades will be published.
+//   - consolidateTaker: Whether to consolidate order fills by root taker trade(s).
+//   - capacity: Desired channel capacity. Can be 0 (not recommended).
+//
+// # Return
+//
+// In case of success, a channel with the desired capacity will be returned. Received data will
+// be published on that channel.
+//
+// An error (and no channel) is returned when:
+//
+//   - An error occurs when sending the subscription message.
+//   - The provided context expires (timeout/cancel).
+//   - An error message is received from the server (OperationError).
+//
+// # Implementation and usage guidelines
+//
+//   - The client MUST return an error if there is already an active susbscription.
+//
+//   - A nil value MUST be published on the channel ONLY when the websocket connection is closed
+//     even if the client implementation has a mechanism to automatically reconnect to the
+//     websocket server. This nil value will serve as a cue for the consumer to detect
+//     interruptions in the stream of data and react to these interruptions.
+//
+//   - The websocket client implementation CAN either use blocking writes or discard messages in
+//     case the publish channel is full. It is up to the client implementation to be clear about
+//     how it deals with congestion.
+//
+//   - If the client implementation has a mechanism to automatically reconnect to the server AND
+//     resubscribe to previously subscribed channels, then, the client implementation MUST reuse
+//     the channel that has been previously created and returned to the user.
+//
+//   - The client MUST drop the channel if the user has used the corresponding Unsubscribe method.
+//     If the user use the subscribe method again, then, a new channel MUST be created and the
+//     older one MUST NOT be used anymore.
+func (client *krakenSpotWebsocketClient) SubscribeOwnTrades(ctx context.Context, snapshot bool, consolidateTaker bool, capacity int) (chan *messages.OwnTrades, error) {
+	// RESUME HERE: Implement sub/unsub + implement message processing (onmessage, onopen, ...)
+	return nil, nil
+}
+
+// # Description
+//
+// Subscribe to the openOrders channel. In case of success, a channel with the provided
+// capacity will be created and returned.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel
+//     will be watched for timeout/cancel signal.
+//   - rateCounter: Whether to send rate-limit counter in updates.
+//   - capacity: Desired channel capacity. Can be 0 (not recommended).
+//
+// # Return
+//
+// In case of success, a channel with the desired capacity will be returned. Received data will
+// be published on that channel.
+//
+// An error (and no channel) is returned when:
+//
+//   - An error occurs when sending the subscription message.
+//   - The provided context expires (timeout/cancel).
+//   - An error message is received from the server (OperationError).
+//
+// # Implementation and usage guidelines
+//
+//   - The client MUST return an error if there is already an active susbscription.
+//
+//   - A nil value MUST be published on the channel ONLY when the websocket connection is closed
+//     even if the client implementation has a mechanism to automatically reconnect to the
+//     websocket server. This nil value will serve as a cue for the consumer to detect
+//     interruptions in the stream of data and react to these interruptions.
+//
+//   - The websocket client implementation CAN either use blocking writes or discard messages in
+//     case the publish channel is full. It is up to the client implementation to be clear about
+//     how it deals with congestion.
+//
+//   - If the client implementation has a mechanism to automatically reconnect to the server AND
+//     resubscribe to previously subscribed channels, then, the client implementation MUST reuse
+//     the channel that has been previously created and returned to the user.
+//
+//   - The client MUST drop the channel if the user has used the corresponding Unsubscribe method.
+//     If the user use the subscribe method again, then, a new channel MUST be created and the
+//     older one MUST NOT be used anymore.
+func (client *krakenSpotWebsocketClient) SubscribeOpenOrders(ctx context.Context, rateCounter bool, capacity int) (chan *messages.OpenOrders, error) {
+	return nil, nil
+}
+
+// # Description
+//
+// Unsubscribe from the ownTrades channel. The previously used channel can be dropped as it
+// must not be used again.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel
+//     will be watched for timeout/cancel signal.
+//
+// # Return
+//
+// Nil in case of success. Otherwise, an error is returned when:
+//
+//   - The channel has not been subscribed to.
+//   - An error occurs when sending the message.
+//   - The provided context expires (timeout/cancel).
+//   - An error message is received from the server.
+//
+// # Implementation and usage guidelines
+//
+//   - The client MUST drop the channel that was used by the canceled subscription.
+//
+//   - The client MUST return an error if channel was not subscribed to.
+func (client *krakenSpotWebsocketClient) UnsubscribeOwnTrades(ctx context.Context) error {
+	return nil
+}
+
+// # Description
+//
+// Unsubscribe from the openOrders channel. The previously used channel can be dropped as it
+// must not be used again.
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel
+//     will be watched for timeout/cancel signal.
+//
+// # Return
+//
+// Nil in case of success. Otherwise, an error is returned when:
+//
+//   - The channel has not been subscribed to.
+//   - An error occurs when sending the message.
+//   - The provided context expires (timeout/cancel).
+//   - An error message is received from the server.
+//
+// # Implementation and usage guidelines
+//
+//   - The client MUST drop the channel that was used by the canceled subscription.
+//
+//   - The client MUST return an error if channel was not subscribed to.
+func (client *krakenSpotWebsocketClient) UnsubscribeOpenOrders(ctx context.Context) error {
+	return nil
 }
 
 /*************************************************************************************************/
@@ -2231,7 +2920,7 @@ func (client *KrakenSpotPublicWebsocketClient) GetHeartbeatChannel() chan *messa
 // # Return
 //
 // An error if the request cannot be sent.
-func (client *KrakenSpotPublicWebsocketClient) sendPingRequest(ctx context.Context, req *messages.Ping, respChan chan *messages.Pong, errChan chan error) error {
+func (client *krakenSpotWebsocketClient) sendPingRequest(ctx context.Context, req *messages.Ping, respChan chan *messages.Pong, errChan chan error) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".send_ping_request",
 		trace.WithSpanKind(trace.SpanKindClient),
@@ -2279,7 +2968,7 @@ func (client *KrakenSpotPublicWebsocketClient) sendPingRequest(ctx context.Conte
 // # Return
 //
 // An error if the request cannot be sent.
-func (client *KrakenSpotPublicWebsocketClient) sendSubscribeRequest(ctx context.Context, req *messages.Subscribe, errChan chan error) error {
+func (client *krakenSpotWebsocketClient) sendSubscribeRequest(ctx context.Context, req *messages.Subscribe, errChan chan error) error {
 	// Tracing: Prepare span attributes
 	reqAttr := []attribute.KeyValue{
 		attribute.String("type", req.Subscription.Name),
@@ -2352,7 +3041,7 @@ func (client *KrakenSpotPublicWebsocketClient) sendSubscribeRequest(ctx context.
 // # Return
 //
 // An error if the request cannot be sent.
-func (client *KrakenSpotPublicWebsocketClient) sendUnsubscribeRequest(ctx context.Context, req *messages.Unsubscribe, errChan chan error) error {
+func (client *krakenSpotWebsocketClient) sendUnsubscribeRequest(ctx context.Context, req *messages.Unsubscribe, errChan chan error) error {
 	// Tracing: Prepare span attributes
 	reqAttr := []attribute.KeyValue{
 		attribute.String("type", req.Subscription.Name),
@@ -2416,7 +3105,7 @@ func (client *KrakenSpotPublicWebsocketClient) sendUnsubscribeRequest(ctx contex
 //   - An error occurs when sending the subscription message.
 //   - The provided context expires (timeout/cancel - OperationInterruptedError).
 //   - An error message is received from the server (OperationError).
-func (client *KrakenSpotPublicWebsocketClient) resubscribeTicker(ctx context.Context, pairs []string) error {
+func (client *krakenSpotWebsocketClient) resubscribeTicker(ctx context.Context, pairs []string) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".resubscribe_ticker",
 		trace.WithSpanKind(trace.SpanKindClient),
@@ -2480,7 +3169,7 @@ func (client *KrakenSpotPublicWebsocketClient) resubscribeTicker(ctx context.Con
 //   - An error occurs when sending the subscription message.
 //   - The provided context expires (timeout/cancel - OperationInterruptedError).
 //   - An error message is received from the server (OperationError).
-func (client *KrakenSpotPublicWebsocketClient) resubscribeOHLC(ctx context.Context, pairs []string, interval messages.IntervalEnum) error {
+func (client *krakenSpotWebsocketClient) resubscribeOHLC(ctx context.Context, pairs []string, interval messages.IntervalEnum) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".resubscribe_ohlc",
 		trace.WithSpanKind(trace.SpanKindClient),
@@ -2540,7 +3229,7 @@ func (client *KrakenSpotPublicWebsocketClient) resubscribeOHLC(ctx context.Conte
 //   - An error occurs when sending the subscription message.
 //   - The provided context expires (timeout/cancel - OperationInterruptedError).
 //   - An error message is received from the server (OperationError).
-func (client *KrakenSpotPublicWebsocketClient) resubscribeTrade(ctx context.Context, pairs []string) error {
+func (client *krakenSpotWebsocketClient) resubscribeTrade(ctx context.Context, pairs []string) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".resubscribe_trade",
 		trace.WithSpanKind(trace.SpanKindClient),
@@ -2598,7 +3287,7 @@ func (client *KrakenSpotPublicWebsocketClient) resubscribeTrade(ctx context.Cont
 //   - An error occurs when sending the subscription message.
 //   - The provided context expires (timeout/cancel - OperationInterruptedError).
 //   - An error message is received from the server (OperationError).
-func (client *KrakenSpotPublicWebsocketClient) resubscribeSpread(ctx context.Context, pairs []string) error {
+func (client *krakenSpotWebsocketClient) resubscribeSpread(ctx context.Context, pairs []string) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".resubscribe_spread",
 		trace.WithSpanKind(trace.SpanKindClient),
@@ -2657,7 +3346,7 @@ func (client *KrakenSpotPublicWebsocketClient) resubscribeSpread(ctx context.Con
 //   - An error occurs when sending the subscription message.
 //   - The provided context expires (timeout/cancel - OperationInterruptedError).
 //   - An error message is received from the server (OperationError).
-func (client *KrakenSpotPublicWebsocketClient) resubscribeBook(ctx context.Context, pairs []string, depth messages.DepthEnum) error {
+func (client *krakenSpotWebsocketClient) resubscribeBook(ctx context.Context, pairs []string, depth messages.DepthEnum) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".resubscribe_book",
 		trace.WithSpanKind(trace.SpanKindClient),
@@ -2699,4 +3388,50 @@ func (client *KrakenSpotPublicWebsocketClient) resubscribeBook(ctx context.Conte
 		span.SetStatus(codes.Ok, codes.Ok.String())
 		return nil
 	}
+}
+
+// # Description
+//
+// This method manages the websocket token used by the private websocket client:
+//   - If token is empty or if the cached token has expired, the method will fetch a new one.
+//   - If there is a cached, valid token, the method returns it
+//
+// # Inputs
+//
+//   - ctx: Context used for tracing/coordination purpose
+//
+// # Return
+//
+// The token or an error if any has occured. An error will be returned when:
+//
+//   - The provided context has expired
+//   - The request could not be sent (formatting or connection issue)
+//   - The server replied with an error (OperationError)
+func (client *krakenSpotWebsocketClient) getWebsocketToken(ctx context.Context) (string, error) {
+	// Tracing: Start span
+	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".get_websocket_token", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
+	// Acquire token mutex
+	client.tokenMu.Lock()
+	defer client.tokenMu.Unlock()
+	// Check if a token is cached and is still valid
+	now := time.Now()
+	if client.token == "" || client.tokenExpiresAt.Compare(now) >= 0 {
+		// Acquire a new token
+		resp, _, err := client.restClient.GetWebsocketToken(ctx, client.cgen.GenerateNonce(), client.secopts)
+		if err != nil {
+			// Trace and return error
+			return "", tracing.HandleAndTraceError(span, fmt.Errorf("get websocket token failed: %w", err))
+		}
+		if len(resp.Error) > 0 || resp.Result == nil {
+			// Trace and return error
+			return "", tracing.HandleAndTraceError(span, &OperationError{Operation: "get_websocket_token", Root: fmt.Errorf("get websocket token failed: %v", resp.Error)})
+		}
+		// Cache token & set expire (substract 5 seconds to be sure to refresh the token before it really expire)
+		client.token = resp.Result.Token
+		client.tokenExpiresAt = now.Add(time.Duration(resp.Result.Expires-5) * time.Second)
+	}
+	// Return cached token
+	span.SetStatus(codes.Ok, codes.Ok.String())
+	return client.token, nil
 }

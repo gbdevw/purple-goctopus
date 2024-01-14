@@ -43,8 +43,7 @@ type KrakenSpotPrivateWebsocketClientInterface interface {
 	//
 	//	- ctx: Context used for tracing and coordination purpose. The provided context Done channel
 	//    will be watched for timeout/cancel signal.
-	//	- params: AddOrder request parameters
-	//	- opts: Add order options. A nil value can be provided and will trigger all default behavior.
+	//	- params: AddOrder request parameters.
 	//
 	// # Return
 	//

@@ -18,8 +18,8 @@ import (
 /* INTEGRATION TEST SUITE                                                                        */
 /*************************************************************************************************/
 
-// Integration test suite for KrakenSpotPublicWebsocketClient
-type KrakenSpotPublicWebsocketClientIntegrationTestSuite struct {
+// Integration test suite for krakenSpotWebsocketClient
+type krakenSpotWebsocketClientIntegrationTestSuite struct {
 	suite.Suite
 }
 
@@ -30,7 +30,7 @@ func TestKrakenSpotRESTClientIntegrationTestSuite(t *testing.T) {
 		t.SkipNow()
 	}
 	/// Run the test suit
-	suite.Run(t, new(KrakenSpotPublicWebsocketClientIntegrationTestSuite))
+	suite.Run(t, new(krakenSpotWebsocketClientIntegrationTestSuite))
 }
 
 /*************************************************************************************************/
@@ -44,14 +44,14 @@ func TestKrakenSpotRESTClientIntegrationTestSuite(t *testing.T) {
 //   - The client can read the initial status message from the server
 //   - The client can send a Ping to the server ad read its response
 //   - The client OnCloseCallback is called when connection is shutdown from client side
-func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestConnectionOpenningAndPing() {
+func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestConnectionOpenningAndPing() {
 	// Create a OnClose callback that will have a spy in it to know if it has been called
 	called := false
 	onCloseCbk := func(ctx context.Context, closeMessage *wsclient.CloseMessageDetails) {
 		called = true
 	}
 	// Build websocket client withthe onclose callback set and no tracing
-	client := NewKrakenSpotPublicWebsocketClient(onCloseCbk, nil, nil, nil)
+	client := NewkrakenSpotWebsocketClient(onCloseCbk, nil, nil, nil)
 	// Build server URL
 	url, err := url.Parse(KrakenSpotWebsocketPublicProductionURL)
 	require.NoError(suite.T(), err)
@@ -104,9 +104,9 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestConnection
 //   - The client can subscribe to the ticker channel
 //   - The client can read ticker messages and heartbeats from the server.
 //   - The client can unsubscribe from the ticker channel
-func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeTicker() {
+func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeTicker() {
 	// Build websocket client without any callback set and no tracing
-	client := NewKrakenSpotPublicWebsocketClient(nil, nil, nil, nil)
+	client := NewkrakenSpotWebsocketClient(nil, nil, nil, nil)
 	// Build server URL
 	url, err := url.Parse(KrakenSpotWebsocketPublicProductionURL)
 	require.NoError(suite.T(), err)
@@ -155,6 +155,24 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeT
 	suite.T().Log("unsubscribed from ticker channel!")
 	// Check the internal ticker subscription is nil
 	require.Nil(suite.T(), client.subscriptions.ticker)
+	// Empty ticker channel
+	empty := false
+	for !empty {
+		select {
+		case <-tickerChan:
+		default:
+			empty = true
+		}
+	}
+	// Check unusubscribed is OK: try tor read ticker messages for 5 seconds
+	// If no messages are received, this mean everything is OK
+	ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	select {
+	case <-tickerChan:
+		suite.FailNow("no ticker message should be received after unsubscribe")
+	case <-ctx.Done():
+	}
 	// Stop engine (close the connection)
 	suite.T().Log("stopping the websocket engine...")
 	engine.Stop(ctx)

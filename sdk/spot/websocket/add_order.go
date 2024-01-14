@@ -8,6 +8,11 @@ type AddOrderRequestParameters struct {
 	Type string `json:"type"`
 	// Currency pair.
 	Pair string `json:"pair"`
+	// Order price
+	Price string `json:"price,omitempty"`
+	// Order secondary price
+	Price2 string `json:"price2,omitempty"`
+	// Order secondary price
 	// Order volume in base currency
 	Volume string `json:"volume"`
 	// Amount of leverage desired.
