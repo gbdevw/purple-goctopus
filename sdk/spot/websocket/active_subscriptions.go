@@ -73,7 +73,7 @@ type bookSubscription struct {
 // Data of a ownTrades subscription
 type ownTradesSubscription struct {
 	// Channel used to publish subscription's messages
-	pub chan *messages.Trade
+	pub chan *messages.OwnTrades
 	// Desired consolidateTaker value for the subscription
 	consolidateTaker bool
 	// Desired snapshot value for the subscription
