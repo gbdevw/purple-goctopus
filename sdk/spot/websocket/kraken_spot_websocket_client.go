@@ -864,6 +864,7 @@ func (client *krakenSpotWebsocketClient) UnsubscribeTicker(ctx context.Context) 
 		&messages.Unsubscribe{
 			Event: string(messages.EventTypeUnsubscribe),
 			ReqId: client.ngen.GenerateNonce(),
+			Pairs: client.subscriptions.ticker.pairs,
 			Subscription: messages.UnsuscribeDetails{
 				Name: string(messages.ChannelTicker),
 			},
@@ -943,8 +944,10 @@ func (client *krakenSpotWebsocketClient) UnsubscribeOHLC(ctx context.Context) er
 		&messages.Unsubscribe{
 			Event: string(messages.EventTypeSubscribe),
 			ReqId: client.ngen.GenerateNonce(),
+			Pairs: client.subscriptions.ohlcs.pairs,
 			Subscription: messages.UnsuscribeDetails{
-				Name: string(messages.ChannelOHLC),
+				Name:     string(messages.ChannelOHLC),
+				Interval: int(client.subscriptions.ohlcs.interval),
 			},
 		},
 		errChan)
@@ -977,8 +980,6 @@ func (client *krakenSpotWebsocketClient) UnsubscribeOHLC(ctx context.Context) er
 	}
 }
 
-// RESUME HERE: Continue adding and fixing logging
-
 // # Description
 //
 // Unsubscribe from  the trade topic. The previously used channel will be dropped and user
@@ -1007,11 +1008,14 @@ func (client *krakenSpotWebsocketClient) UnsubscribeTrade(ctx context.Context) e
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_trade", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
+	client.logger.Println("unsubscribing from trade channel")
 	// Check if there is already an active subscription
 	client.tradeSubMu.Lock() // Lock mutex till subscribe completes - this will block Subscribe
 	defer client.tradeSubMu.Unlock()
 	if client.subscriptions.trade == nil {
-		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe trade failed because there is no active subscription"))
+		err := fmt.Errorf("unsubscribe trade failed because there is no active subscription")
+		client.logger.Println(err.Error())
+		return tracing.HandleAndTraceError(span, err)
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -1029,20 +1033,29 @@ func (client *krakenSpotWebsocketClient) UnsubscribeTrade(ctx context.Context) e
 		errChan)
 	if err != nil {
 		// Trace and return error
-		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe trade failed: %w", err))
+		eerr := fmt.Errorf("unsubscribe trade failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Wait for response to be published on channels or timeout
+	client.logger.Println("waiting for unsubscribe response from server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_trade", Root: fmt.Errorf("unsubscribe trade failed: %w", err)})
+		eerr := fmt.Errorf("unsubscribe trade failed: %w", ctx.Err())
+		client.logger.Println(eerr.Error())
+		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_trade", Root: eerr})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_trade", Root: fmt.Errorf("unsubscribe trade failed: %w", err)})
+			eerr := fmt.Errorf("unsubscribe trade failed: %w", err)
+			client.logger.Println(eerr.Error())
+			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_trade", Root: eerr})
 		}
 		// Discard the subscription and exit
 		client.subscriptions.trade = nil
+		client.logger.Println("unsubscribed from trade channel")
+		span.SetStatus(codes.Ok, codes.Ok.String())
 		return nil
 	}
 }
@@ -1075,11 +1088,14 @@ func (client *krakenSpotWebsocketClient) UnsubscribeSpread(ctx context.Context) 
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_spread", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
+	client.logger.Println("unsubscribing from spread channel")
 	// Check if there is already an active subscription
 	client.spreadSubMu.Lock() // Lock mutex till subscribe completes - this will block Subscribe
 	defer client.spreadSubMu.Unlock()
 	if client.subscriptions.spread == nil {
-		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe spread failed because there is no active subscription"))
+		err := fmt.Errorf("unsubscribe spread failed because there is no active subscription")
+		client.logger.Println(err.Error())
+		return tracing.HandleAndTraceError(span, err)
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -1097,20 +1113,29 @@ func (client *krakenSpotWebsocketClient) UnsubscribeSpread(ctx context.Context) 
 		errChan)
 	if err != nil {
 		// Trace and return error
-		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe spread failed: %w", err))
+		eerr := fmt.Errorf("unsubscribe spread failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Wait for response to be published on channels or timeout
+	client.logger.Println("waiting for unsubscribe response from server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_spread", Root: fmt.Errorf("unsubscribe spread failed: %w", err)})
+		eerr := fmt.Errorf("unsubscribe spread failed: %w", ctx.Err())
+		client.logger.Println(eerr.Error())
+		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_spread", Root: eerr})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_spread", Root: fmt.Errorf("unsubscribe spread failed: %w", err)})
+			eerr := fmt.Errorf("unsubscribe spread failed: %w", err)
+			client.logger.Println(eerr.Error())
+			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_spread", Root: eerr})
 		}
 		// Discard the subscription and exit
 		client.subscriptions.spread = nil
+		span.SetStatus(codes.Ok, codes.Ok.String())
+		client.logger.Println("unsubscribed from spread channel")
 		return nil
 	}
 }
@@ -1143,11 +1168,14 @@ func (client *krakenSpotWebsocketClient) UnsubscribeBook(ctx context.Context) er
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_book", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
+	client.logger.Println("unsubscribing from book channel")
 	// Check if there is already an active subscription
 	client.bookSubMu.Lock() // Lock mutex till subscribe completes - this will block Subscribe
 	defer client.bookSubMu.Unlock()
 	if client.subscriptions.book == nil {
-		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe book failed because there is no active subscription"))
+		err := fmt.Errorf("unsubscribe book failed because there is no active subscription")
+		client.logger.Println(err.Error())
+		return tracing.HandleAndTraceError(span, err)
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -1166,20 +1194,29 @@ func (client *krakenSpotWebsocketClient) UnsubscribeBook(ctx context.Context) er
 		errChan)
 	if err != nil {
 		// Trace and return error
-		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe book failed: %w", err))
+		eerr := fmt.Errorf("unsubscribe book failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Wait for response to be published on channels or timeout
+	client.logger.Println("waiting for unsubscribe response from server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error - OperationInterruptedError
-		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_book", Root: fmt.Errorf("unsubscribe book failed: %w", err)})
+		eerr := fmt.Errorf("unsubscribe book failed: %w", ctx.Err())
+		client.logger.Println(eerr.Error())
+		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_book", Root: eerr})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error - OperationError
-			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_book", Root: fmt.Errorf("unsubscribe book failed: %w", err)})
+			eerr := fmt.Errorf("unsubscribe book failed: %w", err)
+			client.logger.Println(eerr.Error())
+			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_book", Root: eerr})
 		}
 		// Discard the subscription and exit
 		client.subscriptions.book = nil
+		span.SetStatus(codes.Ok, codes.Ok.String())
+		client.logger.Println("unsubscribed from book channel")
 		return nil
 	}
 }
@@ -1248,7 +1285,6 @@ func (client *krakenSpotWebsocketClient) GetHeartbeatChannel() chan *messages.He
 func (client *krakenSpotWebsocketClient) AddOrder(ctx context.Context, params AddOrderRequestParameters) (*messages.AddOrderResponse, error) {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".add_order", trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(
-
 		attribute.String("order_type", params.OrderType),
 		attribute.String("side", params.Type),
 		attribute.String("pair", params.Pair),
@@ -1269,11 +1305,14 @@ func (client *krakenSpotWebsocketClient) AddOrder(ctx context.Context, params Ad
 		attribute.String("time_in_force", params.TimeInForce),
 	))
 	defer span.End()
+	client.logger.Println("sending add order request to the server", params.Pair, params.OrderType, params.Type)
 	// Get websocket token
 	token, err := client.getWebsocketToken(ctx)
 	if err != nil {
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("add order failed: %w", err))
+		eerr := fmt.Errorf("add order failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -1305,7 +1344,9 @@ func (client *krakenSpotWebsocketClient) AddOrder(ctx context.Context, params Ad
 	payload, err := json.Marshal(req)
 	if err != nil {
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("add order failed: %w", err))
+		eerr := fmt.Errorf("add order failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Add pending addOrder request
 	client.pendingAddOrderMu.Lock()
@@ -1318,17 +1359,24 @@ func (client *krakenSpotWebsocketClient) AddOrder(ctx context.Context, params Ad
 	err = client.conn.Write(ctx, wsadapters.Text, payload)
 	if err != nil {
 		// Discard pending request, trace and return error
+		eerr := fmt.Errorf("add order failed: %w", err)
+		client.logger.Println(eerr.Error())
 		delete(client.requests.pendingAddOrderRequests, req.RequestId)
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("add order failed: %w", err))
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Wait for response to be published on channels or timeout
+	client.logger.Println("waiting for a response (addOrderStatus) from the server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "add_order", Root: fmt.Errorf("add order failed: %w", err)})
-	case <-errChan:
+		eerr := fmt.Errorf("add order failed: %w", ctx.Err())
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "add_order", Root: eerr})
+	case err := <-errChan:
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "add_order", Root: fmt.Errorf("add order failed: %w", err)})
+		eerr := fmt.Errorf("add order failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "add_order", Root: eerr})
 	case resp := <-respChan:
 		// Tracing: Add an event for the response
 		span.AddEvent(tracing.TracesNamespace+".add_order_response", trace.WithAttributes(
@@ -1339,10 +1387,13 @@ func (client *krakenSpotWebsocketClient) AddOrder(ctx context.Context, params Ad
 		))
 		// Check the response status
 		if resp.Status == string(messages.Err) {
-			return resp, tracing.HandleAndTraceError(span, &OperationError{Operation: "add_order", Root: fmt.Errorf("add order failed: %s", resp.Err)})
+			eerr := fmt.Errorf("add order failed: %s", resp.Err)
+			client.logger.Println(eerr.Error())
+			return resp, tracing.HandleAndTraceError(span, &OperationError{Operation: "add_order", Root: eerr})
 		}
 		// Exit - success
 		span.SetStatus(codes.Ok, codes.Ok.String())
+		client.logger.Println("addOrder has succeeded", resp.TxId)
 		return resp, nil
 	}
 }
@@ -1383,11 +1434,14 @@ func (client *krakenSpotWebsocketClient) EditOrder(ctx context.Context, params E
 		attribute.Bool("validate", params.Validate),
 	))
 	defer span.End()
+	client.logger.Println("sending edit order request to the server", params.Id)
 	// Get websocket token
 	token, err := client.getWebsocketToken(ctx)
 	if err != nil {
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("edit order failed: %w", err))
+		eerr := fmt.Errorf("edit order failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -1408,7 +1462,9 @@ func (client *krakenSpotWebsocketClient) EditOrder(ctx context.Context, params E
 	payload, err := json.Marshal(req)
 	if err != nil {
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("edit order failed: %w", err))
+		eerr := fmt.Errorf("edit order failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Add pending editOrder request
 	client.pendingEditOrderMu.Lock()
@@ -1421,17 +1477,24 @@ func (client *krakenSpotWebsocketClient) EditOrder(ctx context.Context, params E
 	err = client.conn.Write(ctx, wsadapters.Text, payload)
 	if err != nil {
 		// Discard pending request, trace and return error
+		eerr := fmt.Errorf("edit order failed: %w", err)
+		client.logger.Println(eerr.Error())
 		delete(client.requests.pendingEditOrderRequests, req.RequestId)
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("edit order failed: %w", err))
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Wait for response to be published on channels or timeout
+	client.logger.Println("waiting for a response (editOrderStatus) from the server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "edit_order", Root: fmt.Errorf("edit order failed: %w", err)})
-	case <-errChan:
+		eerr := fmt.Errorf("edit order failed: %w", ctx.Err())
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "edit_order", Root: eerr})
+	case err := <-errChan:
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "edit_order", Root: fmt.Errorf("edit order failed: %w", err)})
+		eerr := fmt.Errorf("edit order failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "edit_order", Root: eerr})
 	case resp := <-respChan:
 		// Tracing: Add an event for the response
 		span.AddEvent(tracing.TracesNamespace+".edit_order_response", trace.WithAttributes(
@@ -1444,10 +1507,13 @@ func (client *krakenSpotWebsocketClient) EditOrder(ctx context.Context, params E
 		))
 		// Check the response status
 		if resp.Status == string(messages.Err) {
-			return resp, tracing.HandleAndTraceError(span, &OperationError{Operation: "edit_order", Root: fmt.Errorf("edit order failed: %s", resp.Err)})
+			eerr := fmt.Errorf("edit order failed: %s", resp.Err)
+			client.logger.Println(eerr.Error())
+			return resp, tracing.HandleAndTraceError(span, &OperationError{Operation: "edit_order", Root: eerr})
 		}
 		// Exit - success
 		span.SetStatus(codes.Ok, codes.Ok.String())
+		client.logger.Println("editOrder has succeeded", resp.TxId)
 		return resp, nil
 	}
 }
@@ -1481,11 +1547,14 @@ func (client *krakenSpotWebsocketClient) CancelOrder(ctx context.Context, params
 		attribute.StringSlice("id", params.TxId),
 	))
 	defer span.End()
+	client.logger.Println("sending cancel order request to the server", params.TxId)
 	// Get websocket token
 	token, err := client.getWebsocketToken(ctx)
 	if err != nil {
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel order failed: %w", err))
+		eerr := fmt.Errorf("cancel order failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -1500,7 +1569,9 @@ func (client *krakenSpotWebsocketClient) CancelOrder(ctx context.Context, params
 	payload, err := json.Marshal(req)
 	if err != nil {
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel order failed: %w", err))
+		eerr := fmt.Errorf("cancel order failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Add pending cancelOrder request
 	client.pendingCancelOrderMu.Lock()
@@ -1513,17 +1584,24 @@ func (client *krakenSpotWebsocketClient) CancelOrder(ctx context.Context, params
 	err = client.conn.Write(ctx, wsadapters.Text, payload)
 	if err != nil {
 		// Discard pending request, trace and return error
+		eerr := fmt.Errorf("cancel order failed: %w", err)
+		client.logger.Println(eerr.Error())
 		delete(client.requests.pendingCancelOrderRequests, req.RequestId)
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel order failed: %w", err))
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Wait for response to be published on channels or timeout
+	client.logger.Println("waiting for a response (cancelOrderStatus) from the server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "cancel_order", Root: fmt.Errorf("cancel order failed: %w", err)})
-	case <-errChan:
+		eerr := fmt.Errorf("cancel order failed: %w", ctx.Err())
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "cancel_order", Root: eerr})
+	case err := <-errChan:
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_order", Root: fmt.Errorf("cancel order failed: %w", err)})
+		eerr := fmt.Errorf("cancel order failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_order", Root: eerr})
 	case resp := <-respChan:
 		// Tracing: Add an event for the response
 		span.AddEvent(tracing.TracesNamespace+".cancel_order_response", trace.WithAttributes(
@@ -1533,10 +1611,13 @@ func (client *krakenSpotWebsocketClient) CancelOrder(ctx context.Context, params
 		))
 		// Check the response status
 		if resp.Status == string(messages.Err) {
-			return resp, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_order", Root: fmt.Errorf("cancel order failed: %s", resp.Err)})
+			eerr := fmt.Errorf("cancel order failed: %s", resp.Err)
+			client.logger.Println(eerr.Error())
+			return resp, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_order", Root: eerr})
 		}
 		// Exit - success
 		span.SetStatus(codes.Ok, codes.Ok.String())
+		client.logger.Println("cancelOrder has succeeded")
 		return resp, nil
 	}
 }
@@ -1567,11 +1648,14 @@ func (client *krakenSpotWebsocketClient) CancellAllOrders(ctx context.Context) (
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".cancel_all_orders", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
+	client.logger.Println("sending cancel all orders request to the server")
 	// Get websocket token
 	token, err := client.getWebsocketToken(ctx)
 	if err != nil {
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel all orders failed: %w", err))
+		eerr := fmt.Errorf("cancel all orders failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -1585,7 +1669,9 @@ func (client *krakenSpotWebsocketClient) CancellAllOrders(ctx context.Context) (
 	payload, err := json.Marshal(req)
 	if err != nil {
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel all orders failed: %w", err))
+		eerr := fmt.Errorf("cancel all orders failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Add pending cancelAllOrders request
 	client.pendingCancelAllOrdersMu.Lock()
@@ -1598,17 +1684,24 @@ func (client *krakenSpotWebsocketClient) CancellAllOrders(ctx context.Context) (
 	err = client.conn.Write(ctx, wsadapters.Text, payload)
 	if err != nil {
 		// Discard pending request, trace and return error
+		eerr := fmt.Errorf("cancel all orders failed: %w", err)
+		client.logger.Println(eerr.Error())
 		delete(client.requests.pendingCancelAllOrdersRequests, req.RequestId)
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel all orders failed: %w", err))
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Wait for response to be published on channels or timeout
+	client.logger.Println("waiting for a response (cancelAllOrdersStatus) from the server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "cancel_all_orders", Root: fmt.Errorf("cancel all orders failed: %w", err)})
-	case <-errChan:
+		eerr := fmt.Errorf("cancel all orders failed: %w", ctx.Err())
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "cancel_all_orders", Root: eerr})
+	case err := <-errChan:
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_all_orders", Root: fmt.Errorf("cancel all orders failed: %w", err)})
+		eerr := fmt.Errorf("cancel all orders failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_all_orders", Root: eerr})
 	case resp := <-respChan:
 		// Tracing: Add an event for the response
 		span.AddEvent(tracing.TracesNamespace+".cancel_all_orders_response", trace.WithAttributes(
@@ -1618,9 +1711,12 @@ func (client *krakenSpotWebsocketClient) CancellAllOrders(ctx context.Context) (
 		))
 		// Check the response status
 		if resp.Status == string(messages.Err) {
-			return resp, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_all_orders", Root: fmt.Errorf("cancel all orders failed: %s", resp.Err)})
+			eerr := fmt.Errorf("cancel all orders failed: %w", err)
+			client.logger.Println(eerr.Error())
+			return resp, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_all_orders", Root: eerr})
 		}
 		// Exit - success
+		client.logger.Println("cancel all orders has succeeded")
 		span.SetStatus(codes.Ok, codes.Ok.String())
 		return resp, nil
 	}
@@ -1655,11 +1751,14 @@ func (client *krakenSpotWebsocketClient) CancellAllOrdersAfterX(ctx context.Cont
 		attribute.Int("timeout", params.Timeout),
 	))
 	defer span.End()
+	client.logger.Println("sending cancel all orders after x request to the server", params.Timeout)
 	// Get websocket token
 	token, err := client.getWebsocketToken(ctx)
 	if err != nil {
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel all orders after x failed: %w", err))
+		eerr := fmt.Errorf("cancel all orders after x failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -1674,7 +1773,9 @@ func (client *krakenSpotWebsocketClient) CancellAllOrdersAfterX(ctx context.Cont
 	payload, err := json.Marshal(req)
 	if err != nil {
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel all orders after x failed: %w", err))
+		eerr := fmt.Errorf("cancel all orders after x failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Add pending cancelAllOrders request
 	client.pendingCancelAllOrdersAfterXOrderMu.Lock()
@@ -1687,17 +1788,24 @@ func (client *krakenSpotWebsocketClient) CancellAllOrdersAfterX(ctx context.Cont
 	err = client.conn.Write(ctx, wsadapters.Text, payload)
 	if err != nil {
 		// Discard pending request, trace and return error
+		eerr := fmt.Errorf("cancel all orders after x failed: %w", err)
+		client.logger.Println(eerr.Error())
 		delete(client.requests.pendingCancelAllOrdersAfterXRequests, req.RequestId)
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("cancel all orders after x failed: %w", err))
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Wait for response to be published on channels or timeout
+	client.logger.Println("waiting for a response (cancelAllOrdersAfterXStatus) from the server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "cancel_all_orders_after_x", Root: fmt.Errorf("cancel all orders after x failed: %w", err)})
-	case <-errChan:
+		eerr := fmt.Errorf("cancel all orders after x failed: %w", ctx.Err())
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "cancel_all_orders_after_x", Root: eerr})
+	case err := <-errChan:
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_all_orders_after_x", Root: fmt.Errorf("cancel all orders after x failed: %w", err)})
+		eerr := fmt.Errorf("cancel all orders after x failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_all_orders_after_x", Root: eerr})
 	case resp := <-respChan:
 		// Tracing: Add an event for the response
 		span.AddEvent(tracing.TracesNamespace+".cancel_all_orders_after_x", trace.WithAttributes(
@@ -1709,9 +1817,12 @@ func (client *krakenSpotWebsocketClient) CancellAllOrdersAfterX(ctx context.Cont
 		))
 		// Check the response status
 		if resp.Status == string(messages.Err) {
-			return resp, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_all_orders_after_x", Root: fmt.Errorf("cancel all orders after x failed: %s", resp.Err)})
+			eerr := fmt.Errorf("cancel all orders after x failed: %s", resp.Err)
+			client.logger.Println(eerr.Error())
+			return resp, tracing.HandleAndTraceError(span, &OperationError{Operation: "cancel_all_orders_after_x", Root: eerr})
 		}
 		// Exit - success
+		client.logger.Println("cancel all orders has succeeded")
 		span.SetStatus(codes.Ok, codes.Ok.String())
 		return resp, nil
 	}
@@ -1771,17 +1882,22 @@ func (client *krakenSpotWebsocketClient) SubscribeOwnTrades(ctx context.Context,
 			attribute.Int("capacity", capacity),
 		))
 	defer span.End()
+	client.logger.Println("subscribing to own trades channel")
 	// Check if there is already an active subscription
 	client.ownTradesSubMu.Lock() // Lock mutex till subscribe completes - this will block Unsubscribe
 	defer client.ownTradesSubMu.Unlock()
 	if client.subscriptions.ownTrades != nil {
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe own trades failed because there is already an active subscription"))
+		err := fmt.Errorf("subscribe own trades failed because there is already an active subscription")
+		client.logger.Println(err.Error())
+		return nil, tracing.HandleAndTraceError(span, err)
 	}
 	// Get websocket token
 	token, err := client.getWebsocketToken(ctx)
 	if err != nil {
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe own trades failed: %w", err))
+		eerr := fmt.Errorf("subscribe own trades failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -1801,17 +1917,24 @@ func (client *krakenSpotWebsocketClient) SubscribeOwnTrades(ctx context.Context,
 		errChan)
 	if err != nil {
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe own trades failed: %w", err))
+		eerr := fmt.Errorf("subscribe own trades failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Wait for response to be published on channels or timeout
+	client.logger.Println("waiting for a subscribe response from the server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "subscribe_own_trades", Root: fmt.Errorf("subscribe own trades failed: %w", err)})
+		eerr := fmt.Errorf("subscribe own trades failed: %w", ctx.Err())
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "subscribe_own_trades", Root: eerr})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "subscribe_own_trades", Root: fmt.Errorf("subscribe own trades failed: %w", err)})
+			eerr := fmt.Errorf("subscribe own trades failed: %w", err)
+			client.logger.Println(eerr.Error())
+			return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "subscribe_own_trades", Root: eerr})
 		}
 		// Register the subscription
 		client.subscriptions.ownTrades = &ownTradesSubscription{
@@ -1820,6 +1943,8 @@ func (client *krakenSpotWebsocketClient) SubscribeOwnTrades(ctx context.Context,
 			snapshot:         snapshot,
 		}
 		// Return publish channel
+		client.logger.Println("subscribe own trades channel has succeeded")
+		span.SetStatus(codes.Ok, codes.Ok.String())
 		return client.subscriptions.ownTrades.pub, nil
 	}
 }
@@ -1876,17 +2001,22 @@ func (client *krakenSpotWebsocketClient) SubscribeOpenOrders(ctx context.Context
 			attribute.Int("capacity", capacity),
 		))
 	defer span.End()
+	client.logger.Println("subscribing to open orders channel")
 	// Check if there is already an active subscription
 	client.openOrdersSubMu.Lock() // Lock mutex till subscribe completes - this will block Unsubscribe
 	defer client.openOrdersSubMu.Unlock()
 	if client.subscriptions.openOrders != nil {
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe open orders failed because there is already an active subscription"))
+		err := fmt.Errorf("subscribe open orders failed because there is already an active subscription")
+		client.logger.Println(err.Error())
+		return nil, tracing.HandleAndTraceError(span, err)
 	}
 	// Get websocket token
 	token, err := client.getWebsocketToken(ctx)
 	if err != nil {
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe open orders failed: %w", err))
+		eerr := fmt.Errorf("subscribe open orders failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -1905,17 +2035,24 @@ func (client *krakenSpotWebsocketClient) SubscribeOpenOrders(ctx context.Context
 		errChan)
 	if err != nil {
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, fmt.Errorf("subscribe open orders failed: %w", err))
+		eerr := fmt.Errorf("subscribe open orders failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Wait for response to be published on channels or timeout
+	client.logger.Println("waiting for a subscribe response from the server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "subscribe_open_orders", Root: fmt.Errorf("subscribe open orders failed: %w", err)})
+		eerr := fmt.Errorf("subscribe open orders failed: %w", ctx.Err())
+		client.logger.Println(eerr.Error())
+		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "subscribe_open_orders", Root: eerr})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "subscribe_open_orders", Root: fmt.Errorf("subscribe open orders failed: %w", err)})
+			eerr := fmt.Errorf("subscribe open orders failed: %w", err)
+			client.logger.Println(eerr.Error())
+			return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "subscribe_open_orders", Root: eerr})
 		}
 		// Register the subscription
 		client.subscriptions.openOrders = &openOrdersSubscription{
@@ -1923,6 +2060,8 @@ func (client *krakenSpotWebsocketClient) SubscribeOpenOrders(ctx context.Context
 			pub:         make(chan *messages.OpenOrders, capacity),
 		}
 		// Return publish channel
+		client.logger.Println("subscribe open orders channel has succeeded")
+		span.SetStatus(codes.Ok, codes.Ok.String())
 		return client.subscriptions.openOrders.pub, nil
 	}
 }
@@ -1955,17 +2094,22 @@ func (client *krakenSpotWebsocketClient) UnsubscribeOwnTrades(ctx context.Contex
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_own_trades", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
+	client.logger.Println("unsubscribing from own trades channel")
 	// Check if there is already an active subscription
 	client.ownTradesSubMu.Lock() // Lock mutex till subscribe completes - this will block Subscribe
 	defer client.ownTradesSubMu.Unlock()
 	if client.subscriptions.ownTrades == nil {
-		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe own trades failed because there is no active subscription"))
+		err := fmt.Errorf("unsubscribe own trades failed because there is no active subscription")
+		client.logger.Println(err.Error())
+		return tracing.HandleAndTraceError(span, err)
 	}
 	// Get websocket token
 	token, err := client.getWebsocketToken(ctx)
 	if err != nil {
 		// Trace and return error
-		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe own trades failed: %w", err))
+		eerr := fmt.Errorf("unsubscribe own trades failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -1983,19 +2127,28 @@ func (client *krakenSpotWebsocketClient) UnsubscribeOwnTrades(ctx context.Contex
 		errChan)
 	if err != nil {
 		// Trace and return error
-		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe own trades failed: %w", err))
+		eerr := fmt.Errorf("unsubscribe own trades failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Wait for response to be published on channels or timeout
+	client.logger.Println("waiting for a unsubscribe response from the server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error - OperationInterruptedError
-		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_own_trades", Root: fmt.Errorf("unsubscribe own trades failed: %w", err)})
+		eerr := fmt.Errorf("unsubscribe own trades failed: %w", ctx.Err())
+		client.logger.Println(eerr.Error())
+		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_own_trades", Root: eerr})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error - OperationError
-			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_own_trades", Root: fmt.Errorf("unsubscribe own trades failed: %w", err)})
+			eerr := fmt.Errorf("unsubscribe own trades failed: %w", err)
+			client.logger.Println(eerr.Error())
+			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_own_trades", Root: eerr})
 		}
 		// Discard the subscription and exit
+		client.logger.Println("unsubscribed from own trades channel")
+		span.SetStatus(codes.Ok, codes.Ok.String())
 		client.subscriptions.ownTrades = nil
 		return nil
 	}
@@ -2029,17 +2182,22 @@ func (client *krakenSpotWebsocketClient) UnsubscribeOpenOrders(ctx context.Conte
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_open_orders", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
+	client.logger.Println("unsubscribing from open orders channel")
 	// Check if there is already an active subscription
 	client.openOrdersSubMu.Lock() // Lock mutex till subscribe completes - this will block Subscribe
 	defer client.openOrdersSubMu.Unlock()
 	if client.subscriptions.openOrders == nil {
-		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe open orders failed because there is no active subscription"))
+		err := fmt.Errorf("unsubscribe open orders failed because there is no active subscription")
+		client.logger.Println(err.Error())
+		return tracing.HandleAndTraceError(span, err)
 	}
 	// Get websocket token
 	token, err := client.getWebsocketToken(ctx)
 	if err != nil {
 		// Trace and return error
-		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe open orders failed: %w", err))
+		eerr := fmt.Errorf("unsubscribe open orders failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -2057,19 +2215,28 @@ func (client *krakenSpotWebsocketClient) UnsubscribeOpenOrders(ctx context.Conte
 		errChan)
 	if err != nil {
 		// Trace and return error
-		return tracing.HandleAndTraceError(span, fmt.Errorf("unsubscribe open orders failed: %w", err))
+		eerr := fmt.Errorf("unsubscribe open orders failed: %w", err)
+		client.logger.Println(eerr.Error())
+		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Wait for response to be published on channels or timeout
+	client.logger.Println("waiting for a unsubscribe response from the server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error - OperationInterruptedError
-		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_open_orders", Root: fmt.Errorf("unsubscribe open orders failed: %w", err)})
+		eerr := fmt.Errorf("unsubscribe open orders failed: %w", ctx.Err())
+		client.logger.Println(eerr.Error())
+		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_open_orders", Root: eerr})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error - OperationError
-			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_open_orders", Root: fmt.Errorf("unsubscribe open orders failed: %w", err)})
+			eerr := fmt.Errorf("unsubscribe open orders failed: %w", err)
+			client.logger.Println(eerr.Error())
+			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_open_orders", Root: eerr})
 		}
 		// Discard the subscription and exit
+		client.logger.Println("unsubscribed from open orders channel")
+		span.SetStatus(codes.Ok, codes.Ok.String())
 		client.subscriptions.openOrders = nil
 		return nil
 	}
@@ -2139,6 +2306,7 @@ func (client *krakenSpotWebsocketClient) OnOpen(
 		attribute.Bool("restarting", restarting),
 	))
 	defer span.End()
+	client.logger.Println("connection opened with the server - restarting:", restarting)
 	// Store new connection
 	client.conn = conn
 	// Restore all active subscriptions if restarting
@@ -2159,6 +2327,7 @@ func (client *krakenSpotWebsocketClient) OnOpen(
 		if client.subscriptions.ticker != nil {
 			// Start a goroutine that will perform the resubscribe.
 			// Goroutine will make 3 attempts then exit.
+			client.logger.Println("starting process to resubscribe to ticker channel", client.subscriptions.ticker.pairs)
 			go func(client *krakenSpotWebsocketClient) {
 				ctx, cancel := context.WithTimeout(rootctx, 30*time.Second)
 				defer cancel()
@@ -2166,12 +2335,15 @@ func (client *krakenSpotWebsocketClient) OnOpen(
 					err := client.resubscribeTicker(ctx, client.subscriptions.ticker.pairs)
 					if err != nil {
 						// Wait an exponential amount of time before retrying (1, 2 & 4 seconds)
+						eerr := fmt.Errorf("resubscribe ticker attempt number %d failed: %w", retry+1, err)
+						client.logger.Println(eerr.Error())
 						time.Sleep(time.Second * time.Duration(int64(math.Pow(base, float64(retry)))))
 					} else {
 						// Break
 						break
 					}
 				}
+				client.logger.Println("resubscribe ticker definitly failed")
 			}(client)
 		}
 		// Resubscribe to ohlcs if an active subscription is set
@@ -2180,20 +2352,24 @@ func (client *krakenSpotWebsocketClient) OnOpen(
 		if client.subscriptions.ohlcs != nil {
 			// Start a goroutine that will perform the resubscribe.
 			// Goroutine will make 3 attempts then exit.
-			go func() {
+			client.logger.Println("starting process to resubscribe to ohlc channel", client.subscriptions.ohlcs.pairs, client.subscriptions.ohlcs.interval)
+			go func(client *krakenSpotWebsocketClient) {
 				ctx, cancel := context.WithTimeout(rootctx, 30*time.Second)
 				defer cancel()
 				for retry := 0; retry < limit; retry++ {
 					err := client.resubscribeOHLC(ctx, client.subscriptions.ohlcs.pairs, client.subscriptions.ohlcs.interval)
 					if err != nil {
 						// Wait an exponential amount of time before retrying (1, 2 & 4 seconds)
+						eerr := fmt.Errorf("resubscribe ohlc attempt number %d failed: %w", retry+1, err)
+						client.logger.Println(eerr.Error())
 						time.Sleep(time.Second * time.Duration(int64(math.Pow(base, float64(retry)))))
 					} else {
 						// Break
 						break
 					}
 				}
-			}()
+				client.logger.Println("resubscribe ohlc definitly failed")
+			}(client)
 		}
 		// Resubscribe to trade if an active subscription is set
 		client.tradeSubMu.Lock()
@@ -2201,20 +2377,24 @@ func (client *krakenSpotWebsocketClient) OnOpen(
 		if client.subscriptions.trade != nil {
 			// Start a goroutine that will perform the resubscribe.
 			// Goroutine will make 3 attempts then exit.
-			go func() {
+			client.logger.Println("starting process to resubscribe to trade channel", client.subscriptions.trade.pairs)
+			go func(client *krakenSpotWebsocketClient) {
 				for retry := 0; retry < limit; retry++ {
 					ctx, cancel := context.WithTimeout(rootctx, 30*time.Second)
 					defer cancel()
 					err := client.resubscribeTrade(ctx, client.subscriptions.trade.pairs)
 					if err != nil {
 						// Wait an exponential amount of time before retrying (1, 2 & 4 seconds)
+						eerr := fmt.Errorf("resubscribe trade attempt number %d failed: %w", retry+1, err)
+						client.logger.Println(eerr.Error())
 						time.Sleep(time.Second * time.Duration(int64(math.Pow(base, float64(retry)))))
 					} else {
 						// Break
 						break
 					}
 				}
-			}()
+				client.logger.Println("resubscribe trade definitly failed")
+			}(client)
 		}
 		// Resubscribe to spread if an active subscription is set
 		client.spreadSubMu.Lock()
@@ -2222,20 +2402,24 @@ func (client *krakenSpotWebsocketClient) OnOpen(
 		if client.subscriptions.spread != nil {
 			// Start a goroutine that will perform the resubscribe.
 			// Goroutine will make 3 attempts then exit.
-			go func() {
+			client.logger.Println("starting process to resubscribe to spread channel", client.subscriptions.spread.pairs)
+			go func(client *krakenSpotWebsocketClient) {
 				ctx, cancel := context.WithTimeout(rootctx, 30*time.Second)
 				defer cancel()
 				for retry := 0; retry < limit; retry++ {
 					err := client.resubscribeSpread(ctx, client.subscriptions.spread.pairs)
 					if err != nil {
 						// Wait an exponential amount of time before retrying (1, 2 & 4 seconds)
+						eerr := fmt.Errorf("resubscribe spread attempt number %d failed: %w", retry+1, err)
+						client.logger.Println(eerr.Error())
 						time.Sleep(time.Second * time.Duration(int64(math.Pow(base, float64(retry)))))
 					} else {
 						// Break
 						break
 					}
 				}
-			}()
+				client.logger.Println("resubscribe spread definitly failed")
+			}(client)
 		}
 		// Resubscribe to book if an active subscription is set
 		client.bookSubMu.Lock()
@@ -2243,20 +2427,24 @@ func (client *krakenSpotWebsocketClient) OnOpen(
 		if client.subscriptions.book != nil {
 			// Start a goroutine that will perform the resubscribe.
 			// Goroutine will make 3 attempts then exit.
-			go func() {
+			client.logger.Println("starting process to resubscribe to book channel", client.subscriptions.book.pairs, client.subscriptions.book.depth)
+			go func(client *krakenSpotWebsocketClient) {
 				for retry := 0; retry < limit; retry++ {
 					ctx, cancel := context.WithTimeout(rootctx, 30*time.Second)
 					defer cancel()
 					err := client.resubscribeBook(ctx, client.subscriptions.book.pairs, client.subscriptions.book.depth)
 					if err != nil {
 						// Wait an exponential amount of time before retrying (1, 2 & 4 seconds)
+						eerr := fmt.Errorf("resubscribe book attempt number %d failed: %w", retry+1, err)
+						client.logger.Println(eerr.Error())
 						time.Sleep(time.Second * time.Duration(int64(math.Pow(base, float64(retry)))))
 					} else {
 						// Break
 						break
 					}
 				}
-			}()
+				client.logger.Println("resubscribe book definitly failed")
+			}(client)
 		}
 		// Resubscribe to own trades if an active subscription is set
 		client.ownTradesSubMu.Lock()
@@ -2264,20 +2452,24 @@ func (client *krakenSpotWebsocketClient) OnOpen(
 		if client.subscriptions.ownTrades != nil {
 			// Start a goroutine that will perform the resubscribe.
 			// Goroutine will make 3 attempts then exit.
-			go func() {
+			client.logger.Println("starting process to resubscribe to own trades channel")
+			go func(client *krakenSpotWebsocketClient) {
 				for retry := 0; retry < limit; retry++ {
 					ctx, cancel := context.WithTimeout(rootctx, 30*time.Second)
 					defer cancel()
 					err := client.resubscribeOwnTrades(ctx, client.subscriptions.ownTrades.snapshot, client.subscriptions.ownTrades.consolidateTaker)
 					if err != nil {
 						// Wait an exponential amount of time before retrying (1, 2 & 4 seconds)
+						eerr := fmt.Errorf("resubscribe own trades attempt number %d failed: %w", retry+1, err)
+						client.logger.Println(eerr.Error())
 						time.Sleep(time.Second * time.Duration(int64(math.Pow(base, float64(retry)))))
 					} else {
 						// Break
 						break
 					}
 				}
-			}()
+				client.logger.Println("resubscribe own trades definitly failed")
+			}(client)
 		}
 		// Resubscribe to open orders if an active subscription is set
 		client.openOrdersSubMu.Lock()
@@ -2285,20 +2477,24 @@ func (client *krakenSpotWebsocketClient) OnOpen(
 		if client.subscriptions.openOrders != nil {
 			// Start a goroutine that will perform the resubscribe.
 			// Goroutine will make 3 attempts then exit.
-			go func() {
+			client.logger.Println("starting process to resubscribe to open orders channel")
+			go func(client *krakenSpotWebsocketClient) {
 				for retry := 0; retry < limit; retry++ {
 					ctx, cancel := context.WithTimeout(rootctx, 30*time.Second)
 					defer cancel()
 					err := client.resubscribeOpenOrders(ctx, client.subscriptions.openOrders.rateCounter)
 					if err != nil {
 						// Wait an exponential amount of time before retrying (1, 2 & 4 seconds)
+						eerr := fmt.Errorf("resubscribe open orders attempt number %d failed: %w", retry+1, err)
+						client.logger.Println(eerr.Error())
 						time.Sleep(time.Second * time.Duration(int64(math.Pow(base, float64(retry)))))
 					} else {
 						// Break
 						break
 					}
 				}
-			}()
+				client.logger.Println("resubscribe open orders definitly failed")
+			}(client)
 		}
 		// Do not wait for goroutines: Engine will start reading messages only after OnOpen completes
 	}
@@ -2352,11 +2548,13 @@ func (client *krakenSpotWebsocketClient) OnMessage(
 			attribute.String("session_id", sessionId),
 		))
 	defer span.End()
+	client.logger.Println("message received from the server")
 	// Match the message type - 3 matches are expected [<message>, <event type if msg is a JSON object>,<channel name if msg is a JSON Array>]
 	matches := messages.MatchMessageTypeRegex.FindStringSubmatch(string(msg))
 	if len(matches) != 3 {
 		// Call OnReadError - Not the expected number of matches
 		err := fmt.Errorf("failed to extract the message type from '%s'", string(msg))
+		client.logger.Println(err.Error())
 		tracing.HandleAndTraceError(span, err)
 		client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 		return
@@ -2370,6 +2568,7 @@ func (client *krakenSpotWebsocketClient) OnMessage(
 		mType = matches[2]
 	}
 	// Depending on the message type.
+	client.logger.Println("received message type: ", mType)
 	switch mType {
 	// General error has been received
 	case string(messages.EventTypeError):
@@ -2398,13 +2597,13 @@ func (client *krakenSpotWebsocketClient) OnMessage(
 	// Edit order status
 	case string(messages.EventTypeEditOrderStatus):
 		client.handleEditOrderStatus(ctx, conn, readMutex, restart, exit, sessionId, msgType, msg)
-		// Cancel order status
+	// Cancel order status
 	case string(messages.EventTypeCancelOrderStatus):
 		client.handleCancelOrderStatus(ctx, conn, readMutex, restart, exit, sessionId, msgType, msg)
-		// Cancel all orders status
+	// Cancel all orders status
 	case string(messages.EventTypeCancelAllOrderStatus):
 		client.handleCancelAllOrdersStatus(ctx, conn, readMutex, restart, exit, sessionId, msgType, msg)
-		// Cancel all orders after X status
+	// Cancel all orders after X status
 	case string(messages.EventTypeCancelAllOrderAfterXStatus):
 		client.handleCancelAllOrdersAfterXStatus(ctx, conn, readMutex, restart, exit, sessionId, msgType, msg)
 	// System status
@@ -2419,6 +2618,7 @@ func (client *krakenSpotWebsocketClient) OnMessage(
 	default:
 		// Call OnReadError - Unknown message type
 		eerr := fmt.Errorf("unkown or unexpected message type (%s) extracted from '%s'", mType, string(msg))
+		client.logger.Println(eerr.Error())
 		tracing.HandleAndTraceError(span, eerr)
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return
@@ -2477,6 +2677,7 @@ func (client *krakenSpotWebsocketClient) OnReadError(
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".on_read_error", trace.WithSpanKind(trace.SpanKindInternal))
 	defer span.End()
 	defer span.SetStatus(codes.Ok, codes.Ok.String())
+	client.logger.Println("handling on read error: ", err.Error())
 	// Call user callback if set
 	if client.onReadErrorCallback != nil {
 		client.onReadErrorCallback(ctx, restart, exit, err)
@@ -2523,69 +2724,147 @@ func (client *krakenSpotWebsocketClient) OnClose(
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".on_close", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
 	defer span.SetStatus(codes.Ok, codes.Ok.String())
+	client.logger.Println("handling on close")
 	// Discard pending ping requests to unlock all blocked thread waiting for a response.
+	client.logger.Println("discarding pending ping requests")
 	client.pendingPingMu.Lock()
 	defer client.pendingPingMu.Unlock()
 	for reqid, req := range client.requests.pendingPing {
 		// blocking write can be used as channels are managed internally and must have a capacity of 1
-		req.err <- &OperationInterruptedError{
-			Operation: "ping",
-			Root:      fmt.Errorf("connection has been closed"),
-		}
+		req.err <- fmt.Errorf("connection has been closed")
 		// Remove pending request
 		delete(client.requests.pendingPing, reqid)
+		// Log
+		client.logger.Println("pending ping requests discarded: ", reqid)
 	}
 	// Discard pending subscribe requests
+	client.logger.Println("discarding pending subscribe requests")
 	client.pendingSubscribeMu.Lock()
 	defer client.pendingSubscribeMu.Unlock()
 	for reqid, req := range client.requests.pendingSubscribe {
 		// blocking write can be used as channels are managed internally and must have a capacity of 1
-		req.err <- &OperationInterruptedError{
-			Operation: "subscribe",
-			Root:      fmt.Errorf("connection has been closed"),
-		}
+		req.err <- fmt.Errorf("connection has been closed")
 		// Remove pending request
 		delete(client.requests.pendingSubscribe, reqid)
+		// Log
+		client.logger.Println("pending subscribe requests discarded: ", reqid)
 	}
 	// Discard pending unsubscribe requests
+	client.logger.Println("discarding pending unsubscribe requests")
 	client.pendingUnsubscribeMu.Lock()
 	defer client.pendingUnsubscribeMu.Unlock()
 	for reqid, req := range client.requests.pendingUnsubscribe {
 		// blocking write can be used as channels are managed internally and must have a capacity of 1
-		req.err <- &OperationInterruptedError{
-			Operation: "subscribe",
-			Root:      fmt.Errorf("connection has been closed"),
-		}
+		req.err <- fmt.Errorf("connection has been closed")
 		// Remove pending request
 		delete(client.requests.pendingUnsubscribe, reqid)
+		// Log
+		client.logger.Println("pending unsubscribe requests discarded: ", reqid)
+	}
+	// Discard pending add order requests
+	client.logger.Println("discarding pending add order requests")
+	client.pendingAddOrderMu.Lock()
+	defer client.pendingAddOrderMu.Unlock()
+	for reqid, req := range client.requests.pendingAddOrderRequests {
+		// blocking write can be used as channels are managed internally and must have a capacity of 1
+		req.err <- fmt.Errorf("connection has been closed")
+		// Remove pending request
+		delete(client.requests.pendingAddOrderRequests, reqid)
+		// Log
+		client.logger.Println("pending add order requests discarded: ", reqid)
+	}
+	// Discard pending edit order requests
+	client.logger.Println("discarding pending edit order requests")
+	client.pendingEditOrderMu.Lock()
+	defer client.pendingEditOrderMu.Unlock()
+	for reqid, req := range client.requests.pendingEditOrderRequests {
+		// blocking write can be used as channels are managed internally and must have a capacity of 1
+		req.err <- fmt.Errorf("connection has been closed")
+		// Remove pending request
+		delete(client.requests.pendingEditOrderRequests, reqid)
+		// Log
+		client.logger.Println("pending edit order requests discarded: ", reqid)
+	}
+	// Discard pending cancel order requests
+	client.logger.Println("discarding pending cancel order requests")
+	client.pendingCancelOrderMu.Lock()
+	defer client.pendingCancelOrderMu.Unlock()
+	for reqid, req := range client.requests.pendingCancelOrderRequests {
+		// blocking write can be used as channels are managed internally and must have a capacity of 1
+		req.err <- fmt.Errorf("connection has been closed")
+		// Remove pending request
+		delete(client.requests.pendingCancelOrderRequests, reqid)
+		// Log
+		client.logger.Println("pending cancel order requests discarded: ", reqid)
+	}
+	// Discard pending cancel all orders requests
+	client.logger.Println("discarding pending cancel all orders requests")
+	client.pendingCancelAllOrdersMu.Lock()
+	defer client.pendingCancelAllOrdersMu.Unlock()
+	for reqid, req := range client.requests.pendingCancelAllOrdersRequests {
+		// blocking write can be used as channels are managed internally and must have a capacity of 1
+		req.err <- fmt.Errorf("connection has been closed")
+		// Remove pending request
+		delete(client.requests.pendingCancelAllOrdersRequests, reqid)
+		// Log
+		client.logger.Println("pending cancel all orders requests discarded: ", reqid)
+	}
+	// Discard pending cancel all orders requests
+	client.logger.Println("discarding pending cancel all orders after x requests")
+	client.pendingCancelAllOrdersAfterXOrderMu.Lock()
+	defer client.pendingCancelAllOrdersAfterXOrderMu.Unlock()
+	for reqid, req := range client.requests.pendingCancelAllOrdersAfterXRequests {
+		// blocking write can be used as channels are managed internally and must have a capacity of 1
+		req.err <- fmt.Errorf("connection has been closed")
+		// Remove pending request
+		delete(client.requests.pendingCancelAllOrdersAfterXRequests, reqid)
+		// Log
+		client.logger.Println("pending cancel all orders after x requests discarded: ", reqid)
 	}
 	// Send a nil value on all active subscriptions
 	// Use blocking writes (design principle: wait 'till delivery)
 	client.tickerSubMu.Lock()
 	defer client.tickerSubMu.Unlock()
 	if client.subscriptions.ticker != nil {
+		client.logger.Println("sending a nil value on ticker channel to warn about connection interruption")
 		client.subscriptions.ticker.pub <- nil
 	}
 	client.ohlcSubMu.Lock()
 	defer client.ohlcSubMu.Unlock()
 	if client.subscriptions.ohlcs != nil {
+		client.logger.Println("sending a nil value on ohlc channel to warn about connection interruption")
 		client.subscriptions.ohlcs.pub <- nil
 	}
 	client.tradeSubMu.Lock()
 	defer client.tradeSubMu.Unlock()
 	if client.subscriptions.trade != nil {
+		client.logger.Println("sending a nil value on trade channel to warn about connection interruption")
 		client.subscriptions.trade.pub <- nil
 	}
 	client.spreadSubMu.Lock()
 	defer client.spreadSubMu.Unlock()
 	if client.subscriptions.spread != nil {
+		client.logger.Println("sending a nil value on spread channel to warn about connection interruption")
 		client.subscriptions.spread.pub <- nil
 	}
 	client.bookSubMu.Lock()
 	defer client.bookSubMu.Unlock()
 	if client.subscriptions.book != nil {
+		client.logger.Println("sending a nil value on book channels to warn about connection interruption")
 		client.subscriptions.book.snapshots <- nil
 		client.subscriptions.book.updates <- nil
+	}
+	client.ownTradesSubMu.Lock()
+	defer client.ownTradesSubMu.Unlock()
+	if client.subscriptions.ownTrades != nil {
+		client.logger.Println("sending a nil value on own trades channel to warn about connection interruption")
+		client.subscriptions.ownTrades.pub <- nil
+	}
+	client.openOrdersSubMu.Lock()
+	defer client.openOrdersSubMu.Unlock()
+	if client.subscriptions.openOrders != nil {
+		client.logger.Println("sending a nil value on open orders channel to warn about connection interruption")
+		client.subscriptions.openOrders.pub <- nil
 	}
 	// Call user callback if set
 	if client.onCloseCallback != nil {
@@ -2615,7 +2894,7 @@ func (client *krakenSpotWebsocketClient) OnCloseError(
 		trace.WithAttributes(attribute.String("error", err.Error())))
 	defer span.End()
 	defer span.SetStatus(codes.Ok, codes.Ok.String())
-	// Do nothing
+	client.logger.Println("handling on close error: ", err.Error())
 }
 
 // # Description
@@ -2633,7 +2912,6 @@ func (client *krakenSpotWebsocketClient) OnRestartError(
 	exit context.CancelFunc,
 	err error,
 	retryCount int) {
-	fmt.Println("restart error", err.Error(), retryCount)
 	// Tracing: start span
 	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".on_restart_error",
 		trace.WithSpanKind(trace.SpanKindInternal),
@@ -2643,6 +2921,7 @@ func (client *krakenSpotWebsocketClient) OnRestartError(
 		))
 	defer span.End()
 	defer span.SetStatus(codes.Ok, codes.Ok.String())
+	client.logger.Println("handling on restart error: ", err.Error(), retryCount)
 	// Call user callback if set
 	if client.onRestartError != nil {
 		client.onRestartError(ctx, exit, err, retryCount)
@@ -2668,12 +2947,14 @@ func (client *krakenSpotWebsocketClient) handleErrorMessage(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handing error message from server")
 	// Parse message as error
 	errMsg := new(messages.ErrorMessage)
 	err := json.Unmarshal(msg, errMsg)
 	if err != nil {
 		// Call OnReadError - failed to parse message as error
 		eerr := fmt.Errorf("failed to parse message '%s' as error message: %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -2801,11 +3082,13 @@ func (client *krakenSpotWebsocketClient) handleErrorMessage(
 		}
 		// Error no corresponding request
 		eerr := fmt.Errorf("no corresponding pending request has been found for the request id %d to relay the following error: %s", *errMsg.ReqId, errMsg.Err)
+		client.logger.Println(eerr.Error())
 		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Error no request ID -> As the cient force the usage of request IDs, not having one is
 	// considered as an error.
 	eerr := fmt.Errorf("no requests id for the following error message: %s", errMsg.Err)
+	client.logger.Println(eerr.Error())
 	return tracing.HandleAndTraceError(span, eerr)
 }
 
@@ -2824,12 +3107,14 @@ func (client *krakenSpotWebsocketClient) handleHeartbeat(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handling heartbeat from server")
 	// Parse message as heartbeat
 	heartbeat := new(messages.Heartbeat)
 	err := json.Unmarshal(msg, heartbeat)
 	if err != nil {
 		// Call OnReadError - failed to parse message as heartbeat
 		eerr := fmt.Errorf("failed to parse message '%s' as heartbeat: %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -2861,12 +3146,14 @@ func (client *krakenSpotWebsocketClient) handleSystemStatus(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handling system status from server")
 	// Parse message as system status
 	systemStatus := new(messages.SystemStatus)
 	err := json.Unmarshal(msg, systemStatus)
 	if err != nil {
 		// Call OnReadError - failed to parse message as systemStatus
 		eerr := fmt.Errorf("failed to parse message '%s' as systemStatus: %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -2905,12 +3192,14 @@ func (client *krakenSpotWebsocketClient) handlePong(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handling pong from server")
 	// Parse message as pong
 	pong := new(messages.Pong)
 	err := json.Unmarshal(msg, pong)
 	if err != nil {
 		// Call OnReadError - failed to parse message as pong
 		eerr := fmt.Errorf("failed to parse message '%s' as pong: %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -2919,6 +3208,7 @@ func (client *krakenSpotWebsocketClient) handlePong(
 		// Call OnRead error: user defined request ids must be used. Not having one in responses
 		// is considered as an error.
 		err := fmt.Errorf("received pong message has no request id")
+		client.logger.Println(err.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 		return tracing.HandleAndTraceError(span, err)
 	}
@@ -2935,6 +3225,7 @@ func (client *krakenSpotWebsocketClient) handlePong(
 		// Call OnRead error: as user defined request ids must be used. Not a corresponding
 		// pending request is considered as an error
 		err := fmt.Errorf("received pong has no corresponding pending ping request for id: %d", *pong.ReqId)
+		client.logger.Println(err.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 		return tracing.HandleAndTraceError(span, err)
 	}
@@ -2963,12 +3254,14 @@ func (client *krakenSpotWebsocketClient) handleSubscriptionStatus(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handling subscription status from server")
 	// Parse message as SubscriptionStatus
 	subs := new(messages.SubscriptionStatus)
 	err := json.Unmarshal(msg, subs)
 	if err != nil {
 		// Call OnReadError - failed to parse message as SubscriptionStatus
 		eerr := fmt.Errorf("failed to parse message '%s' as subscriptionStatus: %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -2977,6 +3270,7 @@ func (client *krakenSpotWebsocketClient) handleSubscriptionStatus(
 		// Call OnRead error: user defined request ids must be used. Not having one in responses
 		// is considered as an error.
 		err := fmt.Errorf("received subscriptionStatus message has no request id")
+		client.logger.Println(err.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 		return tracing.HandleAndTraceError(span, err)
 	}
@@ -3017,6 +3311,7 @@ func (client *krakenSpotWebsocketClient) handleSubscriptionStatus(
 			// Call OnRead error: as user defined request ids must be used. Not a corresponding
 			// pending request is considered as an error
 			err := fmt.Errorf("received suscriptionStatus has no corresponding pending request for id: %d", *subs.ReqId)
+			client.logger.Println(err.Error())
 			client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 			return tracing.HandleAndTraceError(span, err)
 		}
@@ -3043,6 +3338,7 @@ func (client *krakenSpotWebsocketClient) handleSubscriptionStatus(
 				err = &SubscriptionError{
 					Errs: unsubreq.errPerPair,
 				}
+				client.logger.Println(err.Error())
 				tracing.HandleAndTraceError(span, err)
 			}
 			// Blocking write can be used as channel must always have a capacity of one and be internally managed
@@ -3073,6 +3369,7 @@ func (client *krakenSpotWebsocketClient) handleSubscriptionStatus(
 				err = &SubscriptionError{
 					Errs: subreq.errPerPair,
 				}
+				client.logger.Println(err.Error())
 				tracing.HandleAndTraceError(span, err)
 			}
 			// Blocking write can be used as channel must always have a capacity of one and be internally managed
@@ -3101,12 +3398,14 @@ func (client *krakenSpotWebsocketClient) handleTicker(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handling ticker message from server")
 	// Parse message as Ticker
 	ticker := new(messages.Ticker)
 	err := json.Unmarshal(msg, ticker)
 	if err != nil {
 		// Call OnReadError - failed to parse message as ticker
 		eerr := fmt.Errorf("failed to parse message '%s' as ticker: %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -3115,6 +3414,7 @@ func (client *krakenSpotWebsocketClient) handleTicker(
 	defer client.tickerSubMu.Unlock()
 	if client.subscriptions.ticker == nil {
 		err := fmt.Errorf("a ticker message has been received while there is no active subscription to ticker channel")
+		client.logger.Println(err.Error())
 		return tracing.HandleAndTraceError(span, err)
 	}
 	// Publish ticker - use blocking write (block until delivery)
@@ -3138,12 +3438,14 @@ func (client *krakenSpotWebsocketClient) handleOHLC(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handling ohlc message from server")
 	// Parse message as OHLC
 	ohlc := new(messages.OHLC)
 	err := json.Unmarshal(msg, ohlc)
 	if err != nil {
 		// Call OnReadError - failed to parse message as ohlc
 		eerr := fmt.Errorf("failed to parse message '%s' as ohlc: %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -3152,6 +3454,7 @@ func (client *krakenSpotWebsocketClient) handleOHLC(
 	defer client.ohlcSubMu.Unlock()
 	if client.subscriptions.ohlcs == nil {
 		err := fmt.Errorf("a ohlc message has been received while there is no active subscription to ohlc channel")
+		client.logger.Println(err.Error())
 		return tracing.HandleAndTraceError(span, err)
 	}
 	// Publish ohlc - use blocking write (block until delivery)
@@ -3175,12 +3478,14 @@ func (client *krakenSpotWebsocketClient) handleTrade(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handling trade message from server")
 	// Parse message as Trade
 	trade := new(messages.Trade)
 	err := json.Unmarshal(msg, trade)
 	if err != nil {
 		// Call OnReadError - failed to parse message as trade
 		eerr := fmt.Errorf("failed to parse message '%s' as trade: %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -3189,6 +3494,7 @@ func (client *krakenSpotWebsocketClient) handleTrade(
 	defer client.tradeSubMu.Unlock()
 	if client.subscriptions.trade == nil {
 		err := fmt.Errorf("a trade message has been received while there is no active subscription to trade channel")
+		client.logger.Println(err.Error())
 		return tracing.HandleAndTraceError(span, err)
 	}
 	// Publish trade - use blocking write (block until delivery)
@@ -3212,12 +3518,14 @@ func (client *krakenSpotWebsocketClient) handleSpread(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handling spread message from server")
 	// Parse message as Spread
 	spread := new(messages.Spread)
 	err := json.Unmarshal(msg, spread)
 	if err != nil {
 		// Call OnReadError - failed to parse message as spread
 		eerr := fmt.Errorf("failed to parse message '%s' as spread: %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -3226,6 +3534,7 @@ func (client *krakenSpotWebsocketClient) handleSpread(
 	defer client.spreadSubMu.Unlock()
 	if client.subscriptions.spread == nil {
 		err := fmt.Errorf("a spread message has been received while there is no active subscription to spread channel")
+		client.logger.Println(err.Error())
 		return tracing.HandleAndTraceError(span, err)
 	}
 	// Publish trade - use blocking write
@@ -3250,6 +3559,7 @@ func (client *krakenSpotWebsocketClient) handleBook(
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
 	defer span.SetStatus(codes.Ok, codes.Ok.String())
+	client.logger.Println("handling book message from server")
 	// Check if it is a snapshot or an update -> an update will have a "c" field
 	if strings.Contains(string(msg), `"c"`) {
 		// Handle update
@@ -3274,12 +3584,14 @@ func (client *krakenSpotWebsocketClient) handleBookUpdate(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handling book update message from server")
 	// Parse message as BookUpdate
 	bu := new(messages.BookUpdate)
 	err := json.Unmarshal(msg, bu)
 	if err != nil {
 		// Call OnReadError - failed to parse message as book update
 		eerr := fmt.Errorf("failed to parse message '%s' as book update: %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -3288,6 +3600,7 @@ func (client *krakenSpotWebsocketClient) handleBookUpdate(
 	defer client.bookSubMu.Unlock()
 	if client.subscriptions.book == nil {
 		err := fmt.Errorf("a book update message has been received while there is no active subscription to book channel")
+		client.logger.Println(err.Error())
 		return tracing.HandleAndTraceError(span, err)
 	}
 	// Publish book update - use blocking write
@@ -3311,12 +3624,14 @@ func (client *krakenSpotWebsocketClient) handleBookSnapshot(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handling book snapshot message from server")
 	// Parse message as BookSnapshot
 	bs := new(messages.BookSnapshot)
 	err := json.Unmarshal(msg, bs)
 	if err != nil {
 		// Call OnReadError - failed to parse message as book snapshot
 		eerr := fmt.Errorf("failed to parse message '%s' as book snapshot: %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -3325,6 +3640,7 @@ func (client *krakenSpotWebsocketClient) handleBookSnapshot(
 	defer client.bookSubMu.Unlock()
 	if client.subscriptions.book == nil {
 		err := fmt.Errorf("a book snapshot message has been received while there is no active subscription to book channel")
+		client.logger.Println(err.Error())
 		return tracing.HandleAndTraceError(span, err)
 	}
 	// Publish book snapshot - use blocking write (wait till delivery)
@@ -3348,12 +3664,14 @@ func (client *krakenSpotWebsocketClient) handleOwnTrades(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handling own trades message from server")
 	// Parse message as OwnTrades
 	owt := new(messages.OwnTrades)
 	err := json.Unmarshal(msg, owt)
 	if err != nil {
 		// Call OnReadError - failed to parse message as own trades
 		eerr := fmt.Errorf("failed to parse message '%s' as own trades: %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -3362,6 +3680,7 @@ func (client *krakenSpotWebsocketClient) handleOwnTrades(
 	defer client.ownTradesSubMu.Unlock()
 	if client.subscriptions.ownTrades == nil {
 		err := fmt.Errorf("a own trades message has been received while there is no active subscription to own trades channel")
+		client.logger.Println(err.Error())
 		return tracing.HandleAndTraceError(span, err)
 	}
 	// Publish own trades - use blocking write (wait till delivery)
@@ -3385,12 +3704,14 @@ func (client *krakenSpotWebsocketClient) handleOpenOrders(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handling open orders message from server")
 	// Parse message as OpenOrders
 	oo := new(messages.OpenOrders)
 	err := json.Unmarshal(msg, oo)
 	if err != nil {
 		// Call OnReadError - failed to parse message as open orders
 		eerr := fmt.Errorf("failed to parse message '%s' as open orders: %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -3399,6 +3720,7 @@ func (client *krakenSpotWebsocketClient) handleOpenOrders(
 	defer client.openOrdersSubMu.Unlock()
 	if client.subscriptions.openOrders == nil {
 		err := fmt.Errorf("a open orders message has been received while there is no active subscription to open orders channel")
+		client.logger.Println(err.Error())
 		return tracing.HandleAndTraceError(span, err)
 	}
 	// Publish own trades - use blocking write (wait till delivery)
@@ -3422,12 +3744,14 @@ func (client *krakenSpotWebsocketClient) handleAddOrderStatus(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handling add order status message from server")
 	// Parse message as AddOrderResponse
 	aos := new(messages.AddOrderResponse)
 	err := json.Unmarshal(msg, aos)
 	if err != nil {
 		// Call OnReadError - failed to parse message as addOrderResponse
 		eerr := fmt.Errorf("failed to parse message '%s' as add order response : %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -3436,6 +3760,7 @@ func (client *krakenSpotWebsocketClient) handleAddOrderStatus(
 		// Call OnRead error: user defined request ids must be used. Not having one in responses
 		// is considered as an error.
 		err := fmt.Errorf("received add order response message has no request id")
+		client.logger.Println(err.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 		return tracing.HandleAndTraceError(span, err)
 	}
@@ -3456,6 +3781,7 @@ func (client *krakenSpotWebsocketClient) handleAddOrderStatus(
 		// Call OnRead error: as user defined request ids must be used. Not having a corresponding
 		// pending request is considered as an error
 		err := fmt.Errorf("received add order response has no corresponding pending add order request for id: %d", *aos.RequestId)
+		client.logger.Println(err.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 		return tracing.HandleAndTraceError(span, err)
 	}
@@ -3483,12 +3809,14 @@ func (client *krakenSpotWebsocketClient) handleEditOrderStatus(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handling edit order status message from server")
 	// Parse message as EditORderResponse
 	eo := new(messages.EditOrderResponse)
 	err := json.Unmarshal(msg, eo)
 	if err != nil {
 		// Call OnReadError - failed to parse message as editOrderResponse
 		eerr := fmt.Errorf("failed to parse message '%s' as edit order response : %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -3497,6 +3825,7 @@ func (client *krakenSpotWebsocketClient) handleEditOrderStatus(
 		// Call OnRead error: user defined request ids must be used. Not having one in responses
 		// is considered as an error.
 		err := fmt.Errorf("received edit order response message has no request id")
+		client.logger.Println(err.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 		return tracing.HandleAndTraceError(span, err)
 	}
@@ -3518,6 +3847,7 @@ func (client *krakenSpotWebsocketClient) handleEditOrderStatus(
 		// Call OnRead error: as user defined request ids must be used. Not having a corresponding
 		// pending request is considered as an error
 		err := fmt.Errorf("received edit order response has no corresponding pending edit order request for id: %d", *eo.RequestId)
+		client.logger.Println(err.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 		return tracing.HandleAndTraceError(span, err)
 	}
@@ -3545,12 +3875,14 @@ func (client *krakenSpotWebsocketClient) handleCancelOrderStatus(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handling cancel order status message from server")
 	// Parse message as CancelOrderResponse
 	co := new(messages.CancelOrderResponse)
 	err := json.Unmarshal(msg, co)
 	if err != nil {
 		// Call OnReadError - failed to parse message as cancelOrderResponse
 		eerr := fmt.Errorf("failed to parse message '%s' as cancel order response : %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -3559,6 +3891,7 @@ func (client *krakenSpotWebsocketClient) handleCancelOrderStatus(
 		// Call OnRead error: user defined request ids must be used. Not having one in responses
 		// is considered as an error.
 		err := fmt.Errorf("received cancel order response message has no request id")
+		client.logger.Println(err.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 		return tracing.HandleAndTraceError(span, err)
 	}
@@ -3577,6 +3910,7 @@ func (client *krakenSpotWebsocketClient) handleCancelOrderStatus(
 		// Call OnRead error: as user defined request ids must be used. Not having a corresponding
 		// pending request is considered as an error
 		err := fmt.Errorf("received cancel order response has no corresponding pending cancel order request for id: %d", *co.RequestId)
+		client.logger.Println(err.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 		return tracing.HandleAndTraceError(span, err)
 	}
@@ -3604,12 +3938,14 @@ func (client *krakenSpotWebsocketClient) handleCancelAllOrdersStatus(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handling cancel all orders status message from server")
 	// Parse message as CancelAllOrdersResponse
 	co := new(messages.CancelAllOrdersResponse)
 	err := json.Unmarshal(msg, co)
 	if err != nil {
 		// Call OnReadError - failed to parse message as cancelAllOrdersResponse
 		eerr := fmt.Errorf("failed to parse message '%s' as cancel all orders response : %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -3618,6 +3954,7 @@ func (client *krakenSpotWebsocketClient) handleCancelAllOrdersStatus(
 		// Call OnRead error: user defined request ids must be used. Not having one in responses
 		// is considered as an error.
 		err := fmt.Errorf("received cancel all orders response message has no request id")
+		client.logger.Println(err.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 		return tracing.HandleAndTraceError(span, err)
 	}
@@ -3636,6 +3973,7 @@ func (client *krakenSpotWebsocketClient) handleCancelAllOrdersStatus(
 		// Call OnRead error: as user defined request ids must be used. Not having a corresponding
 		// pending request is considered as an error
 		err := fmt.Errorf("received cancel all orders response has no corresponding pending cancel all orders request for id: %d", *co.RequestId)
+		client.logger.Println(err.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 		return tracing.HandleAndTraceError(span, err)
 	}
@@ -3663,12 +4001,14 @@ func (client *krakenSpotWebsocketClient) handleCancelAllOrdersAfterXStatus(
 		trace.WithSpanKind(trace.SpanKindInternal),
 		trace.WithAttributes(attribute.String("session_id", sessionId)))
 	defer span.End()
+	client.logger.Println("handling cancel all orders after x status message from server")
 	// Parse message as CancelAllOrdersAfterXResponse
 	co := new(messages.CancelAllOrdersAfterXResponse)
 	err := json.Unmarshal(msg, co)
 	if err != nil {
 		// Call OnReadError - failed to parse message as CancelAllOrdersAfterXResponse
 		eerr := fmt.Errorf("failed to parse message '%s' as cancel all orders after x response : %w", string(msg), err)
+		client.logger.Println(eerr.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, eerr)
 		return tracing.HandleAndTraceError(span, eerr)
 	}
@@ -3677,6 +4017,7 @@ func (client *krakenSpotWebsocketClient) handleCancelAllOrdersAfterXStatus(
 		// Call OnRead error: user defined request ids must be used. Not having one in responses
 		// is considered as an error.
 		err := fmt.Errorf("received cancel all orders after x response message has no request id")
+		client.logger.Println(err.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 		return tracing.HandleAndTraceError(span, err)
 	}
@@ -3697,6 +4038,7 @@ func (client *krakenSpotWebsocketClient) handleCancelAllOrdersAfterXStatus(
 		// Call OnRead error: as user defined request ids must be used. Not having a corresponding
 		// pending request is considered as an error
 		err := fmt.Errorf("received cancel all orders after x response has no corresponding pending cancel all orders after x request for id: %d", *co.RequestId)
+		client.logger.Println(err.Error())
 		client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 		return tracing.HandleAndTraceError(span, err)
 	}
@@ -3758,6 +4100,7 @@ func (client *krakenSpotWebsocketClient) sendSubscribeRequest(ctx context.Contex
 		trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithAttributes(reqAttr...))
 	defer span.End()
+	client.logger.Println("send subscribe request for: ", req.Subscription.Name)
 	// Add pending susbcribe request to client's stack
 	client.pendingSubscribeMu.Lock() // Lock to not add requests while engine is discarding pending requests
 	defer client.pendingSubscribeMu.Unlock()
@@ -3771,17 +4114,22 @@ func (client *krakenSpotWebsocketClient) sendSubscribeRequest(ctx context.Contex
 	payload, err := json.Marshal(req)
 	if err != nil {
 		// Remove pending request as it has failed before it even starts
+		eerr := fmt.Errorf("failed to format subscribe request: %w", err)
+		client.logger.Println(eerr.Error())
 		delete(client.requests.pendingSubscribe, req.ReqId)
-		return tracing.HandleAndTraceError(span, fmt.Errorf("failed to format subscribe request: %w", err))
+		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Send message to websocket server
 	err = client.conn.Write(ctx, wsadapters.Text, payload)
 	if err != nil {
 		// Remove pending request as it has failed before it even starts
+		eerr := fmt.Errorf("failed to send subscribe request: %w", err)
+		client.logger.Println(eerr.Error())
 		delete(client.requests.pendingSubscribe, req.ReqId)
-		return tracing.HandleAndTraceError(span, fmt.Errorf("failed to send subscribe request: %w", err))
+		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Set span status and exit
+	client.logger.Println("subscribe request sent for: ", req.Subscription.Name)
 	span.SetStatus(codes.Ok, codes.Ok.String())
 	return nil
 }
@@ -3830,21 +4178,27 @@ func (client *krakenSpotWebsocketClient) sendUnsubscribeRequest(ctx context.Cont
 		errPerPair: map[string]error{},
 		err:        errChan,
 	}
+	client.logger.Println("send unsubscribe request for: ", req.Subscription.Name)
 	// Marshal to JSON
 	payload, err := json.Marshal(req)
 	if err != nil {
 		// Remove pending request as it has failed before it even starts
+		eerr := fmt.Errorf("failed to format unsubscribe request: %w", err)
+		client.logger.Println(eerr.Error())
 		delete(client.requests.pendingUnsubscribe, req.ReqId)
-		return tracing.HandleAndTraceError(span, fmt.Errorf("failed to format unsubscribe request: %w", err))
+		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Send message to websocket server
 	err = client.conn.Write(ctx, wsadapters.Text, payload)
 	if err != nil {
 		// Remove pending request as it has failed before it even starts
+		eerr := fmt.Errorf("failed to send unsubscribe request: %w", err)
+		client.logger.Println(eerr.Error())
 		delete(client.requests.pendingUnsubscribe, req.ReqId)
-		return tracing.HandleAndTraceError(span, fmt.Errorf("failed to send unsubscribe request: %w", err))
+		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Set span status and exit
+	client.logger.Println("unsubscribe request sent for: ", req.Subscription.Name)
 	span.SetStatus(codes.Ok, codes.Ok.String())
 	return nil
 }
@@ -4312,6 +4666,7 @@ func (client *krakenSpotWebsocketClient) getWebsocketToken(ctx context.Context) 
 	now := time.Now()
 	if client.token == "" || client.tokenExpiresAt.Compare(now) >= 0 {
 		// Acquire a new token
+		client.logger.Println("requesting new websocket token")
 		resp, _, err := client.restClient.GetWebsocketToken(ctx, client.cgen.GenerateNonce(), client.secopts)
 		if err != nil {
 			// Trace and return error
@@ -4324,6 +4679,7 @@ func (client *krakenSpotWebsocketClient) getWebsocketToken(ctx context.Context) 
 		// Cache token & set expire (substract 5 seconds to be sure to refresh the token before it really expire)
 		client.token = resp.Result.Token
 		client.tokenExpiresAt = now.Add(time.Duration(resp.Result.Expires-5) * time.Second)
+		client.logger.Println("websocket token refreshed")
 	}
 	// Return cached token
 	span.SetStatus(codes.Ok, codes.Ok.String())
