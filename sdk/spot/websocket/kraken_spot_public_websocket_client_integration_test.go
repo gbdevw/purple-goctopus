@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"log"
 	"net/url"
 	"testing"
 	"time"
@@ -51,7 +52,7 @@ func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestConnectionOpenni
 		called = true
 	}
 	// Build websocket client withthe onclose callback set and no tracing
-	client := NewkrakenSpotWebsocketClient(onCloseCbk, nil, nil, nil)
+	client := NewKrakenSpotPublicWebsocketClient(onCloseCbk, nil, nil, log.Default(), nil)
 	// Build server URL
 	url, err := url.Parse(KrakenSpotWebsocketPublicProductionURL)
 	require.NoError(suite.T(), err)
@@ -59,7 +60,7 @@ func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestConnectionOpenni
 	engine, err := wscengine.NewWebsocketEngine(url, gorilla.NewGorillaWebsocketConnectionAdapter(nil, nil), client, nil, nil)
 	require.NoError(suite.T(), err)
 	// Build a context with a timeout of 15 seconds for the test
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	// Start the engine and connect
 	suite.T().Log("connecting to websocket server ...")
@@ -106,7 +107,7 @@ func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestConnectionOpenni
 //   - The client can unsubscribe from the ticker channel
 func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeTicker() {
 	// Build websocket client without any callback set and no tracing
-	client := NewkrakenSpotWebsocketClient(nil, nil, nil, nil)
+	client := NewKrakenSpotPublicWebsocketClient(nil, nil, nil, log.Default(), nil)
 	// Build server URL
 	url, err := url.Parse(KrakenSpotWebsocketPublicProductionURL)
 	require.NoError(suite.T(), err)
@@ -135,7 +136,7 @@ func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeTicker(
 	case <-ctx.Done():
 		suite.FailNow(ctx.Err().Error())
 	case ticker := <-tickerChan:
-		suite.T().Log("ticker received!")
+		suite.T().Log("ticker received!", *ticker)
 		require.Contains(suite.T(), pairs, ticker.Pair)
 		require.Equal(suite.T(), string(messages.ChannelTicker), ticker.Name)
 	}
@@ -173,6 +174,60 @@ func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeTicker(
 		suite.FailNow("no ticker message should be received after unsubscribe")
 	case <-ctx.Done():
 	}
+	// Stop engine (close the connection)
+	suite.T().Log("stopping the websocket engine...")
+	engine.Stop(ctx)
+	suite.T().Log("websocket engine stopped!")
+}
+
+// This integration test opens a connection to the server and subscribe to the ohlc channel and
+// read some messages. Once that is done, a unsubscibe message will be sent to the server.
+//
+// Test will ensure:
+//
+//   - The client can subscribe to the ohlc channel
+//   - The client can read ohlc messages from the server.
+//   - The client can unsubscribe from the ohlc channel
+func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeOHLC() {
+	// Build websocket client without any callback set and no tracing
+	client := NewKrakenSpotPublicWebsocketClient(nil, nil, nil, log.Default(), nil)
+	// Build server URL
+	url, err := url.Parse(KrakenSpotWebsocketPublicProductionURL)
+	require.NoError(suite.T(), err)
+	// Build the engine that will power the client - Use default options and a gorilla based connection
+	engine, err := wscengine.NewWebsocketEngine(url, gorilla.NewGorillaWebsocketConnectionAdapter(nil, nil), client, nil, nil)
+	require.NoError(suite.T(), err)
+	// Build a context with a timeout of 20 seconds for the test
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	// Start the engine and connect
+	suite.T().Log("connecting to websocket server ...")
+	err = engine.Start(ctx)
+	require.NoError(suite.T(), err)
+	suite.T().Log("connected to websocket server!")
+	// Subscribe to ohlc
+	suite.T().Log("subscribing to ohlc...")
+	pairs := []string{"XBT/USD", "XBT/EUR"}
+	ohlcChan, err := client.SubscribeOHLC(ctx, pairs, messages.M15, 30)
+	require.NoError(suite.T(), err)
+	suite.T().Log("ohlc subscribed!")
+	// Read a ticker
+	suite.T().Log("waiting for a OHLC...")
+	select {
+	case <-ctx.Done():
+		suite.FailNow(ctx.Err().Error())
+	case ohlc := <-ohlcChan:
+		suite.T().Log("ohlc received!", *ohlc)
+		require.Contains(suite.T(), pairs, ohlc.Pair)
+		require.Contains(suite.T(), ohlc.Name, string(messages.ChannelOHLC))
+	}
+	// Unsubscribe from ohlc channel
+	suite.T().Log("unsubscribing from ohlc channel...")
+	err = client.UnsubscribeOHLC(ctx)
+	require.NoError(suite.T(), err)
+	suite.T().Log("unsubscribed from ohlc channel!")
+	// Check the internal ohlc subscription is nil
+	require.Nil(suite.T(), client.subscriptions.ohlcs)
 	// Stop engine (close the connection)
 	suite.T().Log("stopping the websocket engine...")
 	engine.Stop(ctx)
