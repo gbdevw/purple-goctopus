@@ -19,19 +19,19 @@ import (
 /* INTEGRATION TEST SUITE                                                                        */
 /*************************************************************************************************/
 
-// Integration test suite for krakenSpotWebsocketClient
-type krakenSpotWebsocketClientIntegrationTestSuite struct {
+// Integration test suite for KrakenSpotPublicWebsocketClient
+type KrakenSpotPublicWebsocketClientIntegrationTestSuite struct {
 	suite.Suite
 }
 
 // Configure and run unit test suite
-func TestKrakenSpotRESTClientIntegrationTestSuite(t *testing.T) {
+func TestKrakenSpotPublicWebsocketClientIntegrationTestSuite(t *testing.T) {
 	// Skip integration tests if short flag is used
 	if testing.Short() {
 		t.SkipNow()
 	}
 	/// Run the test suit
-	suite.Run(t, new(krakenSpotWebsocketClientIntegrationTestSuite))
+	suite.Run(t, new(KrakenSpotPublicWebsocketClientIntegrationTestSuite))
 }
 
 /*************************************************************************************************/
@@ -45,13 +45,13 @@ func TestKrakenSpotRESTClientIntegrationTestSuite(t *testing.T) {
 //   - The client can read the initial status message from the server
 //   - The client can send a Ping to the server ad read its response
 //   - The client OnCloseCallback is called when connection is shutdown from client side
-func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestConnectionOpenningAndPing() {
+func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestConnectionOpenningAndPing() {
 	// Create a OnClose callback that will have a spy in it to know if it has been called
 	called := false
 	onCloseCbk := func(ctx context.Context, closeMessage *wsclient.CloseMessageDetails) {
 		called = true
 	}
-	// Build websocket client withthe onclose callback set and no tracing
+	// Build websocket client with the onclose callback set and no tracing
 	client := NewKrakenSpotPublicWebsocketClient(onCloseCbk, nil, nil, log.Default(), nil)
 	// Build server URL
 	url, err := url.Parse(KrakenSpotWebsocketPublicProductionURL)
@@ -105,7 +105,7 @@ func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestConnectionOpenni
 //   - The client can subscribe to the ticker channel
 //   - The client can read ticker messages and heartbeats from the server.
 //   - The client can unsubscribe from the ticker channel
-func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeTicker() {
+func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeTicker() {
 	// Build websocket client without any callback set and no tracing
 	client := NewKrakenSpotPublicWebsocketClient(nil, nil, nil, log.Default(), nil)
 	// Build server URL
@@ -188,7 +188,7 @@ func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeTicker(
 //   - The client can subscribe to the ohlc channel
 //   - The client can read ohlc messages from the server.
 //   - The client can unsubscribe from the ohlc channel
-func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeOHLC() {
+func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeOHLC() {
 	// Build websocket client without any callback set and no tracing
 	client := NewKrakenSpotPublicWebsocketClient(nil, nil, nil, log.Default(), nil)
 	// Build server URL
@@ -242,7 +242,7 @@ func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeOHLC() 
 //   - The client can subscribe to the trade channel
 //   - The client can read trade messages from the server.
 //   - The client can unsubscribe from the trade channel
-func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeTrade() {
+func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeTrade() {
 	// Build websocket client without any callback set and no tracing
 	client := NewKrakenSpotPublicWebsocketClient(nil, nil, nil, log.Default(), nil)
 	// Build server URL
@@ -296,7 +296,7 @@ func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeTrade()
 //   - The client can subscribe to the spread channel
 //   - The client can read spread messages from the server.
 //   - The client can unsubscribe from the spread channel
-func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeSpread() {
+func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeSpread() {
 	// Build websocket client without any callback set and no tracing
 	client := NewKrakenSpotPublicWebsocketClient(nil, nil, nil, log.Default(), nil)
 	// Build server URL
@@ -350,7 +350,7 @@ func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeSpread(
 //   - The client can subscribe to the book channel
 //   - The client can read book messages from the server.
 //   - The client can unsubscribe from the book channel
-func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeBook() {
+func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeBook() {
 	// Build websocket client without any callback set and no tracing
 	client := NewKrakenSpotPublicWebsocketClient(nil, nil, nil, log.Default(), nil)
 	// Build server URL
