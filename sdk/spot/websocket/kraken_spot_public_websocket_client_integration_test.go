@@ -211,7 +211,7 @@ func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeOHLC() 
 	ohlcChan, err := client.SubscribeOHLC(ctx, pairs, messages.M15, 30)
 	require.NoError(suite.T(), err)
 	suite.T().Log("ohlc subscribed!")
-	// Read a ticker
+	// Read a ohlc
 	suite.T().Log("waiting for a OHLC...")
 	select {
 	case <-ctx.Done():
@@ -265,7 +265,7 @@ func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeTrade()
 	tradeChan, err := client.SubscribeTrade(ctx, pairs, 30)
 	require.NoError(suite.T(), err)
 	suite.T().Log("trade subscribed!")
-	// Read a ticker
+	// Read a trade
 	suite.T().Log("waiting for a trade...")
 	select {
 	case <-ctx.Done():
@@ -319,7 +319,7 @@ func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeSpread(
 	spreadChan, err := client.SubscribeSpread(ctx, pairs, 30)
 	require.NoError(suite.T(), err)
 	suite.T().Log("spread subscribed!")
-	// Read a ticker
+	// Read a spread
 	suite.T().Log("waiting for a spread...")
 	select {
 	case <-ctx.Done():
@@ -336,6 +336,70 @@ func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeSpread(
 	suite.T().Log("unsubscribed from spread channel!")
 	// Check the internal spread subscription is nil
 	require.Nil(suite.T(), client.subscriptions.spread)
+	// Stop engine (close the connection)
+	suite.T().Log("stopping the websocket engine...")
+	engine.Stop(ctx)
+	suite.T().Log("websocket engine stopped!")
+}
+
+// This integration test opens a connection to the server, subscribes to the book channel and
+// reads some messages. Once that is done, a unsubscribe message will be sent to the server.
+//
+// Test will ensure:
+//
+//   - The client can subscribe to the book channel
+//   - The client can read book messages from the server.
+//   - The client can unsubscribe from the book channel
+func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeBook() {
+	// Build websocket client without any callback set and no tracing
+	client := NewKrakenSpotPublicWebsocketClient(nil, nil, nil, log.Default(), nil)
+	// Build server URL
+	url, err := url.Parse(KrakenSpotWebsocketPublicProductionURL)
+	require.NoError(suite.T(), err)
+	// Build the engine that will power the client - Use default options and a gorilla based connection
+	engine, err := wscengine.NewWebsocketEngine(url, gorilla.NewGorillaWebsocketConnectionAdapter(nil, nil), client, nil, nil)
+	require.NoError(suite.T(), err)
+	// Build a context with a timeout of 20 seconds for the test
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	// Start the engine and connect
+	suite.T().Log("connecting to websocket server ...")
+	err = engine.Start(ctx)
+	require.NoError(suite.T(), err)
+	suite.T().Log("connected to websocket server!")
+	// Subscribe to book
+	suite.T().Log("subscribing to book...")
+	pairs := []string{"XBT/USD", "XBT/EUR"}
+	bookSnapshotChan, bookUpdatesChan, err := client.SubscribeBook(ctx, pairs, messages.D10, 30)
+	require.NoError(suite.T(), err)
+	suite.T().Log("book subscribed!")
+	// Read a book snapshot
+	suite.T().Log("waiting for a book snapshot...")
+	select {
+	case <-ctx.Done():
+		suite.FailNow(ctx.Err().Error())
+	case snapshot := <-bookSnapshotChan:
+		suite.T().Log("book snapshot received!", *snapshot)
+		require.Contains(suite.T(), pairs, snapshot.Pair)
+		require.Contains(suite.T(), snapshot.Name, string(messages.ChannelBook))
+	}
+	// Read a book update
+	suite.T().Log("waiting for a book update...")
+	select {
+	case <-ctx.Done():
+		suite.FailNow(ctx.Err().Error())
+	case update := <-bookUpdatesChan:
+		suite.T().Log("book update received!", *update)
+		require.Contains(suite.T(), pairs, update.Pair)
+		require.Contains(suite.T(), update.Name, string(messages.ChannelBook))
+	}
+	// Unsubscribe from book channel
+	suite.T().Log("unsubscribing from book channel...")
+	err = client.UnsubscribeBook(ctx)
+	require.NoError(suite.T(), err)
+	suite.T().Log("unsubscribed from book channel!")
+	// Check the internal book subscription is nil
+	require.Nil(suite.T(), client.subscriptions.book)
 	// Stop engine (close the connection)
 	suite.T().Log("stopping the websocket engine...")
 	engine.Stop(ctx)
