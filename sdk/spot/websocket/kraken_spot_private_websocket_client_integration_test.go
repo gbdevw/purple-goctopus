@@ -88,7 +88,7 @@ func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) AfterTest(sui
 //   - The client OnCloseCallback is called when connection is shutdown from client side
 func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestConnectionOpenningAndPing() {
 	// Build a context with a timeout of 15 seconds for the test
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	// Get the builtin channel for system status
 	systemStatusChan := suite.wsclient.GetSystemStatusChannel()
