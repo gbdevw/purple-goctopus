@@ -1347,7 +1347,7 @@ func (client *krakenSpotWebsocketClient) AddOrder(ctx context.Context, params Ad
 		Price:           params.Price,
 		Price2:          params.Price2,
 		Volume:          params.Volume,
-		Leverage:        params.Leverage,
+		Leverage:        strconv.FormatInt(int64(params.Leverage), 10),
 		ReduceOnly:      params.ReduceOnly,
 		OFlags:          params.OFlags,
 		StartTimestamp:  params.StartTimestamp,

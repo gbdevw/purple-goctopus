@@ -28,8 +28,8 @@ type AddOrderRequest struct {
 	Volume string `json:"volume"`
 	// Amount of leverage desired.
 	//
-	// A zero value means no leverage.
-	Leverage int `json:"leverage,omitempty"`
+	// An empty value means no leverage.
+	Leverage string `json:"leverage,omitempty"`
 	// If true, order will only reduce a currently open position, not increase it or open a new position.
 	ReduceOnly bool `json:"reduce_only,omitempty"`
 	// Optional comma delimited list of order flags. Cf. OrderFlagEnum for values.
