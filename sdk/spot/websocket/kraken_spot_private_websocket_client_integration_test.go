@@ -188,8 +188,8 @@ func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestEditOrder
 		Id:               "42",
 		Pair:             "XBT/USD",
 		Price:            "36000",
-		Price2:           "#0.15",
-		Volume:           "0.00025",
+		Price2:           "#0.2",
+		Volume:           "0.0003",
 		OFlags:           "fcib",
 		NewUserReference: "43",
 		Validate:         true,
@@ -200,4 +200,73 @@ func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestEditOrder
 	require.Error(suite.T(), err)
 	require.Contains(suite.T(), err.Error(), "EOrder:Invalid order")
 	suite.T().Log("editOrder response received!", *resp)
+}
+
+// This integration test opens a connection to the server and send a cancelOrder request to the
+// server. The request is expected to fail because of a EOrder:Unknown order error.
+//
+// Test will ensure:
+//   - The client can open a connection to the websocket server
+//   - The client can send a valid cancelOrder request and process the response
+func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestCancelOrder() {
+	// Build a context with a timeout of 15 seconds for the test
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	// Prepare a cancelOrder request
+	corder := CancelOrderRequestParameters{
+		TxId: []string{"42", "43"},
+	}
+	// Send a cancelOrder
+	suite.T().Log("sending a cancelOrder message...")
+	resp, err := suite.wsclient.CancelOrder(ctx, corder)
+	require.Error(suite.T(), err)
+	require.Contains(suite.T(), err.Error(), "EOrder:Unknown order")
+	suite.T().Log("cancelOrder response received!", *resp)
+}
+
+// This integration test opens a connection to the server and send a cancelAllOrders request to the
+// server.
+//
+// Test will ensure:
+//   - The client can open a connection to the websocket server
+//   - The client can send a valid cancelAllOrders request and process the response
+func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestCancelAllOrders() {
+	// Build a context with a timeout of 15 seconds for the test
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	// Send a cancelAllOrders
+	suite.T().Log("sending a cancelAllOrders message...")
+	resp, err := suite.wsclient.CancellAllOrders(ctx)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), resp)
+	require.Equal(suite.T(), string(messages.Ok), resp.Status)
+	require.Equal(suite.T(), 0, resp.Count)
+	require.Empty(suite.T(), resp.Err)
+	suite.T().Log("cancelAllOrders response received!", *resp)
+}
+
+// This integration test opens a connection to the server and send a cancelAllOrdersAfterX request
+// to the server.
+//
+// Test will ensure:
+//   - The client can open a connection to the websocket server
+//   - The client can send a valid cancelAllOrdersAfterX request and process the response
+func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestCancelAllOrdersAfterX() {
+	// Build a context with a timeout of 15 seconds for the test
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	// Prepare request
+	req := CancelAllOrdersAfterXRequestParameters{
+		Timeout: 5,
+	}
+	// Send a cancelAllOrdersAfterXX
+	suite.T().Log("sending a cancelAllOrdersAfterX message...")
+	resp, err := suite.wsclient.CancellAllOrdersAfterX(ctx, req)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), resp)
+	require.Equal(suite.T(), string(messages.Ok), resp.Status)
+	require.NotEmpty(suite.T(), resp.CurrentTime)
+	require.NotEmpty(suite.T(), resp.TriggerTime)
+	require.Empty(suite.T(), resp.Err)
+	suite.T().Log("cancelAllOrdersAfterX response received!", *resp)
 }
