@@ -2233,7 +2233,7 @@ func (client *krakenSpotWebsocketClient) UnsubscribeOpenOrders(ctx context.Conte
 			Event: string(messages.EventTypeUnsubscribe),
 			ReqId: client.ngen.GenerateNonce(),
 			Subscription: messages.UnsuscribeDetails{
-				Name:  string(messages.ChannelOwnTrades),
+				Name:  string(messages.ChannelOpenOrders),
 				Token: token,
 			},
 		},

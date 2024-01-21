@@ -270,3 +270,37 @@ func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestCancelAll
 	require.Empty(suite.T(), resp.Err)
 	suite.T().Log("cancelAllOrdersAfterX response received!", *resp)
 }
+
+// This integration test opens a connection to the server and subscribes to open orders channel.
+// Once it is done, a unsubscribe message is sent to unsubscribe from the channel.
+
+// Test will ensure:
+//   - The client can open a connection to the websocket server
+//   - The client can subscribe to open orders channel and read the snapshot
+//   - the client can unsubscribe from the open orders channel
+func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestSubscribeOpenOrders() {
+	// Build a context with a timeout of 15 seconds for the test
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	// Subscribe to open orders channel
+	suite.T().Log("subscribing to openOrders channel...")
+	openOrdersChan, err := suite.wsclient.SubscribeOpenOrders(ctx, false, 10)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), openOrdersChan)
+	suite.T().Log("subscribed to openOrders channel!")
+	// Read the first message
+	select {
+	case <-ctx.Done():
+		require.FailNow(suite.T(), ctx.Err().Error())
+	case msg := <-openOrdersChan:
+		suite.T().Log("open orders message received!", *msg)
+		require.GreaterOrEqual(suite.T(), 0, len(msg.Orders))
+		require.Equal(suite.T(), int64(1), msg.Sequence.Sequence)
+		require.Equal(suite.T(), string(messages.ChannelOpenOrders), msg.ChannelName)
+	}
+	// Unsubscribe from channel
+	suite.T().Log("unsubscribing from openOrders channel...")
+	err = suite.wsclient.UnsubscribeOpenOrders(ctx)
+	require.NoError(suite.T(), err)
+	suite.T().Log("unsubscribed from openOrders channel!")
+}
