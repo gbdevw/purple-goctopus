@@ -1477,7 +1477,7 @@ func (client *krakenSpotWebsocketClient) EditOrder(ctx context.Context, params E
 		Price2:           params.Price2,
 		Volume:           params.Volume,
 		OFlags:           params.OFlags,
-		Validate:         params.Validate,
+		Validate:         strconv.FormatBool(params.Validate),
 		NewUserReference: params.NewUserReference,
 	}
 	payload, err := json.Marshal(req)

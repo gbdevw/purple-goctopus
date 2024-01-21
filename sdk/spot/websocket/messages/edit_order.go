@@ -35,9 +35,7 @@ type EditOrderRequest struct {
 	// An empty string means no new user reference will be defined.
 	NewUserReference string `json:"newuserref,omitempty"`
 	// Optional - if true, validate inputs only; do not submit order.
-	//
-	// Default to false.
-	Validate bool `json:"validate,omitempty"`
+	Validate string `json:"validate,omitempty"`
 }
 
 // Response message for EditOrder
