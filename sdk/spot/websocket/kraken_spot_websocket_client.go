@@ -115,6 +115,9 @@ type krakenSpotWebsocketClient struct {
 //
 // # Inputs
 //
+//   - restClient: Optional Kraken spot rest client to use to get a websocket token. Can be nil in case only public endpoints are used.
+//   - clientNonceGenerator: Optional nonce generator used to get nonces used to sign requests sent with the REST Client. Can be nil in case only public endpoints are used.
+//   - secopts: Optional security options (like password 2FA) to use when sending requests with the REST client.
 //   - onCloseCallback: optional user defined callback which will be called when connection is closed/interrupted.
 //   - onReadErrorCallback: optional user defined callback which will be called when an error occurs while reading messages from the websocket server
 //   - onRestartError: optional user defined callback which will be called when the websocket engine fails to reconnect to the server.
@@ -125,6 +128,9 @@ type krakenSpotWebsocketClient struct {
 //
 // A new krakenSpotWebsocketClient which can then be used by a wscengine.WebsocketEngine.
 func newKrakenSpotWebsocketClient(
+	restClient rest.KrakenSpotRESTClientIface,
+	clientNonceGenerator noncegen.NonceGenerator,
+	secopts *restcommon.SecurityOptions,
 	onCloseCallback func(ctx context.Context, closeMessage *wsclient.CloseMessageDetails),
 	onReadErrorCallback func(ctx context.Context, restart context.CancelFunc, exit context.CancelFunc, err error),
 	onRestartError func(ctx context.Context, exit context.CancelFunc, err error, retryCount int),
@@ -174,6 +180,12 @@ func newKrakenSpotWebsocketClient(
 		pendingCancelAllOrdersMu:            sync.Mutex{},
 		pendingCancelAllOrdersAfterXOrderMu: sync.Mutex{},
 		logger:                              logger,
+		restClient:                          restClient,
+		cgen:                                clientNonceGenerator,
+		secopts:                             secopts,
+		tokenMu:                             sync.Mutex{},
+		token:                               "", // Just to make it clear ;)
+		tokenExpiresAt:                      time.Time{},
 	}
 }
 
@@ -212,8 +224,7 @@ func (client *krakenSpotWebsocketClient) Ping(ctx context.Context) error {
 		ReqId: client.ngen.GenerateNonce(),
 	}
 	// Add pending ping request to client's stack
-	client.pendingPingMu.Lock() // Lock to not add requests while engine is discarding pending requests
-	defer client.pendingPingMu.Unlock()
+	client.pendingPingMu.Lock()
 	client.requests.pendingPing[req.ReqId] = &pendingPing{
 		resp: respChan,
 		err:  errChan,
@@ -225,6 +236,8 @@ func (client *krakenSpotWebsocketClient) Ping(ctx context.Context) error {
 		eerr := fmt.Errorf("failed to format ping request: %w", err)
 		delete(client.requests.pendingPing, req.ReqId)
 		client.logger.Println(eerr.Error())
+		// Unlock pending ping requests
+		client.pendingPingMu.Unlock()
 		return tracing.HandleAndTraceError(span, eerr)
 	}
 	// Send message to websocket server
@@ -234,8 +247,13 @@ func (client *krakenSpotWebsocketClient) Ping(ctx context.Context) error {
 		eerr := fmt.Errorf("failed to send ping request: %w", err)
 		delete(client.requests.pendingSubscribe, req.ReqId)
 		client.logger.Println(eerr.Error())
+		// Unlock pending ping requests
+		client.pendingPingMu.Unlock()
 		return tracing.HandleAndTraceError(span, eerr)
 	}
+	// Unlock pending ping requests map so another goroutine can process the pong message
+	// and fulfill the pending request
+	client.pendingPingMu.Unlock()
 	// Wait for response to be published on channels or timeout
 	client.logger.Println("waiting for pong from the server")
 	select {
@@ -1350,7 +1368,6 @@ func (client *krakenSpotWebsocketClient) AddOrder(ctx context.Context, params Ad
 	}
 	// Add pending addOrder request
 	client.pendingAddOrderMu.Lock()
-	defer client.pendingAddOrderMu.Unlock()
 	client.requests.pendingAddOrderRequests[req.RequestId] = &pendingAddOrderRequest{
 		resp: respChan,
 		err:  errChan,
@@ -1362,9 +1379,12 @@ func (client *krakenSpotWebsocketClient) AddOrder(ctx context.Context, params Ad
 		eerr := fmt.Errorf("add order failed: %w", err)
 		client.logger.Println(eerr.Error())
 		delete(client.requests.pendingAddOrderRequests, req.RequestId)
+		// Unlock pending request map and exit
+		client.pendingAddOrderMu.Unlock()
 		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Wait for response to be published on channels or timeout
+	client.pendingAddOrderMu.Unlock() // Unlock pending request map so another go routine can fulfil it
 	client.logger.Println("waiting for a response (addOrderStatus) from the server")
 	select {
 	case <-ctx.Done():
@@ -1468,7 +1488,6 @@ func (client *krakenSpotWebsocketClient) EditOrder(ctx context.Context, params E
 	}
 	// Add pending editOrder request
 	client.pendingEditOrderMu.Lock()
-	defer client.pendingEditOrderMu.Unlock()
 	client.requests.pendingEditOrderRequests[req.RequestId] = &pendingEditOrderRequest{
 		resp: respChan,
 		err:  errChan,
@@ -1480,9 +1499,11 @@ func (client *krakenSpotWebsocketClient) EditOrder(ctx context.Context, params E
 		eerr := fmt.Errorf("edit order failed: %w", err)
 		client.logger.Println(eerr.Error())
 		delete(client.requests.pendingEditOrderRequests, req.RequestId)
+		client.pendingEditOrderMu.Unlock()
 		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Wait for response to be published on channels or timeout
+	client.pendingEditOrderMu.Unlock()
 	client.logger.Println("waiting for a response (editOrderStatus) from the server")
 	select {
 	case <-ctx.Done():
@@ -1575,7 +1596,6 @@ func (client *krakenSpotWebsocketClient) CancelOrder(ctx context.Context, params
 	}
 	// Add pending cancelOrder request
 	client.pendingCancelOrderMu.Lock()
-	defer client.pendingCancelOrderMu.Unlock()
 	client.requests.pendingCancelOrderRequests[req.RequestId] = &pendingCancelOrderRequest{
 		resp: respChan,
 		err:  errChan,
@@ -1587,9 +1607,11 @@ func (client *krakenSpotWebsocketClient) CancelOrder(ctx context.Context, params
 		eerr := fmt.Errorf("cancel order failed: %w", err)
 		client.logger.Println(eerr.Error())
 		delete(client.requests.pendingCancelOrderRequests, req.RequestId)
+		client.pendingCancelOrderMu.Unlock()
 		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Wait for response to be published on channels or timeout
+	client.pendingCancelOrderMu.Unlock()
 	client.logger.Println("waiting for a response (cancelOrderStatus) from the server")
 	select {
 	case <-ctx.Done():
@@ -1675,7 +1697,6 @@ func (client *krakenSpotWebsocketClient) CancellAllOrders(ctx context.Context) (
 	}
 	// Add pending cancelAllOrders request
 	client.pendingCancelAllOrdersMu.Lock()
-	defer client.pendingCancelAllOrdersMu.Unlock()
 	client.requests.pendingCancelAllOrdersRequests[req.RequestId] = &pendingCancelAllOrdersRequest{
 		resp: respChan,
 		err:  errChan,
@@ -1687,9 +1708,11 @@ func (client *krakenSpotWebsocketClient) CancellAllOrders(ctx context.Context) (
 		eerr := fmt.Errorf("cancel all orders failed: %w", err)
 		client.logger.Println(eerr.Error())
 		delete(client.requests.pendingCancelAllOrdersRequests, req.RequestId)
+		client.pendingCancelAllOrdersMu.Unlock()
 		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Wait for response to be published on channels or timeout
+	client.pendingCancelAllOrdersMu.Unlock()
 	client.logger.Println("waiting for a response (cancelAllOrdersStatus) from the server")
 	select {
 	case <-ctx.Done():
@@ -1779,7 +1802,6 @@ func (client *krakenSpotWebsocketClient) CancellAllOrdersAfterX(ctx context.Cont
 	}
 	// Add pending cancelAllOrders request
 	client.pendingCancelAllOrdersAfterXOrderMu.Lock()
-	defer client.pendingCancelAllOrdersAfterXOrderMu.Unlock()
 	client.requests.pendingCancelAllOrdersAfterXRequests[req.RequestId] = &pendingCancelAllOrdersAfterXRequest{
 		resp: respChan,
 		err:  errChan,
@@ -1791,9 +1813,11 @@ func (client *krakenSpotWebsocketClient) CancellAllOrdersAfterX(ctx context.Cont
 		eerr := fmt.Errorf("cancel all orders after x failed: %w", err)
 		client.logger.Println(eerr.Error())
 		delete(client.requests.pendingCancelAllOrdersAfterXRequests, req.RequestId)
+		client.pendingCancelAllOrdersAfterXOrderMu.Unlock()
 		return nil, tracing.HandleAndTraceError(span, eerr)
 	}
 	// Wait for response to be published on channels or timeout
+	client.pendingCancelAllOrdersAfterXOrderMu.Unlock()
 	client.logger.Println("waiting for a response (cancelAllOrdersAfterXStatus) from the server")
 	select {
 	case <-ctx.Done():
@@ -2606,6 +2630,12 @@ func (client *krakenSpotWebsocketClient) OnMessage(
 	// Cancel all orders after X status
 	case string(messages.EventTypeCancelAllOrderAfterXStatus):
 		client.handleCancelAllOrdersAfterXStatus(ctx, conn, readMutex, restart, exit, sessionId, msgType, msg)
+	// Open orders
+	case string(messages.ChannelOpenOrders):
+		client.handleOpenOrders(ctx, conn, readMutex, restart, exit, sessionId, msgType, msg)
+	// Owntrades
+	case string(messages.ChannelOwnTrades):
+		client.handleOwnTrades(ctx, conn, readMutex, restart, exit, sessionId, msgType, msg)
 	// System status
 	case string(messages.EventTypeSystemStatus):
 		client.handleSystemStatus(ctx, conn, readMutex, restart, exit, sessionId, msgType, msg)
@@ -3233,6 +3263,7 @@ func (client *krakenSpotWebsocketClient) handlePong(
 	// Blocking write can be used as channel must always have a capacity of one and be internally managed
 	pr.resp <- pong
 	// Discard pending request now that it has been served and exit
+	client.logger.Println("pong handled")
 	delete(client.requests.pendingPing, *pong.ReqId)
 	span.SetStatus(codes.Ok, codes.Ok.String())
 	return nil
