@@ -123,21 +123,50 @@ func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestAddOrder(
 	// Build a context with a timeout of 15 seconds for the test
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	// Prepare order
+	// Prepare a market order
 	order := AddOrderRequestParameters{
-		OrderType:     string(messages.Market),
-		Type:          string(messages.Buy),
-		Pair:          "XBT/USD",
-		Volume:        "0.0002",
-		UserReference: "42",
-		Validate:      true,
+		OrderType: string(messages.Market),
+		Type:      string(messages.Buy),
+		Pair:      "XBT/USD",
+		Volume:    "0.0002",
+		Validate:  true,
 	}
 	// Send a addOrder (validate = true)
 	suite.T().Log("sending a addOrder message...")
 	resp, err := suite.wsclient.AddOrder(ctx, order)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), resp)
-	suite.T().Log("addOrder response received!")
+	suite.T().Log("addOrder response received!", *resp)
+	// Check response
+	require.Equal(suite.T(), string(messages.Ok), resp.Status)
+	require.Empty(suite.T(), resp.Err)
+	require.NotEmpty(suite.T(), resp.Description)
+	// Prepare a leveraged stop loss limit order with a limit close order
+	order = AddOrderRequestParameters{
+		OrderType:       string(messages.StopLossLimit),
+		Type:            string(messages.Buy),
+		Pair:            "XBT/USD",
+		Price:           "36000",
+		Price2:          "#0.2%",
+		Volume:          "0.0002",
+		Leverage:        5,
+		ReduceOnly:      false,
+		OFlags:          " fciq",
+		StartTimestamp:  "+10",
+		ExpireTimestamp: "+60",
+		Deadline:        time.Now().Add(5 * time.Second).Format(time.RFC3339),
+		UserReference:   "42",
+		Validate:        true,
+		CloseOrderType:  string(messages.Limit),
+		ClosePrice:      "#0.3%",
+		TimeInForce:     string(messages.GoodTilDate),
+	}
+	// Send a addOrder (validate = true)
+	suite.T().Log("sending a addOrder message...")
+	resp, err = suite.wsclient.AddOrder(ctx, order)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), resp)
+	suite.T().Log("addOrder response received!", *resp)
 	// Check response
 	require.Equal(suite.T(), string(messages.Ok), resp.Status)
 	require.Empty(suite.T(), resp.Err)
