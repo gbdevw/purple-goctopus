@@ -112,3 +112,34 @@ func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestConnectio
 	require.NoError(suite.T(), err)
 	suite.T().Log("pong reply received!")
 }
+
+// This integration test opens a connection to the server and send a AddOrder request for validation
+// to the server.
+//
+// Test will ensure:
+//   - The client can open a connection to the websocket server
+//   - The client can send a valid AddOrder request and process the response
+func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestAddOrder() {
+	// Build a context with a timeout of 15 seconds for the test
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	// Prepare order
+	order := AddOrderRequestParameters{
+		OrderType:     string(messages.Market),
+		Type:          string(messages.Buy),
+		Pair:          "XBT/USD",
+		Volume:        "0.0002",
+		UserReference: "42",
+		Validate:      true,
+	}
+	// Send a addOrder (validate = true)
+	suite.T().Log("sending a addOrder message...")
+	resp, err := suite.wsclient.AddOrder(ctx, order)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), resp)
+	suite.T().Log("addOrder response received!")
+	// Check response
+	require.Equal(suite.T(), string(messages.Ok), resp.Status)
+	require.Empty(suite.T(), resp.Err)
+	require.NotEmpty(suite.T(), resp.Description)
+}
