@@ -172,3 +172,32 @@ func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestAddOrder(
 	require.Empty(suite.T(), resp.Err)
 	require.NotEmpty(suite.T(), resp.Description)
 }
+
+// This integration test opens a connection to the server and send a editOrder request for validation
+// to the server.
+//
+// Test will ensure:
+//   - The client can open a connection to the websocket server
+//   - The client can send a valid editOrder request and process the response
+func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestEditOrder() {
+	// Build a context with a timeout of 15 seconds for the test
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	// Prepare an edit order request
+	eorder := EditOrderRequestParameters{
+		Id:               "42",
+		Pair:             "XBT/USD",
+		Price:            "36000",
+		Price2:           "#0.15",
+		Volume:           "0.00025",
+		OFlags:           "fcib",
+		NewUserReference: "43",
+		Validate:         true,
+	}
+	// Send a editOrder (validate = true)
+	suite.T().Log("sending a editOrder message...")
+	resp, err := suite.wsclient.EditOrder(ctx, eorder)
+	require.Error(suite.T(), err)
+	require.Contains(suite.T(), err.Error(), "EOrder:Invalid order")
+	suite.T().Log("editOrder response received!", *resp)
+}
