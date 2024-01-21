@@ -153,7 +153,7 @@ func NewDefaultEngineWithPrivateWebsocketClient(
 		tracerProvider)
 	// Create a HFNonceGenerator
 	cngen := noncegen.NewHFNonceGenerator()
-	// Build websocket client with no callback set and no tracing
+	// Build websocket client
 	wsclient, err := NewKrakenSpotPrivateWebsocketClient(restClient, cngen, secopts, onCloseCallback, onReadErrorCallback, onRestartError, logger, tracerProvider)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to build the private websocket client: %w", err)
