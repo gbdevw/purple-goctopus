@@ -65,9 +65,7 @@ type AddOrderRequest struct {
 	// Optional - user reference ID (should be an integer in quotes)
 	UserReference string `json:"userref,omitempty"`
 	// Optional - if true, validate inputs only; do not submit order.
-	//
-	// Default to false.
-	Validate bool `json:"validate,omitempty"`
+	Validate string `json:"validate,omitempty"`
 	// Optional close order type. Cf. OrderTypeEnum
 	CloseOrderType string `json:"close[ordertype],omitempty"`
 	// Optional - close order price.

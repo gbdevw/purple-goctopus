@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -1353,7 +1354,7 @@ func (client *krakenSpotWebsocketClient) AddOrder(ctx context.Context, params Ad
 		ExpireTimestamp: params.ExpireTimestamp,
 		Deadline:        params.Deadline,
 		UserReference:   params.UserReference,
-		Validate:        params.Validate,
+		Validate:        strconv.FormatBool(params.Validate),
 		CloseOrderType:  params.CloseOrderType,
 		ClosePrice:      params.ClosePrice,
 		ClosePrice2:     params.ClosePrice2,
