@@ -287,3 +287,57 @@ func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeTrade()
 	engine.Stop(ctx)
 	suite.T().Log("websocket engine stopped!")
 }
+
+// This integration test opens a connection to the server, subscribes to the spread channel and
+// reads some messages. Once that is done, a unsubscribe message will be sent to the server.
+//
+// Test will ensure:
+//
+//   - The client can subscribe to the spread channel
+//   - The client can read spread messages from the server.
+//   - The client can unsubscribe from the spread channel
+func (suite *krakenSpotWebsocketClientIntegrationTestSuite) TestSubscribeSpread() {
+	// Build websocket client without any callback set and no tracing
+	client := NewKrakenSpotPublicWebsocketClient(nil, nil, nil, log.Default(), nil)
+	// Build server URL
+	url, err := url.Parse(KrakenSpotWebsocketPublicProductionURL)
+	require.NoError(suite.T(), err)
+	// Build the engine that will power the client - Use default options and a gorilla based connection
+	engine, err := wscengine.NewWebsocketEngine(url, gorilla.NewGorillaWebsocketConnectionAdapter(nil, nil), client, nil, nil)
+	require.NoError(suite.T(), err)
+	// Build a context with a timeout of 20 seconds for the test
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	// Start the engine and connect
+	suite.T().Log("connecting to websocket server ...")
+	err = engine.Start(ctx)
+	require.NoError(suite.T(), err)
+	suite.T().Log("connected to websocket server!")
+	// Subscribe to spread
+	suite.T().Log("subscribing to spread...")
+	pairs := []string{"XBT/USD", "XBT/EUR"}
+	spreadChan, err := client.SubscribeSpread(ctx, pairs, 30)
+	require.NoError(suite.T(), err)
+	suite.T().Log("spread subscribed!")
+	// Read a ticker
+	suite.T().Log("waiting for a spread...")
+	select {
+	case <-ctx.Done():
+		suite.FailNow(ctx.Err().Error())
+	case spread := <-spreadChan:
+		suite.T().Log("spread received!", *spread)
+		require.Contains(suite.T(), pairs, spread.Pair)
+		require.Contains(suite.T(), spread.Name, string(messages.ChannelSpread))
+	}
+	// Unsubscribe from spread channel
+	suite.T().Log("unsubscribing from spread channel...")
+	err = client.UnsubscribeSpread(ctx)
+	require.NoError(suite.T(), err)
+	suite.T().Log("unsubscribed from spread channel!")
+	// Check the internal spread subscription is nil
+	require.Nil(suite.T(), client.subscriptions.spread)
+	// Stop engine (close the connection)
+	suite.T().Log("stopping the websocket engine...")
+	engine.Stop(ctx)
+	suite.T().Log("websocket engine stopped!")
+}
