@@ -292,4 +292,32 @@ type KrakenSpotPrivateWebsocketClientInterface interface {
 	//
 	//	- The client MUST return an error if channel was not subscribed to.
 	UnsubscribeOpenOrders(ctx context.Context) error
+	// # Description
+	//
+	// Get the client's built-in channel to publish received system status updates.
+	//
+	// # Implemetation and usage guidelines
+	//
+	//	- As the channel is automatically subscribed to, the client implementation CAN discard messages
+	//    in case of congestion in the publication channel. The client implementation must be clear
+	//    about how it deals with congestion.
+	//
+	// # Return
+	//
+	// The client's built-in channel used to publish received system status updates.
+	GetSystemStatusChannel() chan *messages.SystemStatus
+	// # Description
+	//
+	// Get the client's built-in channel to publish received heartbeats.
+	//
+	// # Implemetation and usage guidelines
+	//
+	//	- As the channel is automatically subscribed to, the client implementation CAN discard messages
+	//    in case of congestion in the publication channel. The client implementation must be clear
+	//    about how it deals with congestion.
+	//
+	// # Return
+	//
+	// The client's built-in channel used to publish received heartbeats.
+	GetHeartbeatChannel() chan *messages.Heartbeat
 }
