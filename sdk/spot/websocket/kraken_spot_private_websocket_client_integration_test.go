@@ -273,7 +273,7 @@ func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestCancelAll
 
 // This integration test opens a connection to the server and subscribes to open orders channel.
 // Once it is done, a unsubscribe message is sent to unsubscribe from the channel.
-
+//
 // Test will ensure:
 //   - The client can open a connection to the websocket server
 //   - The client can subscribe to open orders channel and read the snapshot
@@ -303,4 +303,38 @@ func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestSubscribe
 	err = suite.wsclient.UnsubscribeOpenOrders(ctx)
 	require.NoError(suite.T(), err)
 	suite.T().Log("unsubscribed from openOrders channel!")
+}
+
+// This integration test opens a connection to the server and subscribes to own trades channel.
+// Once it is done, a unsubscribe message is sent to unsubscribe from the channel.
+//
+// Test will ensure:
+//   - The client can open a connection to the websocket server
+//   - The client can subscribe to own trades channel and read the snapshot
+//   - the client can unsubscribe from the own trades channel
+func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestSubscribeOwnTrades() {
+	// Build a context with a timeout of 15 seconds for the test
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	// Subscribe to ownTrades channel
+	suite.T().Log("subscribing to ownTrades channel...")
+	ownTradesChan, err := suite.wsclient.SubscribeOwnTrades(ctx, true, true, 10)
+	require.NoError(suite.T(), err)
+	require.NotNil(suite.T(), ownTradesChan)
+	suite.T().Log("subscribed to ownTrades channel!")
+	// Read the first message
+	select {
+	case <-ctx.Done():
+		require.FailNow(suite.T(), ctx.Err().Error())
+	case msg := <-ownTradesChan:
+		suite.T().Log("ownTrades message received!", *msg)
+		require.GreaterOrEqual(suite.T(), 0, len(msg.Data))
+		require.Equal(suite.T(), int64(1), msg.SequenceId.Sequence)
+		require.Equal(suite.T(), string(messages.ChannelOwnTrades), msg.ChannelName)
+	}
+	// Unsubscribe from channel
+	suite.T().Log("unsubscribing from ownTrades channel...")
+	err = suite.wsclient.UnsubscribeOwnTrades(ctx)
+	require.NoError(suite.T(), err)
+	suite.T().Log("unsubscribed from ownTrades channel!")
 }
