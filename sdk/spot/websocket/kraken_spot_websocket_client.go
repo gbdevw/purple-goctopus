@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudevents/sdk-go/v2/event"
 	"github.com/gbdevw/gowse/wscengine/wsadapters"
 	"github.com/gbdevw/gowse/wscengine/wsclient"
 	"github.com/gbdevw/purple-goctopus/sdk/noncegen"
@@ -150,8 +151,8 @@ func newKrakenSpotWebsocketClient(
 		conn: nil,
 		ngen: noncegen.NewHFNonceGenerator(),
 		subscriptions: activeSubscriptions{
-			heartbeat:    make(chan *messages.Heartbeat, 10),
-			systemStatus: make(chan *messages.SystemStatus, 10)},
+			heartbeat:    make(chan event.Event, 10),
+			systemStatus: make(chan event.Event, 10)},
 		requests: pendingRequests{
 			pendingPing:                          map[int64]*pendingPing{},
 			pendingSubscribe:                     map[int64]*pendingSubscribe{},
@@ -209,11 +210,11 @@ func newKrakenSpotWebsocketClient(
 // Nil in case of success. Otherwise, an error is returned when:
 //
 //   - An error occurs when sending the message.
-//   - The provided context expires (timeout/cancel).
+//   - The provided context expires before pong is received (OperationInterruptedError).
 //   - An error message is received from the server (OperationError).
 func (client *krakenSpotWebsocketClient) Ping(ctx context.Context) error {
 	// Tracing: Start span
-	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".ping", trace.WithSpanKind(trace.SpanKindClient))
+	ctx, span := client.tracer.Start(ctx, "ping", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
 	client.logger.Println("sending ping to the server")
 	// Create response channels
@@ -224,54 +225,47 @@ func (client *krakenSpotWebsocketClient) Ping(ctx context.Context) error {
 		Event: string(messages.EventTypePing),
 		ReqId: client.ngen.GenerateNonce(),
 	}
-	// Add pending ping request to client's stack
+	// Lock pending ping request map and add request to the stack.
 	client.pendingPingMu.Lock()
 	client.requests.pendingPing[req.ReqId] = &pendingPing{
 		resp: respChan,
 		err:  errChan,
 	}
+	// Defer pending request map cleanup to remove it in case of failure or ensure it has been
+	// removed in case of success. This is safe because pending requests ids are unique and
+	// internally managed.
+	defer delete(client.requests.pendingSubscribe, req.ReqId)
+	// Defer unlocking pending request map.
+	unlock := sync.OnceFunc(client.pendingPingMu.Unlock)
+	defer unlock()
 	// Marshal to JSON
 	payload, err := json.Marshal(req)
 	if err != nil {
-		// Remove pending request as it has failed before it even starts
-		eerr := fmt.Errorf("failed to format ping request: %w", err)
-		delete(client.requests.pendingPing, req.ReqId)
-		client.logger.Println(eerr.Error())
-		// Unlock pending ping requests
-		client.pendingPingMu.Unlock()
-		return tracing.HandleAndTraceError(span, eerr)
+		// Trace and return error -> failed to format request
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("failed to format ping request: %w", err))
 	}
 	// Send message to websocket server
 	err = client.conn.Write(ctx, wsadapters.Text, payload)
 	if err != nil {
-		// Remove pending request as it has failed before it even starts
-		eerr := fmt.Errorf("failed to send ping request: %w", err)
-		delete(client.requests.pendingSubscribe, req.ReqId)
-		client.logger.Println(eerr.Error())
-		// Unlock pending ping requests
-		client.pendingPingMu.Unlock()
-		return tracing.HandleAndTraceError(span, eerr)
+		// Trace and return error -> failed to send request
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("failed to send ping request: %w", err))
 	}
-	// Unlock pending ping requests map so another goroutine can process the pong message
-	// and fulfill the pending request
-	client.pendingPingMu.Unlock()
+	// Unlock pending ping requests map so another goroutine can process the pong message and
+	// fulfill the pending request. As the call is encapsulaated in a sync.Once, the deferred
+	// unlock will be a noop.
+	unlock()
 	// Wait for response to be published on channels or timeout
 	client.logger.Println("waiting for pong from the server")
 	select {
 	case <-ctx.Done():
-		// Trace and return error
-		eerr := fmt.Errorf("ping failed: %w", ctx.Err())
-		client.logger.Println(eerr.Error())
-		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "ping", Root: eerr})
+		// Trace and return error -> operation interrupted before completion.
+		return tracing.HandleAndTraLogError(span, client.logger, &OperationInterruptedError{Operation: "ping", Root: fmt.Errorf("ping failed: %w", ctx.Err())})
 	case err := <-errChan:
-		// Trace and return error
-		eerr := fmt.Errorf("ping failed: %w", err)
-		client.logger.Println(eerr.Error())
-		return tracing.HandleAndTraceError(span, &OperationError{Operation: "ping", Root: eerr})
+		// Trace and return error -> operation failed with an error from the server.
+		return tracing.HandleAndTraLogError(span, client.logger, &OperationError{Operation: "ping", Root: fmt.Errorf("ping failed: %w", err)})
 	case <-respChan:
 		// Set span status and exit
 		client.logger.Println("pong received")
-		span.AddEvent(tracing.TracesNamespace + ".pong_received")
 		span.SetStatus(codes.Ok, codes.Ok.String())
 		return nil
 	}
