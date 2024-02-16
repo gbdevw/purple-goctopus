@@ -32,8 +32,8 @@ type KrakenSpotPrivateWebsocketClientInterface interface {
 	// Nil in case of success. Otherwise, an error is returned when:
 	//
 	//	- An error occurs when sending the message.
-	//	- The provided context expires (timeout/cancel).
-	//	- An error message is received from the server.
+	//	- The provided context expires before pong is received (OperationInterruptedError).
+	//	- An error message is received from the server (OperationError).
 	Ping(ctx context.Context) error
 	// # Description
 	//
