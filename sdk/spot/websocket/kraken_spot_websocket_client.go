@@ -42,6 +42,10 @@ const (
 // This is the base Kraken websocket client implementation: The logic is the same for both public
 // and private clients but separate clients must be built because public and private clients do
 // not use the same servers and connection.
+//
+// Principles:
+//   - Blocking writes are used to publish received messages from the websocket server
+//   - For heartbeats and system status updates, overflowing messages are discarded in FIFO order.
 type krakenSpotWebsocketClient struct {
 	// Websocket connection adapter to use to interact with the chosen
 	// underlying low-level websocket framework.
@@ -273,57 +277,95 @@ func (client *krakenSpotWebsocketClient) Ping(ctx context.Context) error {
 
 // # Description
 //
-// Subscribe to the ticker channel.
+// Subscribe to the tickers channel. In case of success, the websocket client will start
+// publishing received events on the user's provided channel.
 //
-// In case of success, a channel with the desired capacity is created and returned. The channel
-// will be used to publish subscription's data.
+// # This client implementation uses
+//
+// Two types of events can be published on the channel:
+//   - connection_interrupted: This event type is used when connection with the sevrer has been
+//     interrupted. The event will not have any data. It only serves as a cue for the consumer
+//     to allow the consumer to react when the connection with the server is interrupted.
+//   - ticker: This event type is used when a message has been received from the server.
+//     Published events will contain both the received data and the tracing context to continue
+//     the tracing span from the source (= the websocket engine).
+//
+// In case when the connection with the server is lost, the websocket client will publish a
+// connection_interrupted event to warn consumer about the failure.
+//
+// If the websocket client has a auto-reconnect feature, it MUST resubscribe to the publication
+// when it reconnects to the server and it MUST reuse the previously provided channel to publish
+// received messages.
+//
+// Consumers should always watch to the event type to separate messages from the connection
+// failure events and react according the event type.
+//
+// Finally, the provided channel will be automatically closed by the client when:
+//   - The user unsubscribe from the topic by using UnsubscribeTickers
+//   - The websocket client definitely stops.
+//
+// Consumers should also watch channel closure to know when no more data will be delivered.
+//
+// # Event types
+//
+// Only these types of events will be published on the channel (Cf. WebsocketClientEventTypeEnum):
+//   - connection_interrupted
+//   - ticker
+//
+// # Extract data
+//
+// Before parsing the data, check the event type to catch rare connection_interrupted events.
+//
+// The event data contains the JSON payload from the server and can be parsed into a structure
+// of type messages.Ticker like this:
+//
+//	ticker := new(messages.Ticker)
+//	err := event.DataAs(ticker)
+//
+// The event will also contain the tracing context from OpenTelemetry. This tracing context can
+// be extracted from the event to continue tracing the event processing from the source:
+//
+//	ctx := otelObs.ExtractDistributedTracingExtension(context.Background(), event)
 //
 // # Inputs
 //
-//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel
-//     will be watched for timeout/cancel signal.
-//   - pairs: Array of currency pairs to subscribe to. Format of each pair is "A/B".
-//   - capacity: Desired channel capacity. Can be 0 (not recommended).
+//   - ctx: Context used for tracing and coordination purpose.
+//   - pair: Pairs to subscribe to.
+//   - rcv: Channel used to publish ticker messages and connection_interrupted events.
 //
 // # Return
 //
-// In case of success, a channel with the desired capacity will be returned. Received data will
-// be published on that channel.
+// An error is returned when:
 //
-// An error (and no channel) is returned when:
-//
-//   - A subscription is already active.
+//   - There is already an active subscription.
 //   - An error occurs when sending the subscription message.
-//   - The provided context expires (timeout/cancel).
+//   - The provided context expires before subscription is completed (OperationInterruptedError).
 //   - An error message is received from the server (OperationError).
 //
 // # Implementation and usage guidelines
 //
-//   - The client MUST return an error if there is already an active susbscription.
+//   - The client MUST return an error if there is already an active subscription.
 //
-//   - A nil value MUST be published on the channel ONLY when the websocket connection is closed
-//     even if the client implementation has a mechanism to automatically reconnect to the
-//     websocket server. This nil value will serve as a cue for the consumer to detect
-//     interruptions in the stream of data and react to these interruptions.
+//   - The client MUST use the right error type as described in the "Return" section.
+//
+//   - A connection_interrupted event MUST be published on the channel each time the websocket
+//     connection is closed.
+//
+//   - The provided channel MUST be closed upon unsubscribe or when the websocket client stops.
 //
 //   - The websocket client implementation CAN either use blocking writes or discard messages in
-//     case the publish channel is full. It is up to the client implementation to be clear about
+//     case the provided channel is full. It is up to the client implementation to be clear about
 //     how it deals with congestion.
 //
-//   - If the client implementation has a mechanism to automatically reconnect to the server AND
-//     resubscribe to previously subscribed channels, then, the client implementation MUST reuse
-//     the channel that has been previously created and returned to the user.
-//
-//   - The client MUST drop the channel if the user has used the corresponding Unsubscribe method.
-//     If the user use the subscribe method again, then, a new channel MUST be created and the
-//     older one MUST NOT be used anymore.
-func (client *krakenSpotWebsocketClient) SubscribeTicker(ctx context.Context, pairs []string, capacity int) (chan *messages.Ticker, error) {
+//   - If the client implementation has a mechanism to automatically reconnect to the server,
+//     then the websocket client MUST resubscribe to previously subscribed channels and reuse
+//     the channel that has been provided when the user subscribed to the channel.
+func (client *krakenSpotWebsocketClient) SubscribeTicker(ctx context.Context, pairs []string, rcv chan event.Event) error {
 	// Tracing: Start span
-	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".subscribe_ticker",
+	ctx, span := client.tracer.Start(ctx, "subscribe_ticker",
 		trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithAttributes(
 			attribute.StringSlice("pairs", pairs),
-			attribute.Int("capacity", capacity),
 		))
 	defer span.End()
 	client.logger.Println("subscribing to ticker channel", pairs)
@@ -331,9 +373,8 @@ func (client *krakenSpotWebsocketClient) SubscribeTicker(ctx context.Context, pa
 	client.tickerSubMu.Lock() // Lock mutex till subscribe completes - this will block Unsubscribe
 	defer client.tickerSubMu.Unlock()
 	if client.subscriptions.ticker != nil {
-		err := fmt.Errorf("subscribe ticker failed because there is already an active subscription")
-		client.logger.Println(err.Error())
-		return nil, tracing.HandleAndTraceError(span, err)
+		// Trae and log error: already subscribed
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("subscribe ticker failed because there is already an active subscription"))
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -351,34 +392,28 @@ func (client *krakenSpotWebsocketClient) SubscribeTicker(ctx context.Context, pa
 		errChan)
 	if err != nil {
 		// Trace and return error
-		eerr := fmt.Errorf("subscribe ticker failed: %w", err)
-		client.logger.Println(eerr.Error())
-		return nil, tracing.HandleAndTraceError(span, eerr)
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("subscribe ticker failed: %w", err))
 	}
 	// Wait for response to be published on channels or timeout
 	client.logger.Println("waiting for subscribe response from server")
 	select {
 	case <-ctx.Done():
-		// Trace and return error
-		eerr := fmt.Errorf("subscribe ticker failed: %w", ctx.Err())
-		client.logger.Println(eerr.Error())
-		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "suscribe_ticker", Root: eerr})
+		// Trace and return error: operation interrupted before completion
+		return tracing.HandleAndTraLogError(span, client.logger, &OperationInterruptedError{Operation: "suscribe_ticker", Root: fmt.Errorf("subscribe ticker failed: %w", ctx.Err())})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			eerr := fmt.Errorf("subscribe ticker failed: %w", err)
-			client.logger.Println(eerr.Error())
-			return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "suscribe_ticker", Root: eerr})
+			return tracing.HandleAndTraLogError(span, client.logger, &OperationError{Operation: "suscribe_ticker", Root: fmt.Errorf("subscribe ticker failed: %w", err)})
 		}
-		// Register the subscription
+		// Register the subscription and save the provided channel
 		client.subscriptions.ticker = &tickerSubscription{
 			pairs: pairs,
-			pub:   make(chan *messages.Ticker, capacity),
+			pub:   rcv,
 		}
-		// Return publish channel
+		// Exit - success
 		client.logger.Println("ticker channel subscribed")
 		span.SetStatus(codes.Ok, codes.Ok.String())
-		return client.subscriptions.ticker.pub, nil
+		return nil
 	}
 }
 
