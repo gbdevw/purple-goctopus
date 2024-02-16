@@ -1,13 +1,16 @@
 package websocket
 
-import "github.com/gbdevw/purple-goctopus/sdk/spot/websocket/messages"
+import (
+	"github.com/cloudevents/sdk-go/v2/event"
+	"github.com/gbdevw/purple-goctopus/sdk/spot/websocket/messages"
+)
 
 // Container for active subscriptions that must be maintained by the websocket client.
 type activeSubscriptions struct {
 	// ticker subscription. Will be nil if ticker topic has never been subscribed to.
 	ticker *tickerSubscription
 	// OHLC subscriptions by interval. Will be nil if ohlc topic has never been subscribed to.
-	ohlcs *ohlcSubscription
+	ohlcs map[messages.IntervalEnum]*ohlcSubscription
 	// trade subscription. Will be nil if trade topic has never been subscribed to.
 	trade *tradeSubscription
 	// spread subscription. Will be nil if not subscribed.
@@ -19,9 +22,9 @@ type activeSubscriptions struct {
 	// openOrders subscription. Will be nil if not subscribed.
 	openOrders *openOrdersSubscription
 	// Heartbeat channel
-	heartbeat chan *messages.Heartbeat
+	heartbeat chan event.Event
 	// SystemStatus channel
-	systemStatus chan *messages.SystemStatus
+	systemStatus chan event.Event
 }
 
 // Data of a ticker subscription
@@ -29,7 +32,7 @@ type tickerSubscription struct {
 	// Pairs to subscribe to
 	pairs []string
 	// Channel used to publish subscription's messages
-	pub chan *messages.Ticker
+	pub chan event.Event
 }
 
 // Data of a ohlc subscription
@@ -39,7 +42,7 @@ type ohlcSubscription struct {
 	// Desired interval
 	interval messages.IntervalEnum
 	// Channel used to publish subscription's messages
-	pub chan *messages.OHLC
+	pub chan event.Event
 }
 
 // Data of a trade subscription
@@ -47,7 +50,7 @@ type tradeSubscription struct {
 	// Pairs to subscribe to
 	pairs []string
 	// Channel used to publish subscription's messages
-	pub chan *messages.Trade
+	pub chan event.Event
 }
 
 // Data of a spread subscription
@@ -55,17 +58,15 @@ type spreadSubscription struct {
 	// Pairs to subscribe to
 	pairs []string
 	// Channel used to publish subscription's messages
-	pub chan *messages.Spread
+	pub chan event.Event
 }
 
 // Data of a book subscription
 type bookSubscription struct {
 	// Pairs to subscribe to
 	pairs []string
-	// Channel used to publish subscription's snapshot messages
-	snapshots chan *messages.BookSnapshot
-	// Channel used to publish subscription's update messages
-	updates chan *messages.BookUpdate
+	// Channel used to publish bok snapshots and updates
+	pub chan event.Event
 	// Desired depth
 	depth messages.DepthEnum
 }
@@ -73,7 +74,7 @@ type bookSubscription struct {
 // Data of a ownTrades subscription
 type ownTradesSubscription struct {
 	// Channel used to publish subscription's messages
-	pub chan *messages.OwnTrades
+	pub chan event.Event
 	// Desired consolidateTaker value for the subscription
 	consolidateTaker bool
 	// Desired snapshot value for the subscription
@@ -83,7 +84,7 @@ type ownTradesSubscription struct {
 // Data of a ownTrades subscription
 type openOrdersSubscription struct {
 	// Channel used to publish subscription's messages
-	pub chan *messages.OpenOrders
+	pub chan event.Event
 	// Desired ratecounter value for the subscription
 	rateCounter bool
 }
