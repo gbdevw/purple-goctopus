@@ -419,70 +419,106 @@ func (client *krakenSpotWebsocketClient) SubscribeTicker(ctx context.Context, pa
 
 // # Description
 //
-// Subscribe to the ohlc channel.
+// Subscribe to the ohlc channel with the given interval. In case of success, the websocket
+// client will start publishing received events on the user's provided channel.
 //
-// In case of success, a channel with the desired capacity is created and returned. The channel
-// will be used to publish subscription's data.
+// The client supports multiple subscriptions but for different interval. The client will return
+// an error in case there's already a subscription for that interval.
+//
+// Two types of events can be published on the channel:
+//   - connection_interrupted: This event type is used when connection with the sevrer has been
+//     interrupted. The event will not have any data. It only serves as a cue for the consumer
+//     to allow the consumer to react when the connection with the server is interrupted.
+//   - ohlc: This event type is used when a message has been received from the server.
+//     Published events will contain both the received data and the tracing context to continue
+//     the tracing span from the source (= the websocket engine).
+//
+// In case when the connection with the server is lost, the websocket client will publish a
+// connection_interrupted event to warn consumer about the failure.
+//
+// If the websocket client has a auto-reconnect feature, it MUST resubscribe to the publication
+// when it reconnects to the server and it MUST reuse the previously provided channel to publish
+// received messages.
+//
+// Consumers should always watch to the event type to separate messages from the connection
+// failure events and react according the event type.
+//
+// Finally, the provided channel will be automatically closed by the client when:
+//   - The user unsubscribe from the topic by using UnsubscribeOHLC
+//   - The websocket client definitely stops.
+//
+// Consumers should also watch channel closure to know when no more data will be delivered.
+//
+// # Event types
+//
+// Only these types of events will be published on the channel (Cf. WebsocketClientEventTypeEnum):
+//   - connection_interrupted
+//   - ohlc
+//
+// # Extract data
+//
+// Before parsing the data, check the event type to catch rare connection_interrupted events.
+//
+// The event data contains the JSON payload from the server and can be parsed into a structure
+// of type messages.OHLC like this:
+//
+//	ohlc := new(messages.OHLC)
+//	err := event.DataAs(ohlc)
+//
+// The event will also contain the tracing context from OpenTelemetry. This tracing context can
+// be extracted from the event to continue tracing the event processing from the source:
+//
+//	ctx := otelObs.ExtractDistributedTracingExtension(context.Background(), event)
 //
 // # Inputs
 //
-//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel
-//     will be watched for timeout/cancel signal.
-//   - pairs: Array of currency pairs to subscribe to. Format of each pair is "A/B".
-//   - interval: The desired interval for OHLC indicators. Multiple subscriptions can be
-//     maintained for different intervals.
-//   - capacity: Desired channel capacity. Can be 0 (not recommended).
+//   - ctx: Context used for tracing and coordination purpose.
+//   - pair: Pairs to subscribe to.
+//   - interval: Interval for produced OHLC indicators.
+//   - rcv: Channel used to publish ohlc messages and connection_interrupted events.
 //
 // # Return
 //
-// In case of success, a channel with the desired capacity will be returned. Received data will
-// be published on that channel.
+// An error is returned when:
 //
-// An error (and no channel) is returned when:
-//
-//   - A subscription is already active.
+//   - There is already an active subscription for that interval.
 //   - An error occurs when sending the subscription message.
-//   - The provided context expires (timeout/cancel).
+//   - The provided context expires before subscription is completed (OperationInterruptedError).
 //   - An error message is received from the server (OperationError).
 //
 // # Implementation and usage guidelines
 //
-//   - The client MUST return an error if there is already an active susbscription.
+//   - The client MUST return an error if there is already an active subscription.
 //
-//   - A nil value MUST be published on the channel ONLY when the websocket connection is closed
-//     even if the client implementation has a mechanism to automatically reconnect to the
-//     websocket server. This nil value will serve as a cue for the consumer to detect
-//     interruptions in the stream of data and react to these interruptions.
+//   - The client MUST use the right error type as described in the "Return" section.
+//
+//   - A connection_interrupted event MUST be published on the channel each time the websocket
+//     connection is closed.
+//
+//   - The provided channel MUST be closed upon unsubscribe or when the websocket client stops.
 //
 //   - The websocket client implementation CAN either use blocking writes or discard messages in
-//     case the publish channel is full. It is up to the client implementation to be clear about
+//     case the provided channel is full. It is up to the client implementation to be clear about
 //     how it deals with congestion.
 //
-//   - If the client implementation has a mechanism to automatically reconnect to the server AND
-//     resubscribe to previously subscribed channels, then, the client implementation MUST reuse
-//     the channel that has been previously created and returned to the user.
-//
-//   - The client MUST drop the channel if the user has used the corresponding Unsubscribe method.
-//     If the user use the subscribe method again, then, a new channel MUST be created and the
-//     older one MUST NOT be used anymore.
-func (client *krakenSpotWebsocketClient) SubscribeOHLC(ctx context.Context, pairs []string, interval messages.IntervalEnum, capacity int) (chan *messages.OHLC, error) {
+//   - If the client implementation has a mechanism to automatically reconnect to the server,
+//     then the websocket client MUST resubscribe to previously subscribed channels and reuse
+//     the channel that has been provided when the user subscribed to the channel.
+func (client *krakenSpotWebsocketClient) SubscribeOHLC(ctx context.Context, pairs []string, interval messages.IntervalEnum, rcv chan event.Event) error {
 	// Tracing: Start span
-	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".subscribe_ohlc",
+	ctx, span := client.tracer.Start(ctx, "subscribe_ohlc",
 		trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithAttributes(
 			attribute.StringSlice("pairs", pairs),
 			attribute.Int("interval", int(interval)),
-			attribute.Int("capacity", capacity),
 		))
 	defer span.End()
 	client.logger.Println("subscribing to ohlc channel", pairs, int(interval))
 	// Check if there is already an active subscription
 	client.ohlcSubMu.Lock() // Lock mutex till subscribe completes - this will block Unsubscribe
 	defer client.ohlcSubMu.Unlock()
-	if client.subscriptions.ohlcs != nil {
-		err := fmt.Errorf("subscribe ohlc failed because there is already an active subscription")
-		client.logger.Println(err.Error())
-		return nil, tracing.HandleAndTraceError(span, err)
+	if client.subscriptions.ohlcs[interval] != nil {
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("subscribe ohlc-%d failed because there is already an active subscription", int(interval)))
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -501,35 +537,29 @@ func (client *krakenSpotWebsocketClient) SubscribeOHLC(ctx context.Context, pair
 		errChan)
 	if err != nil {
 		// Trace and return error
-		eerr := fmt.Errorf("subscribe ohlc failed: %w", err)
-		client.logger.Println(eerr.Error())
-		return nil, tracing.HandleAndTraceError(span, eerr)
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("subscribe ohlc-%d failed: %w", int(interval), err))
 	}
 	// Wait for response to be published on channels or timeout
 	client.logger.Println("waiting for subscribe response from server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		eerr := fmt.Errorf("subscribe ohlc failed: %w", ctx.Err())
-		client.logger.Println(eerr.Error())
-		return nil, tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "subscribe_ohlc", Root: eerr})
+		return tracing.HandleAndTraLogError(span, client.logger, &OperationInterruptedError{Operation: "subscribe_ohlc", Root: fmt.Errorf("subscribe ohlc failed: %w", ctx.Err())})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			eerr := fmt.Errorf("subscribe ohlc failed: %w", err)
-			client.logger.Println(eerr.Error())
-			return nil, tracing.HandleAndTraceError(span, &OperationError{Operation: "subscribe_ohlc", Root: eerr})
+			return tracing.HandleAndTraLogError(span, client.logger, &OperationError{Operation: "subscribe_ohlc", Root: fmt.Errorf("subscribe ohlc failed: %w", err)})
 		}
 		// Register the subscription
-		client.subscriptions.ohlcs = &ohlcSubscription{
+		client.subscriptions.ohlcs[interval] = &ohlcSubscription{
 			pairs:    pairs,
-			pub:      make(chan *messages.OHLC, capacity),
+			pub:      rcv,
 			interval: interval,
 		}
 		// Return publish channel
 		client.logger.Println("ohlc channel subscribed")
 		span.SetStatus(codes.Ok, codes.Ok.String())
-		return client.subscriptions.ohlcs.pub, nil
+		return nil
 	}
 }
 
@@ -4157,7 +4187,7 @@ func (client *krakenSpotWebsocketClient) sendSubscribeRequest(ctx context.Contex
 		reqAttr = append(reqAttr, attribute.Int("depth", req.Subscription.Depth))
 	}
 	// Tracing: Start span
-	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".send_subscribe_request",
+	ctx, span := client.tracer.Start(ctx, "send_subscribe_request",
 		trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithAttributes(reqAttr...))
 	defer span.End()
@@ -4175,19 +4205,15 @@ func (client *krakenSpotWebsocketClient) sendSubscribeRequest(ctx context.Contex
 	payload, err := json.Marshal(req)
 	if err != nil {
 		// Remove pending request as it has failed before it even starts
-		eerr := fmt.Errorf("failed to format subscribe request: %w", err)
-		client.logger.Println(eerr.Error())
 		delete(client.requests.pendingSubscribe, req.ReqId)
-		return tracing.HandleAndTraceError(span, eerr)
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("failed to format subscribe request: %w", err))
 	}
 	// Send message to websocket server
 	err = client.conn.Write(ctx, wsadapters.Text, payload)
 	if err != nil {
 		// Remove pending request as it has failed before it even starts
-		eerr := fmt.Errorf("failed to send subscribe request: %w", err)
-		client.logger.Println(eerr.Error())
 		delete(client.requests.pendingSubscribe, req.ReqId)
-		return tracing.HandleAndTraceError(span, eerr)
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("failed to send subscribe request: %w", err))
 	}
 	// Set span status and exit
 	client.logger.Println("subscribe request sent for: ", req.Subscription.Name)
@@ -4664,7 +4690,7 @@ func (client *krakenSpotWebsocketClient) resubscribeOpenOrders(ctx context.Conte
 	token, err := client.getWebsocketToken(ctx)
 	if err != nil {
 		// Trace and return error
-		return tracing.HandleAndTraceError(span, fmt.Errorf("resubscribe open orders failed: %w", err))
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("resubscribe open orders failed: %w", err))
 	}
 	// Send subscribe message to server
 	err = client.sendSubscribeRequest(
@@ -4687,11 +4713,11 @@ func (client *krakenSpotWebsocketClient) resubscribeOpenOrders(ctx context.Conte
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "resubscribe_open_orders", Root: fmt.Errorf("resubscribe open orders failed: %w", err)})
+		return tracing.HandleAndTraLogError(span, client.logger, &OperationInterruptedError{Operation: "resubscribe_open_orders", Root: fmt.Errorf("resubscribe open orders failed: %w", err)})
 	case err := <-errChan:
 		if err != nil && !strings.Contains(strings.ToLower(err.Error()), "already subscribed") {
 			// Trace and return error
-			return tracing.HandleAndTraceError(span, &OperationError{Operation: "resubscribe_open_orders", Root: fmt.Errorf("resubscribe open orders failed: %w", err)})
+			return tracing.HandleAndTraLogError(span, client.logger, &OperationError{Operation: "resubscribe_open_orders", Root: fmt.Errorf("resubscribe open orders failed: %w", err)})
 		}
 		// Exit - Success
 		span.SetStatus(codes.Ok, codes.Ok.String())
