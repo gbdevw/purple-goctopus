@@ -998,40 +998,37 @@ func (client *krakenSpotWebsocketClient) SubscribeBook(ctx context.Context, pair
 
 // # Description
 //
-// Unsubscribe from  the ticker topic. The previously used channel will be dropped and user
-// must stop using it.
+// Unsubscribe from the ticker channel. The channel provided on subscribe will be closed by
+// the websocket client.
 //
 // # Inputs
 //
-//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel
-//     will be watched for timeout/cancel signal.
+//   - ctx: Context used for tracing and coordination purpose.
 //
 // # Return
 //
-// Nil in case of success. Otherwise, an error is returned when:
+// An error is returned when:
 //
 //   - The channel has not been subscribed to.
-//   - An error occurs when sending the message.
-//   - The provided context expires (timeout/cancel).
-//   - An error message is received from the server.
+//   - An error occurs when sending the unsubscribe message.
+//   - The provided context expires before subscription is completed (OperationInterruptedError).
+//   - An error message is received from the server (OperationError).
 //
 // # Implementation and usage guidelines
 //
-//   - The client MUST drop the channel that was used by the canceled subscription.
+//   - In case of success, the client MUST close the channel used to publish events.
 //
-//   - The client MUST return an error if channel was not subscribed to.
+//   - The client MUST use the right error type as described in the "Return" section.
 func (client *krakenSpotWebsocketClient) UnsubscribeTicker(ctx context.Context) error {
 	// Tracing: Start span
-	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_ticker", trace.WithSpanKind(trace.SpanKindClient))
+	ctx, span := client.tracer.Start(ctx, "unsubscribe_ticker", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
 	client.logger.Println("unsubscribing from ticker channel")
 	// Check if there is already an active subscription
 	client.tickerSubMu.Lock() // Lock mutex till subscribe completes - this will block Subscribe
 	defer client.tickerSubMu.Unlock()
 	if client.subscriptions.ticker == nil {
-		err := fmt.Errorf("unsubscribe ticker failed because there is no active subscription")
-		client.logger.Println(err.Error())
-		return tracing.HandleAndTraceError(span, err)
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("unsubscribe ticker failed because there is no active subscription"))
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -1049,26 +1046,21 @@ func (client *krakenSpotWebsocketClient) UnsubscribeTicker(ctx context.Context) 
 		errChan)
 	if err != nil {
 		// Trace and return error
-		eerr := fmt.Errorf("unsubscribe ticker failed: %w", err)
-		client.logger.Println(eerr.Error())
-		return tracing.HandleAndTraceError(span, eerr)
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("unsubscribe ticker failed: %w", err))
 	}
 	// Wait for response to be published on channels or timeout
 	client.logger.Println("waiting for unsubscribe response from server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		eerr := fmt.Errorf("unsubscribe ticker failed: %w", ctx.Err())
-		client.logger.Println(eerr.Error())
-		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_ticker", Root: eerr})
+		return tracing.HandleAndTraLogError(span, client.logger, &OperationInterruptedError{Operation: "unsubscribe_ticker", Root: fmt.Errorf("unsubscribe ticker failed: %w", ctx.Err())})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			eerr := fmt.Errorf("unsubscribe ticker failed: %w", err)
-			client.logger.Println(eerr.Error())
-			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_ticker", Root: eerr})
+			return tracing.HandleAndTraLogError(span, client.logger, &OperationError{Operation: "unsubscribe_ticker", Root: fmt.Errorf("unsubscribe ticker failed: %w", err)})
 		}
-		// Discard the subscription and exit
+		// Close the publication channel, discard the subscription and exit
+		close(client.subscriptions.ticker.pub)
 		client.subscriptions.ticker = nil
 		client.logger.Println("unsubscribed from ticker channel")
 		span.SetStatus(codes.Ok, codes.Ok.String())
@@ -1078,40 +1070,40 @@ func (client *krakenSpotWebsocketClient) UnsubscribeTicker(ctx context.Context) 
 
 // # Description
 //
-// Unsubscribe from  the ohlc topic. The previously used channel will be dropped and user
-// must stop using it.
+// Unsubscribe from the ohlc channel with the given interva. The channel provided on subscribe
+// will be closed by the websocket client.
 //
 // # Inputs
 //
-//   - ctx: Context used for tracing and coordination purpose. The provided context Done
-//     channel will be watched for timeout/cancel signal.
+//   - ctx: Context used for tracing and coordination purpose.
+//   - interval: Used to determine which subscription must be cancelled.
 //
 // # Return
 //
-// Nil in case of success. Otherwise, an error is returned when:
+// An error is returned when:
 //
 //   - The channel has not been subscribed to.
-//   - An error occurs when sending the message.
-//   - The provided context expires (timeout/cancel).
-//   - An error message is received from the server.
+//   - An error occurs when sending the unsubscribe message.
+//   - The provided context expires before subscription is completed (OperationInterruptedError).
+//   - An error message is received from the server (OperationError).
 //
 // # Implementation and usage guidelines
 //
-//   - The client MUST drop the channel that was used by the canceled subscription.
+//   - In case of success, the client MUST close the channel used to publish events.
 //
-//   - The client MUST return an error if channel was not subscribed to.
-func (client *krakenSpotWebsocketClient) UnsubscribeOHLC(ctx context.Context) error {
+//   - The client MUST use the right error type as described in the "Return" section.
+func (client *krakenSpotWebsocketClient) UnsubscribeOHLC(ctx context.Context, interval messages.IntervalEnum) error {
 	// Tracing: Start span
-	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_ohlc", trace.WithSpanKind(trace.SpanKindClient))
+	ctx, span := client.tracer.Start(ctx, "unsubscribe_ohlc",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(attribute.Int("interval", int(interval))))
 	defer span.End()
-	client.logger.Println("unsubscribing from ohlc channel")
+	client.logger.Println("unsubscribing from ohlc channel", interval)
 	// Check if there is already an active subscription
 	client.ohlcSubMu.Lock() // Lock mutex till unsubscribe completes - this will block Subscribe
 	defer client.ohlcSubMu.Unlock()
-	if client.subscriptions.ohlcs == nil {
-		err := fmt.Errorf("unsubscribe ohlc failed because there is no active subscription")
-		client.logger.Println(err.Error())
-		return tracing.HandleAndTraceError(span, err)
+	if client.subscriptions.ohlcs[interval] == nil {
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("unsubscribe ohlc failed because there is no active subscription"))
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -1121,37 +1113,32 @@ func (client *krakenSpotWebsocketClient) UnsubscribeOHLC(ctx context.Context) er
 		&messages.Unsubscribe{
 			Event: string(messages.EventTypeSubscribe),
 			ReqId: client.ngen.GenerateNonce(),
-			Pairs: client.subscriptions.ohlcs.pairs,
+			Pairs: client.subscriptions.ohlcs[interval].pairs,
 			Subscription: messages.UnsuscribeDetails{
 				Name:     string(messages.ChannelOHLC),
-				Interval: int(client.subscriptions.ohlcs.interval),
+				Interval: int(interval),
 			},
 		},
 		errChan)
 	if err != nil {
 		// Trace and return error
-		eerr := fmt.Errorf("unsubscribe ohlc failed: %w", err)
-		client.logger.Println(eerr.Error())
-		return tracing.HandleAndTraceError(span, eerr)
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("unsubscribe ohlc failed: %w", err))
 	}
 	// Wait for response to be published on channels or timeout
 	client.logger.Println("waiting for unsubscribe response from server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		eerr := fmt.Errorf("unsubscribe ohlc failed: %w", ctx.Err())
-		client.logger.Println(eerr.Error())
-		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_ohlc", Root: eerr})
+		return tracing.HandleAndTraLogError(span, client.logger, &OperationInterruptedError{Operation: "unsubscribe_ohlc", Root: fmt.Errorf("unsubscribe ohlc failed: %w", ctx.Err())})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			eerr := fmt.Errorf("unsubscribe ohlc failed: %w", err)
-			client.logger.Println(eerr.Error())
-			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_ohlc", Root: eerr})
+			return tracing.HandleAndTraLogError(span, client.logger, &OperationError{Operation: "unsubscribe_ohlc", Root: fmt.Errorf("unsubscribe ohlc failed: %w", err)})
 		}
-		// Discard the subscription and exit
-		client.subscriptions.ohlcs = nil
-		client.logger.Println("unsubscribed from ohlc channel")
+		// Close the publication channel, discard the subscription and exit
+		close(client.subscriptions.ohlcs[interval].pub)
+		client.subscriptions.ohlcs[interval] = nil
+		client.logger.Println("unsubscribed from ohlc channel", interval)
 		span.SetStatus(codes.Ok, codes.Ok.String())
 		return nil
 	}
@@ -1159,40 +1146,37 @@ func (client *krakenSpotWebsocketClient) UnsubscribeOHLC(ctx context.Context) er
 
 // # Description
 //
-// Unsubscribe from  the trade topic. The previously used channel will be dropped and user
-// must stop using it.
+// Unsubscribe from the trade channel. The channel provided on subscribe will be closed by
+// the websocket client.
 //
 // # Inputs
 //
-//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel
-//     will be watched for timeout/cancel signal.
+//   - ctx: Context used for tracing and coordination purpose.
 //
 // # Return
 //
-// Nil in case of success. Otherwise, an error is returned when:
+// An error is returned when:
 //
 //   - The channel has not been subscribed to.
-//   - An error occurs when sending the message.
-//   - The provided context expires (timeout/cancel).
-//   - An error message is received from the server.
+//   - An error occurs when sending the unsubscribe message.
+//   - The provided context expires before subscription is completed (OperationInterruptedError).
+//   - An error message is received from the server (OperationError).
 //
 // # Implementation and usage guidelines
 //
-//   - The client MUST drop the channel that was used by the canceled subscription.
+//   - In case of success, the client MUST close the channel used to publish events.
 //
-//   - The client MUST return an error if channel was not subscribed to.
+//   - The client MUST use the right error type as described in the "Return" section.
 func (client *krakenSpotWebsocketClient) UnsubscribeTrade(ctx context.Context) error {
 	// Tracing: Start span
-	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_trade", trace.WithSpanKind(trace.SpanKindClient))
+	ctx, span := client.tracer.Start(ctx, "unsubscribe_trade", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
 	client.logger.Println("unsubscribing from trade channel")
 	// Check if there is already an active subscription
 	client.tradeSubMu.Lock() // Lock mutex till subscribe completes - this will block Subscribe
 	defer client.tradeSubMu.Unlock()
 	if client.subscriptions.trade == nil {
-		err := fmt.Errorf("unsubscribe trade failed because there is no active subscription")
-		client.logger.Println(err.Error())
-		return tracing.HandleAndTraceError(span, err)
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("unsubscribe trade failed because there is no active subscription"))
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -1210,26 +1194,21 @@ func (client *krakenSpotWebsocketClient) UnsubscribeTrade(ctx context.Context) e
 		errChan)
 	if err != nil {
 		// Trace and return error
-		eerr := fmt.Errorf("unsubscribe trade failed: %w", err)
-		client.logger.Println(eerr.Error())
-		return tracing.HandleAndTraceError(span, eerr)
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("unsubscribe trade failed: %w", err))
 	}
 	// Wait for response to be published on channels or timeout
 	client.logger.Println("waiting for unsubscribe response from server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		eerr := fmt.Errorf("unsubscribe trade failed: %w", ctx.Err())
-		client.logger.Println(eerr.Error())
-		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_trade", Root: eerr})
+		return tracing.HandleAndTraLogError(span, client.logger, &OperationInterruptedError{Operation: "unsubscribe_trade", Root: fmt.Errorf("unsubscribe trade failed: %w", ctx.Err())})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			eerr := fmt.Errorf("unsubscribe trade failed: %w", err)
-			client.logger.Println(eerr.Error())
-			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_trade", Root: eerr})
+			return tracing.HandleAndTraLogError(span, client.logger, &OperationError{Operation: "unsubscribe_trade", Root: fmt.Errorf("unsubscribe trade failed: %w", err)})
 		}
-		// Discard the subscription and exit
+		// Close the publication channel, discard the subscription and exit
+		close(client.subscriptions.trade.pub)
 		client.subscriptions.trade = nil
 		client.logger.Println("unsubscribed from trade channel")
 		span.SetStatus(codes.Ok, codes.Ok.String())
@@ -1239,40 +1218,37 @@ func (client *krakenSpotWebsocketClient) UnsubscribeTrade(ctx context.Context) e
 
 // # Description
 //
-// Unsubscribe from  the spread topic. The previously used channel will be dropped and user
-// must stop using it.
+// Unsubscribe from the spread channel. The channel provided on subscribe will be closed by
+// the websocket client.
 //
 // # Inputs
 //
-//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel
-//     will be watched for timeout/cancel signal.
+//   - ctx: Context used for tracing and coordination purpose.
 //
 // # Return
 //
-// Nil in case of success. Otherwise, an error is returned when:
+// An error is returned when:
 //
 //   - The channel has not been subscribed to.
-//   - An error occurs when sending the message.
-//   - The provided context expires (timeout/cancel).
-//   - An error message is received from the server.
+//   - An error occurs when sending the unsubscribe message.
+//   - The provided context expires before subscription is completed (OperationInterruptedError).
+//   - An error message is received from the server (OperationError).
 //
 // # Implementation and usage guidelines
 //
-//   - The client MUST drop the channel that was used by the canceled subscription.
+//   - In case of success, the client MUST close the channel used to publish events.
 //
-//   - The client MUST return an error if channel was not subscribed to.
+//   - The client MUST use the right error type as described in the "Return" section.
 func (client *krakenSpotWebsocketClient) UnsubscribeSpread(ctx context.Context) error {
 	// Tracing: Start span
-	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_spread", trace.WithSpanKind(trace.SpanKindClient))
+	ctx, span := client.tracer.Start(ctx, "unsubscribe_spread", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
 	client.logger.Println("unsubscribing from spread channel")
 	// Check if there is already an active subscription
 	client.spreadSubMu.Lock() // Lock mutex till subscribe completes - this will block Subscribe
 	defer client.spreadSubMu.Unlock()
 	if client.subscriptions.spread == nil {
-		err := fmt.Errorf("unsubscribe spread failed because there is no active subscription")
-		client.logger.Println(err.Error())
-		return tracing.HandleAndTraceError(span, err)
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("unsubscribe spread failed because there is no active subscription"))
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -1290,26 +1266,21 @@ func (client *krakenSpotWebsocketClient) UnsubscribeSpread(ctx context.Context) 
 		errChan)
 	if err != nil {
 		// Trace and return error
-		eerr := fmt.Errorf("unsubscribe spread failed: %w", err)
-		client.logger.Println(eerr.Error())
-		return tracing.HandleAndTraceError(span, eerr)
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("unsubscribe spread failed: %w", err))
 	}
 	// Wait for response to be published on channels or timeout
 	client.logger.Println("waiting for unsubscribe response from server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error
-		eerr := fmt.Errorf("unsubscribe spread failed: %w", ctx.Err())
-		client.logger.Println(eerr.Error())
-		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_spread", Root: eerr})
+		return tracing.HandleAndTraLogError(span, client.logger, &OperationInterruptedError{Operation: "unsubscribe_spread", Root: fmt.Errorf("unsubscribe spread failed: %w", ctx.Err())})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error
-			eerr := fmt.Errorf("unsubscribe spread failed: %w", err)
-			client.logger.Println(eerr.Error())
-			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_spread", Root: eerr})
+			return tracing.HandleAndTraLogError(span, client.logger, &OperationError{Operation: "unsubscribe_spread", Root: fmt.Errorf("unsubscribe spread failed: %w", err)})
 		}
-		// Discard the subscription and exit
+		// close the publication channel, discard the subscription and exit
+		close(client.subscriptions.spread.pub)
 		client.subscriptions.spread = nil
 		span.SetStatus(codes.Ok, codes.Ok.String())
 		client.logger.Println("unsubscribed from spread channel")
@@ -1319,40 +1290,37 @@ func (client *krakenSpotWebsocketClient) UnsubscribeSpread(ctx context.Context) 
 
 // # Description
 //
-// Unsubscribe from  the book topic. The previously used channel will be dropped and user
-// must stop using it.
+// Unsubscribe from the book channel. The channel provided on subscribe will be closed by
+// the websocket client.
 //
 // # Inputs
 //
-//   - ctx: Context used for tracing and coordination purpose. The provided context Done channel
-//     will be watched for timeout/cancel signal.
+//   - ctx: Context used for tracing and coordination purpose.
 //
 // # Return
 //
-// Nil in case of success. Otherwise, an error is returned when:
+// An error is returned when:
 //
 //   - The channel has not been subscribed to.
-//   - An error occurs when sending the message.
-//   - The provided context expires (timeout/cancel).
-//   - An error message is received from the server.
+//   - An error occurs when sending the unsubscribe message.
+//   - The provided context expires before subscription is completed (OperationInterruptedError).
+//   - An error message is received from the server (OperationError).
 //
 // # Implementation and usage guidelines
 //
-//   - The client MUST drop the channel that was used by the canceled subscription.
+//   - In case of success, the client MUST close the channel used to publish events.
 //
-//   - The client MUST return an error if channel was not subscribed to.
+//   - The client MUST use the right error type as described in the "Return" section.
 func (client *krakenSpotWebsocketClient) UnsubscribeBook(ctx context.Context) error {
 	// Tracing: Start span
-	ctx, span := client.tracer.Start(ctx, tracing.TracesNamespace+".unsubscribe_book", trace.WithSpanKind(trace.SpanKindClient))
+	ctx, span := client.tracer.Start(ctx, "unsubscribe_book", trace.WithSpanKind(trace.SpanKindClient))
 	defer span.End()
 	client.logger.Println("unsubscribing from book channel")
 	// Check if there is already an active subscription
 	client.bookSubMu.Lock() // Lock mutex till subscribe completes - this will block Subscribe
 	defer client.bookSubMu.Unlock()
 	if client.subscriptions.book == nil {
-		err := fmt.Errorf("unsubscribe book failed because there is no active subscription")
-		client.logger.Println(err.Error())
-		return tracing.HandleAndTraceError(span, err)
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("unsubscribe book failed because there is no active subscription"))
 	}
 	// Create response channels
 	errChan := make(chan error, 1)
@@ -1371,26 +1339,21 @@ func (client *krakenSpotWebsocketClient) UnsubscribeBook(ctx context.Context) er
 		errChan)
 	if err != nil {
 		// Trace and return error
-		eerr := fmt.Errorf("unsubscribe book failed: %w", err)
-		client.logger.Println(eerr.Error())
-		return tracing.HandleAndTraceError(span, eerr)
+		return tracing.HandleAndTraLogError(span, client.logger, fmt.Errorf("unsubscribe book failed: %w", err))
 	}
 	// Wait for response to be published on channels or timeout
 	client.logger.Println("waiting for unsubscribe response from server")
 	select {
 	case <-ctx.Done():
 		// Trace and return error - OperationInterruptedError
-		eerr := fmt.Errorf("unsubscribe book failed: %w", ctx.Err())
-		client.logger.Println(eerr.Error())
-		return tracing.HandleAndTraceError(span, &OperationInterruptedError{Operation: "unsubscribe_book", Root: eerr})
+		return tracing.HandleAndTraLogError(span, client.logger, &OperationInterruptedError{Operation: "unsubscribe_book", Root: fmt.Errorf("unsubscribe book failed: %w", ctx.Err())})
 	case err := <-errChan:
 		if err != nil {
 			// Trace and return error - OperationError
-			eerr := fmt.Errorf("unsubscribe book failed: %w", err)
-			client.logger.Println(eerr.Error())
-			return tracing.HandleAndTraceError(span, &OperationError{Operation: "unsubscribe_book", Root: eerr})
+			return tracing.HandleAndTraLogError(span, client.logger, &OperationError{Operation: "unsubscribe_book", Root: fmt.Errorf("unsubscribe book failed: %w", err)})
 		}
-		// Discard the subscription and exit
+		// Close the publication channel, discard the subscription and exit
+		close(client.subscriptions.book.pub)
 		client.subscriptions.book = nil
 		span.SetStatus(codes.Ok, codes.Ok.String())
 		client.logger.Println("unsubscribed from book channel")
@@ -1400,18 +1363,29 @@ func (client *krakenSpotWebsocketClient) UnsubscribeBook(ctx context.Context) er
 
 // # Description
 //
-// Get the client's built-in channel to publish received system status updates.
+// Get the client's built-in channel used to publish received system status updates.
+//
+// # Event types
+//
+// Only these types of events will be published on the channel (Cf. WebsocketClientEventTypeEnum):
+//
+//   - system_status
+//
+//     # Return
+//
+// The client's built-in channel used to publish received system status updates.
 //
 // # Implemetation and usage guidelines
 //
-//   - As the channel is automatically subscribed to, the client implementation CAN discard messages
-//     in case of congestion in the publication channel. The client implementation must be clear
-//     about how it deals with congestion.
+//   - The client MUST provide the channel it will use to publish heartbeats even though the
+//     cllient has not been started yet and is not connected to the server.
 //
-// # Return
+//   - The client MUST close the channel when it definitely stops.
 //
-// The client's built-in channel used to publish received system status updates.
-func (client *krakenSpotWebsocketClient) GetSystemStatusChannel() chan *messages.SystemStatus {
+//   - As the channel is automatically subscribed to, the client implementation must deal with
+//     possible channel congestion by discarding messages in a FIFO or LIFO fashion. The client
+//     must indicate how congestion is handled.
+func (client *krakenSpotWebsocketClient) GetSystemStatusChannel() chan event.Event {
 	return client.subscriptions.systemStatus
 }
 
@@ -1419,16 +1393,29 @@ func (client *krakenSpotWebsocketClient) GetSystemStatusChannel() chan *messages
 //
 // Get the client's built-in channel to publish received heartbeats.
 //
+// # Event types
+//
+// Only these types of events will be published on the channel (Cf. WebsocketClientEventTypeEnum):
+//
+//   - heartbeat
+//
+//     # Return
+//
 // # Implemetation and usage guidelines
 //
-//   - As the channel is automatically subscribed to, the client implementation CAN discard messages
-//     in case of congestion in the publication channel. The client implementation must be clear
-//     about how it deals with congestion.
+//   - The client MUST provide the channel it will use to publish heartbeats even though the
+//     cllient has not been started yet and is not connected to the server.
+//
+//   - The client MUST close the channel when it definitely stops.
+//
+//   - As the channel is automatically subscribed to, the client implementation must deal with
+//     possible channel congestion by discarding messages in a FIFO or LIFO fashion. The client
+//     must indicate how congestion is handled.
 //
 // # Return
 //
 // The client's built-in channel used to publish received heartbeats.
-func (client *krakenSpotWebsocketClient) GetHeartbeatChannel() chan *messages.Heartbeat {
+func (client *krakenSpotWebsocketClient) GetHeartbeatChannel() chan event.Event {
 	return client.subscriptions.heartbeat
 }
 
