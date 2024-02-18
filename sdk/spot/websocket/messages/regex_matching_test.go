@@ -163,7 +163,7 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchOHLC() {
 	]`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
 	require.Len(suite.T(), matches, 3)
-	require.Equal(suite.T(), "ohlc", matches[2]) // 3rd item is the match in case of json array
+	require.Equal(suite.T(), "ohlc-5", matches[2]) // 3rd item is the match in case of json array
 }
 
 // Test matching a trade message
@@ -263,7 +263,7 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchBookSnapshot() {
 	]`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
 	require.Len(suite.T(), matches, 3)
-	require.Equal(suite.T(), "book", matches[2]) // 3rd item is the match in case of json array
+	require.Equal(suite.T(), "book-100", matches[2]) // 3rd item is the match in case of json array
 }
 
 // Test matching a book update message
@@ -291,7 +291,7 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchBookUpdate() {
 	]`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
 	require.Len(suite.T(), matches, 3)
-	require.Equal(suite.T(), "book", matches[2]) // 3rd item is the match in case of json array
+	require.Equal(suite.T(), "book-10", matches[2]) // 3rd item is the match in case of json array
 }
 
 // Test matching a ownTrades message

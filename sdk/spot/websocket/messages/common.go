@@ -184,4 +184,4 @@ var matchesWhitespacesRegex = regexp.MustCompile(`\s`)
 //     cancelOrderStatus, cancelAllStatus orcancelAllOrdersAfterStatus
 //   - A JSON array which contains an string like ownTrades, openOrders, ticker, trade, spread,
 //     ohlc* or book*
-var MatchMessageTypeRegex = regexp.MustCompile(`^{.*\"event\":\ *\"(pong|heartbeat|systemStatus|subscriptionStatus|addOrderStatus|editOrderStatus|cancelOrderStatus|cancelAllStatus|cancelAllOrdersAfterStatus)\".*}$|^\[.*\"(ownTrades|openOrders|ticker|trade|spread|ohlc|book)[-0-9]*\".*\]$`)
+var MatchMessageTypeRegex = regexp.MustCompile(`^{.*\"event\":\ *\"(pong|heartbeat|systemStatus|subscriptionStatus|addOrderStatus|editOrderStatus|cancelOrderStatus|cancelAllStatus|cancelAllOrdersAfterStatus)\".*}$|^\[.*\"(ownTrades|openOrders|ticker|trade|spread|ohlc[-0-9]*|book[-0-9]*)\".*\]$`)
