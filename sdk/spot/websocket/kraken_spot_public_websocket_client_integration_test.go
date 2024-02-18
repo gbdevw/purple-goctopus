@@ -6,7 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudevents/sdk-go/v2/event"
 	"github.com/gbdevw/gowse/wscengine"
+	"github.com/gbdevw/purple-goctopus/sdk/spot/websocket/events"
 	"github.com/gbdevw/purple-goctopus/sdk/spot/websocket/messages"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -83,7 +85,12 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestConnection
 	case <-ctx.Done():
 		// Fail -> timeout
 		suite.FailNow(ctx.Err().Error())
-	case syss := <-systemStatusChan:
+	case event := <-systemStatusChan:
+		// Parse event data
+		require.Equal(suite.T(), string(events.SystemStatus), event.Type())
+		syss := new(messages.SystemStatus)
+		err := event.DataAs(syss)
+		require.NoError(suite.T(), err)
 		// Check received messages
 		suite.T().Log("system status message received!")
 		require.NotEmpty(suite.T(), syss.Status)
@@ -116,7 +123,8 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeT
 	// Subscribe to ticker
 	suite.T().Log("subscribing to ticker...")
 	pairs := []string{"XBT/USD", "XBT/EUR"}
-	tickerChan, err := suite.wsclient.SubscribeTicker(ctx, pairs, 30)
+	tickerChan := make(chan event.Event, 30)
+	err := suite.wsclient.SubscribeTicker(ctx, pairs, tickerChan)
 	require.NoError(suite.T(), err)
 	suite.T().Log("ticker subscribed!")
 	// Read a ticker
@@ -124,7 +132,11 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeT
 	select {
 	case <-ctx.Done():
 		suite.FailNow(ctx.Err().Error())
-	case ticker := <-tickerChan:
+	case event := <-tickerChan:
+		require.Equal(suite.T(), string(events.Ticker), event.Type())
+		ticker := new(messages.Ticker)
+		err = event.DataAs(ticker)
+		require.NoError(suite.T(), err)
 		suite.T().Log("ticker received!", *ticker)
 		require.Contains(suite.T(), pairs, ticker.Pair)
 		require.Equal(suite.T(), string(messages.ChannelTicker), ticker.Name)
@@ -134,7 +146,11 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeT
 	select {
 	case <-ctx.Done():
 		suite.FailNow(ctx.Err().Error())
-	case heartbeat := <-heartbeatChan:
+	case event := <-heartbeatChan:
+		require.Equal(suite.T(), string(events.Heartbeat), event.Type())
+		heartbeat := new(messages.Heartbeat)
+		err := event.DataAs(heartbeat)
+		require.NoError(suite.T(), err)
 		suite.T().Log("heartbeat received!")
 		require.Equal(suite.T(), string(messages.EventTypeHeartbeat), heartbeat.Event)
 	}
@@ -160,7 +176,8 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeO
 	// Subscribe to ohlc
 	suite.T().Log("subscribing to ohlc...")
 	pairs := []string{"XBT/USD", "XBT/EUR"}
-	ohlcChan, err := suite.wsclient.SubscribeOHLC(ctx, pairs, messages.M15, 30)
+	ohlcChan := make(chan event.Event, 30)
+	err := suite.wsclient.SubscribeOHLC(ctx, pairs, messages.M15, ohlcChan)
 	require.NoError(suite.T(), err)
 	suite.T().Log("ohlc subscribed!")
 	// Read a ohlc
@@ -168,14 +185,18 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeO
 	select {
 	case <-ctx.Done():
 		suite.FailNow(ctx.Err().Error())
-	case ohlc := <-ohlcChan:
+	case event := <-ohlcChan:
+		require.Equal(suite.T(), string(events.OHLC), event.Type())
+		ohlc := new(messages.OHLC)
+		err = event.DataAs(ohlc)
+		require.NoError(suite.T(), err)
 		suite.T().Log("ohlc received!", *ohlc)
 		require.Contains(suite.T(), pairs, ohlc.Pair)
 		require.Contains(suite.T(), ohlc.Name, string(messages.ChannelOHLC))
 	}
 	// Unsubscribe from ohlc channel
 	suite.T().Log("unsubscribing from ohlc channel...")
-	err = suite.wsclient.UnsubscribeOHLC(ctx)
+	err = suite.wsclient.UnsubscribeOHLC(ctx, messages.M15)
 	require.NoError(suite.T(), err)
 	suite.T().Log("unsubscribed from ohlc channel!")
 }
@@ -195,7 +216,8 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeT
 	// Subscribe to trade
 	suite.T().Log("subscribing to trade...")
 	pairs := []string{"XBT/USD", "XBT/EUR"}
-	tradeChan, err := suite.wsclient.SubscribeTrade(ctx, pairs, 30)
+	tradeChan := make(chan event.Event, 30)
+	err := suite.wsclient.SubscribeTrade(ctx, pairs, tradeChan)
 	require.NoError(suite.T(), err)
 	suite.T().Log("trade subscribed!")
 	// Read a trade
@@ -203,7 +225,11 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeT
 	select {
 	case <-ctx.Done():
 		suite.FailNow(ctx.Err().Error())
-	case trade := <-tradeChan:
+	case event := <-tradeChan:
+		require.Equal(suite.T(), string(events.Trade), event.Type())
+		trade := new(messages.Trade)
+		err := event.DataAs(trade)
+		require.NoError(suite.T(), err)
 		suite.T().Log("trade received!", *trade)
 		require.Contains(suite.T(), pairs, trade.Pair)
 		require.Contains(suite.T(), trade.Name, string(messages.ChannelTrade))
@@ -213,23 +239,11 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeT
 	err = suite.wsclient.UnsubscribeTrade(ctx)
 	require.NoError(suite.T(), err)
 	suite.T().Log("unsubscribed from trade channel!")
-	// Empty trade channel
+	// Empty trade channel and catch channel closure
 	empty := false
 	for !empty {
-		select {
-		case <-tradeChan:
-		default:
-			empty = true
-		}
-	}
-	// Create a context with a 5 sec timeout
-	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	// Read trades and wait for the timeout -> no new message = success
-	select {
-	case <-tradeChan:
-		require.FailNow(suite.T(), "no new traade message should be received!")
-	case <-ctx.Done():
+		_, more := <-tradeChan
+		empty = !more
 	}
 }
 
@@ -248,7 +262,8 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeS
 	// Subscribe to spread
 	suite.T().Log("subscribing to spread...")
 	pairs := []string{"XBT/USD", "XBT/EUR"}
-	spreadChan, err := suite.wsclient.SubscribeSpread(ctx, pairs, 30)
+	spreadChan := make(chan event.Event, 30)
+	err := suite.wsclient.SubscribeSpread(ctx, pairs, spreadChan)
 	require.NoError(suite.T(), err)
 	suite.T().Log("spread subscribed!")
 	// Read a spread
@@ -256,7 +271,11 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeS
 	select {
 	case <-ctx.Done():
 		suite.FailNow(ctx.Err().Error())
-	case spread := <-spreadChan:
+	case event := <-spreadChan:
+		require.Equal(suite.T(), string(events.Spread), event.Type())
+		spread := new(messages.Spread)
+		err = event.DataAs(spread)
+		require.NoError(suite.T(), err)
 		suite.T().Log("spread received!", *spread)
 		require.Contains(suite.T(), pairs, spread.Pair)
 		require.Contains(suite.T(), spread.Name, string(messages.ChannelSpread))
@@ -282,8 +301,9 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeB
 	defer cancel()
 	// Subscribe to book
 	suite.T().Log("subscribing to book...")
-	pairs := []string{"XBT/USD", "XBT/EUR"}
-	bookSnapshotChan, bookUpdatesChan, err := suite.wsclient.SubscribeBook(ctx, pairs, messages.D10, 30)
+	pairs := []string{"XBT/USD"}
+	bookChan := make(chan event.Event, 30)
+	err := suite.wsclient.SubscribeBook(ctx, pairs, messages.D10, bookChan)
 	require.NoError(suite.T(), err)
 	suite.T().Log("book subscribed!")
 	// Read a book snapshot
@@ -291,7 +311,11 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeB
 	select {
 	case <-ctx.Done():
 		suite.FailNow(ctx.Err().Error())
-	case snapshot := <-bookSnapshotChan:
+	case event := <-bookChan:
+		require.Equal(suite.T(), string(events.BookSnapshot), event.Type())
+		snapshot := new(messages.BookSnapshot)
+		err = event.DataAs(snapshot)
+		require.NoError(suite.T(), err)
 		suite.T().Log("book snapshot received!", *snapshot)
 		require.Contains(suite.T(), pairs, snapshot.Pair)
 		require.Contains(suite.T(), snapshot.Name, string(messages.ChannelBook))
@@ -301,7 +325,11 @@ func (suite *KrakenSpotPublicWebsocketClientIntegrationTestSuite) TestSubscribeB
 	select {
 	case <-ctx.Done():
 		suite.FailNow(ctx.Err().Error())
-	case update := <-bookUpdatesChan:
+	case event := <-bookChan:
+		require.Equal(suite.T(), string(events.BookUpdate), event.Type())
+		update := new(messages.BookUpdate)
+		err = event.DataAs(update)
+		require.NoError(suite.T(), err)
 		suite.T().Log("book update received!", *update)
 		require.Contains(suite.T(), pairs, update.Pair)
 		require.Contains(suite.T(), update.Name, string(messages.ChannelBook))

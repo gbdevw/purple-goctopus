@@ -7,8 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudevents/sdk-go/v2/event"
 	"github.com/gbdevw/gowse/wscengine"
 	restcommon "github.com/gbdevw/purple-goctopus/sdk/spot/rest/common"
+	"github.com/gbdevw/purple-goctopus/sdk/spot/websocket/events"
 	"github.com/gbdevw/purple-goctopus/sdk/spot/websocket/messages"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -98,7 +100,12 @@ func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestConnectio
 	case <-ctx.Done():
 		// Fail -> timeout
 		suite.FailNow(ctx.Err().Error())
-	case syss := <-systemStatusChan:
+	case event := <-systemStatusChan:
+		// Parse event data as System status
+		require.Equal(suite.T(), string(events.SystemStatus), event.Type())
+		syss := new(messages.SystemStatus)
+		err := event.DataAs(syss)
+		require.NoError(suite.T(), err)
 		// Check received messages
 		suite.T().Log("system status message received!")
 		require.NotEmpty(suite.T(), syss.Status)
@@ -284,7 +291,8 @@ func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestSubscribe
 	defer cancel()
 	// Subscribe to open orders channel
 	suite.T().Log("subscribing to openOrders channel...")
-	openOrdersChan, err := suite.wsclient.SubscribeOpenOrders(ctx, false, 10)
+	openOrdersChan := make(chan event.Event, 10)
+	err := suite.wsclient.SubscribeOpenOrders(ctx, false, openOrdersChan)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), openOrdersChan)
 	suite.T().Log("subscribed to openOrders channel!")
@@ -292,7 +300,12 @@ func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestSubscribe
 	select {
 	case <-ctx.Done():
 		require.FailNow(suite.T(), ctx.Err().Error())
-	case msg := <-openOrdersChan:
+	case event := <-openOrdersChan:
+		// Parse open orders message
+		require.Equal(suite.T(), string(events.OpenOrders), event.Type())
+		msg := new(messages.OpenOrders)
+		err = event.DataAs(msg)
+		require.NoError(suite.T(), err)
 		suite.T().Log("open orders message received!", *msg)
 		require.GreaterOrEqual(suite.T(), 0, len(msg.Orders))
 		require.Equal(suite.T(), int64(1), msg.Sequence.Sequence)
@@ -318,7 +331,8 @@ func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestSubscribe
 	defer cancel()
 	// Subscribe to ownTrades channel
 	suite.T().Log("subscribing to ownTrades channel...")
-	ownTradesChan, err := suite.wsclient.SubscribeOwnTrades(ctx, true, true, 10)
+	ownTradesChan := make(chan event.Event, 10)
+	err := suite.wsclient.SubscribeOwnTrades(ctx, true, true, ownTradesChan)
 	require.NoError(suite.T(), err)
 	require.NotNil(suite.T(), ownTradesChan)
 	suite.T().Log("subscribed to ownTrades channel!")
@@ -326,7 +340,12 @@ func (suite *KrakenSpotPrivateWebsocketClientIntegrationTestSuite) TestSubscribe
 	select {
 	case <-ctx.Done():
 		require.FailNow(suite.T(), ctx.Err().Error())
-	case msg := <-ownTradesChan:
+	case event := <-ownTradesChan:
+		// Parse event data
+		require.Equal(suite.T(), string(events.OwnTrades), event.Type())
+		msg := new(messages.OwnTrades)
+		err = event.DataAs(msg)
+		require.NoError(suite.T(), err)
 		suite.T().Log("ownTrades message received!", *msg)
 		require.GreaterOrEqual(suite.T(), 0, len(msg.Data))
 		require.Equal(suite.T(), int64(1), msg.SequenceId.Sequence)

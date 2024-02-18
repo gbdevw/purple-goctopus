@@ -12,6 +12,12 @@ require (
 )
 
 require (
+	github.com/felixge/httpsnoop v1.0.3 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.44.0 // indirect
+)
+
+require (
+	github.com/cloudevents/sdk-go/observability/opentelemetry/v2 v2.15.0
 	github.com/cloudevents/sdk-go/v2 v2.15.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect

@@ -27,5 +27,6 @@ Hint: The second factor is optional. Use KRAKEN_API_OTP only if you defined a pa
 
 - Based only on standard Go libraries and on some self-developped frameworks (gosette & gowse)
 - Fully configurable, all spare parts are visible and customizable
-- Optional built-in observability with the OpenTelemetry framework
+- Built-in observability with the OpenTelemetry framework
+- Data feeds (ticker, ohlc, ...) use CloudEvent to encapsulate received data and enable end to end traceability with OpenTelemetry.
 - All security options provided by Kraken (password second factor) are supported

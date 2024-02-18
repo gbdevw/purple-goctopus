@@ -159,7 +159,9 @@ func newKrakenSpotWebsocketClient(
 		ngen: noncegen.NewHFNonceGenerator(),
 		subscriptions: activeSubscriptions{
 			heartbeat:    make(chan event.Event, 10),
-			systemStatus: make(chan event.Event, 10)},
+			systemStatus: make(chan event.Event, 10),
+			ohlcs:        make(map[messages.IntervalEnum]*ohlcSubscription),
+		},
 		requests: pendingRequests{
 			pendingPing:                          map[int64]*pendingPing{},
 			pendingSubscribe:                     map[int64]*pendingSubscribe{},
@@ -1140,7 +1142,7 @@ func (client *krakenSpotWebsocketClient) UnsubscribeOHLC(ctx context.Context, in
 		}
 		// Close the publication channel, discard the subscription and exit
 		close(client.subscriptions.ohlcs[interval].pub)
-		client.subscriptions.ohlcs[interval] = nil
+		delete(client.subscriptions.ohlcs, interval)
 		client.logger.Println("unsubscribed from ohlc channel", interval)
 		span.SetStatus(codes.Ok, codes.Ok.String())
 		return nil
@@ -2753,16 +2755,16 @@ func (client *krakenSpotWebsocketClient) OnMessage(
 	case string(messages.ChannelOHLC):
 		// Extract interval
 		if len(splits) > 0 {
-			if interval, err := strconv.ParseInt(splits[1], 10, 64); err != nil {
+			if interval, err := strconv.ParseInt(splits[1], 10, 64); err == nil {
 				client.handleOHLC(ctx, conn, readMutex, restart, exit, sessionId, msgType, msg, messages.IntervalEnum(interval))
 			} else {
-				err := fmt.Errorf("failed to parse interval for ohlc from '%s'", string(msg))
+				err := fmt.Errorf("failed to parse interval for ohlc from '%s'", string(mType))
 				tracing.HandleAndTraLogError(span, client.logger, err)
 				client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 				return
 			}
 		} else {
-			err := fmt.Errorf("failed to parse interval for ohlc from '%s'", string(msg))
+			err := fmt.Errorf("failed to parse interval for ohlc from '%s'", string(mType))
 			tracing.HandleAndTraLogError(span, client.logger, err)
 			client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 			return
