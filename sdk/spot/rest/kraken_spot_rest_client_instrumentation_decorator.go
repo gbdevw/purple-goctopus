@@ -1061,12 +1061,13 @@ func (dec *KrakenSpotRESTClientInstrumentationDecorator) AddOrderBatch(ctx conte
 		if resp.Result != nil {
 			respAttributes = append(respAttributes, attribute.Int("count", len(resp.Result.Orders)))
 			for index, order := range resp.Result.Orders {
-				respAttributes = append(
-					respAttributes,
-					attribute.String(fmt.Sprintf("orders[%d][%s]", index, "txid"), order.Id),
-					attribute.String(fmt.Sprintf("orders[%d][%s]", index, "description"), order.Description.Order),
-					attribute.String(fmt.Sprintf("orders[%d][%s]", index, "close"), order.Description.Close),
-				)
+				respAttributes = append(respAttributes, attribute.String(fmt.Sprintf("orders[%d][%s]", index, "txid"), order.Id))
+				if order.Description != nil {
+					respAttributes = append(respAttributes,
+						attribute.String(fmt.Sprintf("orders[%d][%s]", index, "description"), order.Description.Order), // Cause some panic about NPE
+						attribute.String(fmt.Sprintf("orders[%d][%s]", index, "close"), order.Description.Close),
+					)
+				}
 			}
 		}
 		span.AddEvent(tracing.TracesNamespace+".add_order_batch.response", trace.WithAttributes(respAttributes...))
