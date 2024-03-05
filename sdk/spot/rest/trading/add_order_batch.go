@@ -17,7 +17,7 @@ type AddOrderBatchRequestParameters struct {
 // AddOrderBatch optional parameters
 type AddOrderBatchRequestOptions struct {
 	// Validate inputs only. Do not submit order.
-	Validate bool `json:"validate"`
+	Validate bool `json:"validate,omitempty"`
 	// RFC3339 timestamp (e.g. 2021-04-01T00:18:45Z) after which the matching
 	// engine should reject  the new order request, in presence of latency or
 	// order queueing. min now() + 2 seconds, max now() + 60 seconds.
