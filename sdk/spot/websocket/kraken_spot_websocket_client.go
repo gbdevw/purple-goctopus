@@ -2719,7 +2719,7 @@ func (client *krakenSpotWebsocketClient) OnMessage(
 	matches := messages.MatchMessageTypeRegex.FindStringSubmatch(string(msg))
 	if len(matches) != 5 {
 		// Call OnReadError - Not the expected number of matches
-		err := fmt.Errorf("failed to extract the message type from '%s'", string(msg))
+		err := fmt.Errorf("failed to extract the message type from '%s' - not the expected number of matches", string(msg))
 		tracing.HandleAndTraLogError(span, client.logger, err)
 		client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 		return
