@@ -2715,9 +2715,9 @@ func (client *krakenSpotWebsocketClient) OnMessage(
 		))
 	defer span.End()
 	client.logger.Println("message received from the server")
-	// Match the message type - 3 matches are expected [<message>, <event type if msg is a JSON object>,<channel name if msg is a JSON Array>]
+	// Match the message type - 5 matches are expected
 	matches := messages.MatchMessageTypeRegex.FindStringSubmatch(string(msg))
-	if len(matches) != 3 {
+	if len(matches) != 5 {
 		// Call OnReadError - Not the expected number of matches
 		err := fmt.Errorf("failed to extract the message type from '%s'", string(msg))
 		tracing.HandleAndTraLogError(span, client.logger, err)
