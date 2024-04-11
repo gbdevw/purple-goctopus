@@ -2724,13 +2724,20 @@ func (client *krakenSpotWebsocketClient) OnMessage(
 		client.OnReadError(ctx, conn, readMutex, restart, exit, err)
 		return
 	}
-	// Extract the message type from the matches. The regex will try to find the event type in a JSON Object (index 1) or
-	// in a JSON Array (index 2). If the first item contains an empty string, use the second.
+	// Extract the message type from the matches. The regex will try to find the event type and the pair in case of a public
+	// market event (ticker, spread, ...).
 	//
-	// The item at the index 0 contains the matched message, so the original message.
+	// Index 0 will contain the original message
+	// Index 1 will contain the event type in case the message is a JSON object (usually request/responses)
+	// Index 2 will contain the event type in case the message is a JSON Array (openOrders or ownTrades)
+	// Index 3 will contain the event type in case the message is a JSON Array (public market data)
+	// Index 4 will contain the pair in case the message is a public market data event like a spread.
 	mType := matches[1]
 	if mType == "" {
 		mType = matches[2]
+		if mType == "" {
+			mType = matches[3]
+		}
 	}
 	// Depending on the message type.
 	splits := strings.Split(mType, "-")
@@ -2741,22 +2748,22 @@ func (client *krakenSpotWebsocketClient) OnMessage(
 		client.handleErrorMessage(ctx, conn, readMutex, restart, exit, sessionId, msgType, msg)
 	// Trade
 	case string(messages.ChannelTrade):
-		client.handleTrade(ctx, conn, readMutex, restart, exit, sessionId, msgType, msg)
+		client.handleTrade(ctx, conn, readMutex, restart, exit, sessionId, msgType, matches[4], msg)
 	// Book
 	case string(messages.ChannelBook):
-		client.handleBook(ctx, conn, readMutex, restart, exit, sessionId, msgType, msg)
+		client.handleBook(ctx, conn, readMutex, restart, exit, sessionId, msgType, matches[4], msg)
 	// Spread
 	case string(messages.ChannelSpread):
-		client.handleSpread(ctx, conn, readMutex, restart, exit, sessionId, msgType, msg)
+		client.handleSpread(ctx, conn, readMutex, restart, exit, sessionId, msgType, matches[4], msg)
 	// Ticker
 	case string(messages.ChannelTicker):
-		client.handleTicker(ctx, conn, readMutex, restart, exit, sessionId, msgType, msg)
+		client.handleTicker(ctx, conn, readMutex, restart, exit, sessionId, msgType, matches[4], msg)
 	// OHLC
 	case string(messages.ChannelOHLC):
 		// Extract interval
 		if len(splits) > 0 {
 			if interval, err := strconv.ParseInt(splits[1], 10, 64); err == nil {
-				client.handleOHLC(ctx, conn, readMutex, restart, exit, sessionId, msgType, msg, messages.IntervalEnum(interval))
+				client.handleOHLC(ctx, conn, readMutex, restart, exit, sessionId, msgType, matches[4], msg, messages.IntervalEnum(interval))
 			} else {
 				err := fmt.Errorf("failed to parse interval for ohlc from '%s'", string(mType))
 				tracing.HandleAndTraLogError(span, client.logger, err)
@@ -3561,6 +3568,7 @@ func (client *krakenSpotWebsocketClient) handleTicker(
 	exit context.CancelFunc,
 	sessionId string,
 	msgType wsadapters.MessageType,
+	pair string,
 	msg []byte) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, "handle_ticker",
@@ -3580,6 +3588,7 @@ func (client *krakenSpotWebsocketClient) handleTicker(
 	event := event.New()
 	event.Context.SetType(string(events.Ticker))
 	event.Context.SetSource(tracing.PackageName)
+	event.SetSubject(pair)
 	event.SetData("application/json", msg)
 	otelObs.InjectDistributedTracingExtension(ctx, event)
 	client.subscriptions.ticker.pub <- event
@@ -3596,6 +3605,7 @@ func (client *krakenSpotWebsocketClient) handleOHLC(
 	exit context.CancelFunc,
 	sessionId string,
 	msgType wsadapters.MessageType,
+	pair string,
 	msg []byte,
 	interval messages.IntervalEnum) error {
 	// Tracing: Start span
@@ -3616,6 +3626,7 @@ func (client *krakenSpotWebsocketClient) handleOHLC(
 	event := event.New()
 	event.Context.SetType(string(events.OHLC))
 	event.Context.SetSource(tracing.PackageName)
+	event.SetSubject(pair)
 	event.SetData("application/json", msg)
 	otelObs.InjectDistributedTracingExtension(ctx, event)
 	client.subscriptions.ohlcs[messages.IntervalEnum(interval)].pub <- event
@@ -3632,6 +3643,7 @@ func (client *krakenSpotWebsocketClient) handleTrade(
 	exit context.CancelFunc,
 	sessionId string,
 	msgType wsadapters.MessageType,
+	pair string,
 	msg []byte) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, "handle_trade",
@@ -3651,6 +3663,7 @@ func (client *krakenSpotWebsocketClient) handleTrade(
 	event := event.New()
 	event.Context.SetType(string(events.Trade))
 	event.Context.SetSource(tracing.PackageName)
+	event.SetSubject(pair)
 	event.SetData("application/json", msg)
 	otelObs.InjectDistributedTracingExtension(ctx, event)
 	client.subscriptions.trade.pub <- event
@@ -3667,6 +3680,7 @@ func (client *krakenSpotWebsocketClient) handleSpread(
 	exit context.CancelFunc,
 	sessionId string,
 	msgType wsadapters.MessageType,
+	pair string,
 	msg []byte) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, "handle_spread",
@@ -3686,6 +3700,7 @@ func (client *krakenSpotWebsocketClient) handleSpread(
 	event := event.New()
 	event.Context.SetType(string(events.Spread))
 	event.Context.SetSource(tracing.PackageName)
+	event.SetSubject(pair)
 	event.SetData("application/json", msg)
 	otelObs.InjectDistributedTracingExtension(ctx, event)
 	client.subscriptions.spread.pub <- event
@@ -3702,6 +3717,7 @@ func (client *krakenSpotWebsocketClient) handleBook(
 	exit context.CancelFunc,
 	sessionId string,
 	msgType wsadapters.MessageType,
+	pair string,
 	msg []byte) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, "handle_book",
@@ -3713,10 +3729,10 @@ func (client *krakenSpotWebsocketClient) handleBook(
 	// Check if it is a snapshot or an update -> an update will have a "c" field
 	if strings.Contains(string(msg), `"c"`) {
 		// Handle update
-		return client.handleBookUpdate(ctx, conn, readMutex, restart, exit, sessionId, msgType, msg)
+		return client.handleBookUpdate(ctx, conn, readMutex, restart, exit, sessionId, msgType, pair, msg)
 	}
 	// Hanlde snapshot
-	return client.handleBookSnapshot(ctx, conn, readMutex, restart, exit, sessionId, msgType, msg)
+	return client.handleBookSnapshot(ctx, conn, readMutex, restart, exit, sessionId, msgType, pair, msg)
 }
 
 // This method contains the logic to handle a received book update message.
@@ -3728,6 +3744,7 @@ func (client *krakenSpotWebsocketClient) handleBookUpdate(
 	exit context.CancelFunc,
 	sessionId string,
 	msgType wsadapters.MessageType,
+	pair string,
 	msg []byte) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, "handle_book_update",
@@ -3747,6 +3764,7 @@ func (client *krakenSpotWebsocketClient) handleBookUpdate(
 	event := event.New()
 	event.Context.SetType(string(events.BookUpdate))
 	event.Context.SetSource(tracing.PackageName)
+	event.SetSubject(pair)
 	event.SetData("application/json", msg)
 	otelObs.InjectDistributedTracingExtension(ctx, event)
 	client.subscriptions.book.pub <- event
@@ -3763,6 +3781,7 @@ func (client *krakenSpotWebsocketClient) handleBookSnapshot(
 	exit context.CancelFunc,
 	sessionId string,
 	msgType wsadapters.MessageType,
+	pair string,
 	msg []byte) error {
 	// Tracing: Start span
 	ctx, span := client.tracer.Start(ctx, "handle_book_snapshot",
@@ -3782,6 +3801,7 @@ func (client *krakenSpotWebsocketClient) handleBookSnapshot(
 	event := event.New()
 	event.Context.SetType(string(events.BookSnapshot))
 	event.Context.SetSource(tracing.PackageName)
+	event.SetSubject(pair)
 	event.SetData("application/json", msg)
 	otelObs.InjectDistributedTracingExtension(ctx, event)
 	client.subscriptions.book.pub <- event

@@ -40,7 +40,7 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchPong() {
 	// - 2 is the channel name in case message is a JSON array (publication)
 	//
 	// One of 1 or 2 will be empty. Users will have to check both to find the event type
-	require.Len(suite.T(), matches, 3)
+	require.Len(suite.T(), matches, 5)
 	require.Equal(suite.T(), "pong", matches[1])
 }
 
@@ -51,7 +51,7 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchHeartbeat() {
 		"event": "heartbeat"
 	}`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
-	require.Len(suite.T(), matches, 3)
+	require.Len(suite.T(), matches, 5)
 	require.Equal(suite.T(), "heartbeat", matches[1])
 }
 
@@ -65,7 +65,7 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchSystemStatus() {
 		"version": "1.0.0"
 	}`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
-	require.Len(suite.T(), matches, 3)
+	require.Len(suite.T(), matches, 5)
 	require.Equal(suite.T(), "systemStatus", matches[1])
 }
 
@@ -85,7 +85,7 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchSubscriptionStatus() {
 		}
 	}`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
-	require.Len(suite.T(), matches, 3)
+	require.Len(suite.T(), matches, 5)
 	require.Equal(suite.T(), "subscriptionStatus", matches[1])
 }
 
@@ -138,8 +138,9 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchTicker() {
 		"XBT/USD"
 	]`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
-	require.Len(suite.T(), matches, 3)
-	require.Equal(suite.T(), "ticker", matches[2]) // 3rd item is the match in case of json array
+	require.Len(suite.T(), matches, 5)
+	require.Equal(suite.T(), "ticker", matches[3])  // 4th item is the type in case of json array > public market data
+	require.Equal(suite.T(), "XBT/USD", matches[4]) // 5th item is the pair in case of json array > public market data
 }
 
 // Test matching a ohlc message
@@ -162,8 +163,9 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchOHLC() {
 		"XBT/USD"
 	]`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
-	require.Len(suite.T(), matches, 3)
-	require.Equal(suite.T(), "ohlc-5", matches[2]) // 3rd item is the match in case of json array
+	require.Len(suite.T(), matches, 5)
+	require.Equal(suite.T(), "ohlc-5", matches[3])  // 4th item is the match in case of json array
+	require.Equal(suite.T(), "XBT/USD", matches[4]) // 5th item is the pair in case of json array > public market data
 }
 
 // Test matching a trade message
@@ -193,8 +195,9 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchTrade() {
 		"XBT/USD"
 	]`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
-	require.Len(suite.T(), matches, 3)
-	require.Equal(suite.T(), "trade", matches[2]) // 3rd item is the match in case of json array
+	require.Len(suite.T(), matches, 5)
+	require.Equal(suite.T(), "trade", matches[3])   // 4th item is the match in case of json array
+	require.Equal(suite.T(), "XBT/USD", matches[4]) // 5th item is the pair in case of json array > public market data
 }
 
 // Test matching a spread message
@@ -213,8 +216,9 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchSpread() {
 		"XBT/USD"
 	]`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
-	require.Len(suite.T(), matches, 3)
-	require.Equal(suite.T(), "spread", matches[2]) // 3rd item is the match in case of json array
+	require.Len(suite.T(), matches, 5)
+	require.Equal(suite.T(), "spread", matches[3])  // 4th item is the match in case of json array
+	require.Equal(suite.T(), "XBT/USD", matches[4]) // 5th item is the pair in case of json array > public market data
 }
 
 // Test matching a book snapshot message
@@ -262,8 +266,9 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchBookSnapshot() {
 		"XBT/USD"
 	]`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
-	require.Len(suite.T(), matches, 3)
-	require.Equal(suite.T(), "book-100", matches[2]) // 3rd item is the match in case of json array
+	require.Len(suite.T(), matches, 5)
+	require.Equal(suite.T(), "book-100", matches[3]) // 4th item is the match in case of json array
+	require.Equal(suite.T(), "XBT/USD", matches[4])  // 5th item is the pair in case of json array > public market data
 }
 
 // Test matching a book update message
@@ -290,8 +295,9 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchBookUpdate() {
 		"XBT/USD"
 	]`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
-	require.Len(suite.T(), matches, 3)
-	require.Equal(suite.T(), "book-10", matches[2]) // 3rd item is the match in case of json array
+	require.Len(suite.T(), matches, 5)
+	require.Equal(suite.T(), "book-10", matches[3]) // 4th item is the match in case of json array
+	require.Equal(suite.T(), "XBT/USD", matches[4]) // 5th item is the pair in case of json array > public market data
 }
 
 // Test matching a ownTrades message
@@ -366,7 +372,7 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchOwnTrades() {
 		}
 	]`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
-	require.Len(suite.T(), matches, 3)
+	require.Len(suite.T(), matches, 5)
 	require.Equal(suite.T(), "ownTrades", matches[2]) // 3rd item is the match in case of json array
 }
 
@@ -498,7 +504,7 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchOpenOrders() {
 		}
 	]`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
-	require.Len(suite.T(), matches, 3)
+	require.Len(suite.T(), matches, 5)
 	require.Equal(suite.T(), "openOrders", matches[2]) // 3rd item is the match in case of json array
 }
 
@@ -512,7 +518,7 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchAddOrderStatus() {
 		"txid": "ONPNXH-KMKMU-F4MR5V"
 	}`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
-	require.Len(suite.T(), matches, 3)
+	require.Len(suite.T(), matches, 5)
 	require.Equal(suite.T(), "addOrderStatus", matches[1])
 }
 
@@ -528,7 +534,7 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchEditOrderStatus() {
 		"txid": "OTI672-HJFAO-XOIPPK"
 	}`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
-	require.Len(suite.T(), matches, 3)
+	require.Len(suite.T(), matches, 5)
 	require.Equal(suite.T(), "editOrderStatus", matches[1])
 }
 
@@ -541,7 +547,7 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchCancelOrderStatus() {
 		"status": "error"
 	}`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
-	require.Len(suite.T(), matches, 3)
+	require.Len(suite.T(), matches, 5)
 	require.Equal(suite.T(), "cancelOrderStatus", matches[1])
 }
 
@@ -554,7 +560,7 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchCancelAllStatus() {
 		"status": "ok"
 	}`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
-	require.Len(suite.T(), matches, 3)
+	require.Len(suite.T(), matches, 5)
 	require.Equal(suite.T(), "cancelAllStatus", matches[1])
 }
 
@@ -569,6 +575,6 @@ func (suite *MatchingRegexUnitTestSuite) TestMatchCancelAllOrdersAfterStatus() {
 		"triggerTime": "0"
 	}`, "")
 	matches := MatchMessageTypeRegex.FindStringSubmatch(payload)
-	require.Len(suite.T(), matches, 3)
+	require.Len(suite.T(), matches, 5)
 	require.Equal(suite.T(), "cancelAllOrdersAfterStatus", matches[1])
 }
